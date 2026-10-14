@@ -1,0 +1,101 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #111;
+  color: #f2f2f2;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
+}
+
+#game-root,
+#game-root canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ---------- Start / pause overlay ---------- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(8, 10, 14, 0.72);
+  pointer-events: auto;
+  cursor: pointer;
+  text-align: center;
+  padding: 24px;
+}
+.overlay.hidden {
+  display: none;
+}
+.overlay h1 {
+  margin: 0;
+  font-size: 56px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+.overlay .subtitle {
+  font-size: 20px;
+  opacity: 0.9;
+}
+.overlay .controls {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 6px 24px;
+  font-size: 15px;
+  opacity: 0.85;
+  text-align: left;
+  margin-top: 12px;
+}
+.overlay .controls kbd {
+  display: inline-block;
+  min-width: 26px;
+  padding: 2px 7px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: #222;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---------- HUD ---------- */
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 2px #000;
+}
+
+.debug {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font: 12px/1.4 ui-monospace, Menlo, monospace;
+  color: #cfe;
+  text-shadow: 0 0 2px #000;
+  white-space: pre;
+}
