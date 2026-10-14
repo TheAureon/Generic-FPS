@@ -16,7 +16,7 @@ It's built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https:
 2. **Get the code.** Open the **Terminal** app (press Cmd+Space, type *Terminal*, press Enter) and paste:
    ```bash
    cd ~/Desktop
-   git clone https://github.com/theaureon/generic-fps.git Generic-FPS
+   git clone https://github.com/TheAureon/Generic-FPS.git Generic-FPS
    cd Generic-FPS
    git checkout claude/tender-rubin-0yqqrq
    ```
