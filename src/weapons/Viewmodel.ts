@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { WEAPONS, type WeaponId } from '../config';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { getFlashTexture } from '../assets/textures';
 import { createWeaponModel } from '../assets/weaponModels';
 
 /**
@@ -61,7 +62,7 @@ export class Viewmodel {
     sun.position.set(0.5, 1, 0.3);
     this.scene.add(sun);
 
-    const flashTex = makeFlashTexture();
+    const flashTex = getFlashTexture();
     for (const id of Object.keys(WEAPONS) as WeaponId[]) {
       const model = createWeaponModel(id);
       model.visible = false;
@@ -174,29 +175,6 @@ export class Viewmodel {
     renderer.clearDepth();
     renderer.render(this.scene, this.camera);
   }
-}
-
-function makeFlashTexture(): THREE.Texture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d')!;
-  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grad.addColorStop(0, 'rgba(255,255,230,1)');
-  grad.addColorStop(0.25, 'rgba(255,210,120,0.9)');
-  grad.addColorStop(0.6, 'rgba(255,140,40,0.35)');
-  grad.addColorStop(1, 'rgba(255,100,0,0)');
-  g.fillStyle = grad;
-  // A star shape: a circle plus spikes.
-  g.beginPath();
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    const r = i % 2 === 0 ? 64 : 26;
-    g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
-  }
-  g.fill();
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
 }
 
 function makeFlash(tex: THREE.Texture, size: number): THREE.Object3D {

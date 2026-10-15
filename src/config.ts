@@ -37,6 +37,13 @@ export const CONFIG = {
     crouchTransitionSpeed: 10,
 
     maxHealth: 100,
+    /** Most armor you can have. Armor soaks up part of each hit. */
+    maxArmor: 100,
+    startingArmor: 0,
+    /** Fraction of damage armor absorbs (0.6 = armor takes 60%, health 40%). */
+    armorAbsorption: 0.6,
+    /** Seconds before you respawn after dying. */
+    respawnDelay: 3,
   },
 
   camera: {
@@ -52,6 +59,12 @@ export const CONFIG = {
     mouseSensitivity: 1.0,
     fov: 80,
     masterVolume: 0.8,
+  },
+
+  /** Until the match menu exists (milestone 5), these set up the test match. */
+  testMatch: {
+    botCount: 1,
+    difficulty: 'normal' as 'easy' | 'normal' | 'hard',
   },
 
   render: {
@@ -190,4 +203,86 @@ export const COMBAT = {
   crouchSpreadMultiplier: 0.7,
   /** Can't sprint for this long after firing. */
   sprintBlockAfterShot: 0.35,
+};
+
+/* ===========================================================================
+ *  BOTS
+ * =========================================================================== */
+export const BOTS = {
+  height: 1.8,
+  radius: 0.3,
+  /** Height of the eyes (where they look and shoot from). */
+  eyeHeight: 1.65,
+  walkSpeed: 3.6,
+  runSpeed: 5.2,
+  acceleration: 30,
+  maxHealth: 100,
+  /** Seconds before a dead bot comes back. */
+  respawnDelay: 4,
+  /** The gun bots carry. One of: pistol, rifle, shotgun, sniper. */
+  weapon: 'rifle' as WeaponId,
+
+  /** How far bots can see (meters). */
+  visionRange: 60,
+  /** Width of their view cone (degrees). Outside this they can't see you... */
+  fieldOfView: 120,
+  /** ...unless you're this close (they "sense" you). */
+  closeAwarenessRange: 2.5,
+  /** Hearing range is each gun's `hearingRange` times this. */
+  hearingMultiplier: 1,
+  /** How long they remember where they last saw you (seconds). */
+  memoryTime: 8,
+
+  /** Distance they like to fight at (meters). */
+  preferredRange: 14,
+  /** Bots back off if you get closer than this. */
+  minRange: 5,
+
+  /** Names given to bots. */
+  names: ['Viper', 'Ghost', 'Hammer', 'Rook', 'Blaze', 'Echo', 'Nova', 'Tank', 'Jinx', 'Raven', 'Moss', 'Flint'],
+};
+
+export type Difficulty = 'easy' | 'normal' | 'hard';
+
+/**
+ * Difficulty levels. Aim error is in degrees: the bigger it is, the more
+ * they miss. It grows with distance and when you or the bot is moving.
+ */
+export const BOT_DIFFICULTY: Record<Difficulty, {
+  /** Seconds between first seeing you and starting to shoot. */
+  reactionTime: number;
+  /** Base aim error (degrees). */
+  aimError: number;
+  /** How fast they can turn to face you (degrees per second). */
+  turnSpeed: number;
+  /** Extra aim error when you're moving at full speed (1 = doubles it). */
+  movingTargetPenalty: number;
+  /** Extra aim error while the bot itself is moving. */
+  selfMovingPenalty: number;
+  /** Shots per burst (min, max), and pause between bursts in seconds (min, max). */
+  burstSize: [number, number];
+  burstPause: [number, number];
+  /** 0..1: how eager they are to push toward you rather than hang back. */
+  aggression: number;
+  /** Multiplies the damage of bot bullets. */
+  damageMultiplier: number;
+}> = {
+  easy: {
+    reactionTime: 0.8, aimError: 4.5, turnSpeed: 150,
+    movingTargetPenalty: 1.2, selfMovingPenalty: 0.8,
+    burstSize: [2, 4], burstPause: [0.7, 1.4],
+    aggression: 0.3, damageMultiplier: 0.6,
+  },
+  normal: {
+    reactionTime: 0.45, aimError: 2.6, turnSpeed: 240,
+    movingTargetPenalty: 1.0, selfMovingPenalty: 0.6,
+    burstSize: [3, 6], burstPause: [0.4, 0.9],
+    aggression: 0.6, damageMultiplier: 0.85,
+  },
+  hard: {
+    reactionTime: 0.25, aimError: 1.9, turnSpeed: 400,
+    movingTargetPenalty: 1.1, selfMovingPenalty: 0.4,
+    burstSize: [4, 8], burstPause: [0.25, 0.55],
+    aggression: 0.9, damageMultiplier: 1,
+  },
 };

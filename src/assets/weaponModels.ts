@@ -66,7 +66,8 @@ const builders: Record<WeaponId, () => THREE.Group> = {
       // Rear sight: two posts with a gap to look through.
       box(0.008, 0.024, 0.012, mats.metal, -0.011, 0.077, 0.05),
       box(0.008, 0.024, 0.012, mats.metal, 0.011, 0.077, 0.05),
-      box(0.004, 0.026, 0.004, mats.accent, 0, 0.0645, -0.32), // front sight post
+      box(0.012, 0.012, 0.03, mats.metal, 0, 0.034, -0.32), // front sight base
+      box(0.004, 0.038, 0.004, mats.dark, 0, 0.0585, -0.32), // front sight post
     );
     const mag = box(0.03, 0.13, 0.055, mats.dark, 0, -0.09, -0.06);
     mag.rotation.x = 0.25;

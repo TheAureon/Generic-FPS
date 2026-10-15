@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config';
-import type { Body, CollisionWorld } from '../core/CollisionWorld';
+import { CharacterBody } from '../core/CharacterBody';
+import type { CollisionWorld } from '../core/CollisionWorld';
 import type { Input } from '../core/Input';
 import { settings } from '../core/Settings';
 import type { SpawnPoint } from '../map/MapTypes';
@@ -15,19 +16,14 @@ const MOUSE_SCALE = 0.0022;
  * and collision with the map.
  */
 export class PlayerController {
-  /** Position of the player's FEET. */
-  readonly position = new THREE.Vector3();
-  readonly velocity = new THREE.Vector3();
+  readonly body: CharacterBody;
   /** Left/right look angle (radians). */
   yaw = 0;
   /** Up/down look angle (radians). */
   pitch = 0;
 
-  onGround = false;
   crouching = false;
   sprinting = false;
-  /** Current body height (blends between standing and crouching). */
-  height = P.height;
 
   private bobPhase = 0;
   private bobAmount = 0;
@@ -51,20 +47,43 @@ export class PlayerController {
   lastLookDY = 0;
 
   constructor(
-    private world: CollisionWorld,
+    world: CollisionWorld,
     private camera: THREE.PerspectiveCamera,
-  ) {}
+  ) {
+    this.body = new CharacterBody(world, P.height, P.radius, P.stepHeight, P.gravity);
+  }
+
+  /** Position of the player's FEET. */
+  get position(): THREE.Vector3 {
+    return this.body.position;
+  }
+  get velocity(): THREE.Vector3 {
+    return this.body.velocity;
+  }
+  get onGround(): boolean {
+    return this.body.onGround;
+  }
+  set onGround(v: boolean) {
+    this.body.onGround = v;
+  }
+  /** Current body height (blends between standing and crouching). */
+  get height(): number {
+    return this.body.height;
+  }
 
   spawn(sp: SpawnPoint): void {
     this.position.set(sp.x, sp.y, sp.z);
     this.velocity.set(0, 0, 0);
     this.yaw = sp.yaw * DEG;
     this.pitch = 0;
-    this.height = P.height;
+    this.body.height = P.height;
+    this.body.onGround = false;
     this.crouching = false;
     this.stepSmoothing = 0;
     this.recoilPitch = 0;
     this.recoilYaw = 0;
+    this.deathCam = 0;
+    this.inputEnabled = true;
   }
 
   addRecoil(pitchDeg: number, yawDeg: number): void {
@@ -101,33 +120,39 @@ export class PlayerController {
     this.pitch = Math.max(-lim, Math.min(lim, this.pitch));
   }
 
+  /** False while dead: movement keys are ignored. */
+  inputEnabled = true;
+  /** 0..1, set while dead: drops the camera to the floor. */
+  deathCam = 0;
+
+  private key(input: Input, code: string): boolean {
+    return this.inputEnabled && input.isDown(code);
+  }
+
   /** Physics step. Called at a fixed rate (see Game.ts). */
   step(dt: number, input: Input): void {
     // ---- Read movement keys -------------------------------------------------
     let fwd = 0, side = 0;
-    if (input.isDown('KeyW') || input.isDown('ArrowUp')) fwd += 1;
-    if (input.isDown('KeyS') || input.isDown('ArrowDown')) fwd -= 1;
-    if (input.isDown('KeyD') || input.isDown('ArrowRight')) side += 1;
-    if (input.isDown('KeyA') || input.isDown('ArrowLeft')) side -= 1;
+    if (this.key(input, 'KeyW') || this.key(input, 'ArrowUp')) fwd += 1;
+    if (this.key(input, 'KeyS') || this.key(input, 'ArrowDown')) fwd -= 1;
+    if (this.key(input, 'KeyD') || this.key(input, 'ArrowRight')) side += 1;
+    if (this.key(input, 'KeyA') || this.key(input, 'ArrowLeft')) side -= 1;
 
     // ---- Crouch (hold C) ---------------------------------------------------
-    const wantCrouch = input.isDown('KeyC');
+    const wantCrouch = this.key(input, 'KeyC');
     if (wantCrouch) {
       this.crouching = true;
-    } else if (this.crouching) {
+    } else if (this.crouching && this.body.hasHeadroom(P.height)) {
       // Only stand up if there's room above our head.
-      const ceiling = this.world.ceilingHeight(
-        this.position.x, this.position.z, P.radius, this.position.y + P.stepHeight,
-      );
-      if (ceiling - this.position.y >= P.height) this.crouching = false;
+      this.crouching = false;
     }
     const targetHeight = this.crouching ? P.crouchHeight : P.height;
     const hDiff = targetHeight - this.height;
     const hStep = P.crouchTransitionSpeed * dt;
-    this.height += Math.abs(hDiff) <= hStep ? hDiff : Math.sign(hDiff) * hStep;
+    this.body.height += Math.abs(hDiff) <= hStep ? hDiff : Math.sign(hDiff) * hStep;
 
     // ---- Sprint (hold Shift, forward only, not crouched) --------------------
-    const wantSprint = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+    const wantSprint = this.key(input, 'ShiftLeft') || this.key(input, 'ShiftRight');
     this.sprinting = wantSprint && fwd > 0 && !this.crouching && !this.sprintBlocked;
     const speed = (this.crouching ? P.crouchSpeed : this.sprinting ? P.sprintSpeed : P.walkSpeed) * this.speedMultiplier;
 
@@ -140,51 +165,17 @@ export class PlayerController {
     if (len > 0) { wx /= len; wz /= len; }
     const targetVX = wx * speed, targetVZ = wz * speed;
 
+    // In the air with no keys held we keep our momentum.
     const accel = this.onGround ? P.groundAcceleration : P.airAcceleration;
-    const dvx = targetVX - this.velocity.x, dvz = targetVZ - this.velocity.z;
-    const dvLen = Math.hypot(dvx, dvz);
-    const maxDv = accel * dt;
-    if (dvLen <= maxDv) {
-      this.velocity.x = targetVX;
-      this.velocity.z = targetVZ;
-    } else if (this.onGround || len > 0) {
-      // In the air with no keys held we keep our momentum.
-      this.velocity.x += (dvx / dvLen) * maxDv;
-      this.velocity.z += (dvz / dvLen) * maxDv;
-    }
+    this.body.accelerate(targetVX, targetVZ, accel, dt, !this.onGround && len === 0);
 
     // ---- Jump ---------------------------------------------------------------
-    if (input.isDown('Space') && this.onGround && !this.crouching) {
-      this.velocity.y = P.jumpSpeed;
-      this.onGround = false;
-    }
+    if (this.key(input, 'Space') && this.onGround && !this.crouching) this.body.jump(P.jumpSpeed);
 
-    // ---- Move horizontally, one axis at a time, sliding along walls ---------
-    this.moveAxis('x', this.velocity.x * dt);
-    this.moveAxis('z', this.velocity.z * dt);
-
-    // ---- Gravity, landing, ceilings -----------------------------------------
-    const wasOnGround = this.onGround;
-    const prevY = this.position.y;
-    this.velocity.y -= P.gravity * dt;
-    this.position.y += this.velocity.y * dt;
-
-    const { x, z } = this.position;
-    const ground = this.world.groundHeight(x, z, P.radius, Math.max(prevY, this.position.y) + P.stepHeight);
-    if (this.position.y <= ground) {
-      this.landAt(ground, prevY);
-    } else if (wasOnGround && this.velocity.y <= 0 && this.position.y - ground <= P.stepHeight) {
-      // Stick to the ground when walking down ramps and steps.
-      this.landAt(ground, prevY);
-    } else {
-      this.onGround = false;
-    }
-
-    const ceiling = this.world.ceilingHeight(x, z, P.radius, prevY + P.stepHeight);
-    if (this.position.y + this.height > ceiling && this.velocity.y > 0) {
-      this.position.y = ceiling - this.height;
-      this.velocity.y = 0;
-    }
+    // ---- Move, collide, fall -------------------------------------------------
+    const stepUp = this.body.step(dt);
+    // Stepped up onto something: hide the snap by easing the camera.
+    if (stepUp > 0.05) this.stepSmoothing -= stepUp;
 
     // Fell out of the world: put the player back (safety net).
     if (this.position.y < -50) this.position.set(0, 2, 0);
@@ -203,40 +194,15 @@ export class PlayerController {
     this.recoilYaw = Math.abs(this.recoilYaw) <= rec ? 0 : this.recoilYaw - Math.sign(this.recoilYaw) * rec;
   }
 
-  private landAt(ground: number, prevY: number): void {
-    const stepUp = ground - prevY;
-    // Stepped up onto something: hide the snap by easing the camera.
-    if (this.onGround && stepUp > 0.05) this.stepSmoothing -= stepUp;
-    this.position.y = ground;
-    if (this.velocity.y < 0) this.velocity.y = 0;
-    this.onGround = true;
-  }
-
-  private body(): Body {
-    return { x: this.position.x, z: this.position.z, feet: this.position.y, height: this.height, radius: P.radius };
-  }
-
-  private moveAxis(axis: 'x' | 'z', delta: number): void {
-    if (delta === 0) return;
-    this.position[axis] += delta;
-    const blocker = this.world.findBlocker(this.body(), P.stepHeight);
-    if (!blocker) return;
-    // Push back out to the face of whatever we hit, and stop moving that way.
-    const eps = 0.001;
-    if (axis === 'x') {
-      this.position.x = delta > 0 ? blocker.minX - P.radius - eps : blocker.maxX + P.radius + eps;
-    } else {
-      this.position.z = delta > 0 ? blocker.minZ - P.radius - eps : blocker.maxZ + P.radius + eps;
-    }
-    this.velocity[axis] = 0;
-  }
-
   /** Position the camera at the player's eyes. Called every rendered frame. */
   updateCamera(): void {
     const bob = Math.sin(this.bobPhase) * CONFIG.camera.headBobAmount * this.bobAmount;
-    const eye = this.position.y + this.height - P.eyeFromTop + bob + this.stepSmoothing;
+    const standingEye = this.position.y + this.height - P.eyeFromTop + bob + this.stepSmoothing;
+    // When dead, sink to the floor and tip over.
+    const d = this.deathCam * this.deathCam * (3 - 2 * this.deathCam);
+    const eye = standingEye + (this.position.y + 0.3 - standingEye) * d;
     this.camera.position.set(this.position.x, eye, this.position.z);
-    this.camera.rotation.set(this.viewPitch, this.yaw + this.recoilYaw, 0, 'YXZ');
+    this.camera.rotation.set(this.viewPitch * (1 - d) + 0.3 * d, this.yaw + this.recoilYaw, 1.1 * d, 'YXZ');
 
     // Zooming narrows the field of view (done on the tangent so it's a true zoom).
     const baseFov = settings.get().fov + this.fovBoost * CONFIG.camera.sprintFovBoost;

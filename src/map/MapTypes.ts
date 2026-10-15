@@ -70,5 +70,6 @@ export interface MapDef {
   boxes: BoxDef[];
   ramps: RampDef[];
   playerSpawns: SpawnPoint[];
+  botSpawns: SpawnPoint[];
   practiceTargets?: PracticeTargetDef[];
 }

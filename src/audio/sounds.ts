@@ -20,7 +20,12 @@ export type SoundId =
   | 'hit'
   | 'hit_head'
   | 'kill'
-  | 'impact';
+  | 'impact'
+  | 'hurt'
+  | 'armor_hit'
+  | 'whiz'
+  | 'death'
+  | 'bot_death';
 
 export const SAMPLE_FILES: Partial<Record<SoundId, string>> = {};
 
@@ -136,6 +141,28 @@ export const SYNTHS: Record<SoundId, Synth> = {
   kill: (s) => {
     tone(s, { type: 'triangle', from: 1200, to: 1150, gain: 0.25, decay: 0.08 });
     tone(s, { type: 'triangle', from: 1800, to: 1750, gain: 0.25, decay: 0.15, delay: 0.08 });
+  },
+  hurt: (s) => {
+    // A dull body thump.
+    noiseBurst(s, { type: 'lowpass', freq: 420, gain: 0.8, decay: 0.16 });
+    tone(s, { type: 'sine', from: 140, to: 60, gain: 0.6, decay: 0.14 });
+  },
+  armor_hit: (s) => {
+    tone(s, { type: 'triangle', from: 900, to: 700, gain: 0.2, decay: 0.12 });
+    noiseBurst(s, { type: 'bandpass', freq: 3200, q: 3, gain: 0.25, decay: 0.05 });
+  },
+  whiz: (s) => {
+    // A bullet zipping past your head.
+    noiseBurst(s, { type: 'bandpass', freq: 5000, q: 6, gain: 0.35, decay: 0.09, attack: 0.03 });
+    tone(s, { type: 'sine', from: 2400, to: 1300, gain: 0.05, decay: 0.12, attack: 0.02 });
+  },
+  death: (s) => {
+    tone(s, { type: 'sawtooth', from: 220, to: 40, gain: 0.25, decay: 0.9 });
+    noiseBurst(s, { type: 'lowpass', freq: 300, gain: 0.7, decay: 0.5 });
+  },
+  bot_death: (s) => {
+    tone(s, { type: 'square', from: 300, to: 70, gain: 0.12, decay: 0.45 });
+    noiseBurst(s, { type: 'lowpass', freq: 500, gain: 0.5, decay: 0.3, delay: 0.25 });
   },
   impact: (s) => {
     noiseBurst(s, { type: 'bandpass', freq: 3000 + Math.random() * 1500, q: 2, gain: 0.12, decay: 0.04 });

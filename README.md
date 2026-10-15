@@ -3,8 +3,8 @@
 A singleplayer first-person shooter that runs in your web browser. You fight AI bots.
 It's built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https://vitejs.dev/) (development server).
 
-> **Status:** Milestone 2 of 6. You can move around a test room and shoot four weapons at practice dummies.
-> Bots, game modes, and menus come in later milestones.
+> **Status:** Milestone 3 of 6. A bot hunts you in a test room: it sees, hears, chases, and shoots back.
+> Smarter bots with map navigation, game modes, and menus come in later milestones.
 
 ---
 
@@ -80,6 +80,8 @@ Click the game window to capture the mouse. Press Esc to get it back.
 **All the gameplay numbers are in one file: [`src/config.ts`](src/config.ts).**
 These include movement speed, jump height, gravity, crouch height, and head bob.
 The `WEAPONS` section has each gun's damage, fire rate, magazine size, reload time, spread, recoil, zoom, and more.
+The `BOTS` section sets bot speed, health, vision range and angle, and memory. `BOT_DIFFICULTY` sets reaction time, aim error, turn speed, burst length, and aggression for Easy, Normal, and Hard.
+Until the match menu arrives in milestone 5, `testMatch` near the top picks how many bots spawn and their difficulty.
 Each number has a comment explaining it. While `npm run dev` is running, save the file and the game reloads with the new values.
 
 Mouse sensitivity, field of view, and volume will move to an in-game settings menu in milestone 5.
@@ -102,11 +104,12 @@ To use a real sound file instead, put it in a `public/sounds/` folder and list i
 src/
   config.ts          All tunable numbers
   main.ts            Entry point
-  core/              Game loop, input, settings, collision
-  player/            Player movement
+  core/              Game loop, input, settings, collision, shared walking physics
+  player/            Player movement, health, and armor
+  bots/              Bot body, senses (Perception), aim, brain (state machine), and manager
   map/               Map format, map builder, and maps/ (map data)
   weapons/           Weapon logic, hitscan (bullet tracing), the gun in your hands
-  entities/          Practice dummies (bots come next)
+  entities/          Practice dummies
   effects/           Tracers, sparks, bullet holes
   audio/             Sound engine and procedural sound effects
   ui/                HUD, overlays, styles

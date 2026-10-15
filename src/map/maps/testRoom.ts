@@ -43,13 +43,18 @@ export const testRoom: MapDef = {
     { x: 8, y: 3, z: -7.1, w: 8, h: 0.15, d: 0.2, material: 'trim' },
   ],
   ramps: [{ x: 1, z: -11, w: 6, d: 4, low: 0, high: 3, dir: '+x', material: 'metal' }],
-  playerSpawns: [{ x: 0, y: 0, z: 10, yaw: 0 }],
-  // Practice dummies. yaw 180 = facing the player's starting point.
-  practiceTargets: [
-    { x: 0, y: 0, z: 0, yaw: 180 }, // close
-    { x: -5, y: 0, z: -6.5, yaw: 180 }, // half hidden behind the crates
-    { x: 8, y: 3, z: -11, yaw: 180 }, // up on the platform
-    { x: -9, y: 0, z: -12, yaw: 180, strafe: 3 }, // far, moving side to side
-    { x: 12, y: 0, z: 3, yaw: 225 }, // off to the right
+  playerSpawns: [
+    { x: 0, y: 0, z: 12, yaw: 0 },
+    { x: -12, y: 0, z: 12, yaw: 0 },
+    { x: 12, y: 0, z: 12, yaw: 0 },
+    { x: -12, y: 0, z: -2, yaw: -90 },
   ],
+  botSpawns: [
+    { x: 8, y: 3, z: -11, yaw: 180 }, // on the platform
+    { x: -12, y: 0, z: -12, yaw: 180 },
+    { x: 12, y: 0, z: -2, yaw: 90 },
+    { x: -2, y: 0, z: -4, yaw: 180 },
+  ],
+  // Practice dummies (none here now that there's a bot). Example:
+  // practiceTargets: [{ x: 0, y: 0, z: 0, yaw: 180 }],
 };

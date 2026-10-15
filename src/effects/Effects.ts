@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getFlashTexture, getHoleTexture } from '../assets/textures';
 
 /**
  * Short-lived visual effects in the world: bullet tracers, sparks/blood
@@ -44,6 +45,8 @@ export class Effects {
   private _v = new THREE.Vector3();
   private _s = new THREE.Vector3();
   private _spin = new THREE.Quaternion();
+  /** Muzzle flashes of other shooters (bots), as camera-facing sprites. */
+  private flashes: { sprite: THREE.Sprite; life: number }[] = [];
   /** Brief light at the muzzle so shots light up nearby walls. */
   private flashLight = new THREE.PointLight(0xffc070, 0, 6, 1.8);
 
@@ -79,7 +82,7 @@ export class Effects {
     scene.add(this.points);
 
     // ---- Bullet holes: one instanced mesh = one draw call for all of them.
-    const holeTex = makeHoleTexture();
+    const holeTex = getHoleTexture();
     this.decals = new THREE.InstancedMesh(
       new THREE.PlaneGeometry(0.11, 0.11),
       new THREE.MeshStandardMaterial({
@@ -96,14 +99,40 @@ export class Effects {
     this.decals.frustumCulled = false;
     scene.add(this.decals);
     scene.add(this.flashLight);
+
+    const flashMat = new THREE.SpriteMaterial({
+      map: getFlashTexture(),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
+    });
+    for (let i = 0; i < 16; i++) {
+      const sprite = new THREE.Sprite(flashMat);
+      sprite.visible = false;
+      scene.add(sprite);
+      this.flashes.push({ sprite, life: 0 });
+    }
+  }
+
+  /** A muzzle flash out in the world (someone else's gun). */
+  worldFlash(at: THREE.Vector3): void {
+    const f = this.flashes.find((x) => x.life <= 0) ?? this.flashes[0];
+    f.life = 0.05;
+    f.sprite.position.copy(at);
+    f.sprite.scale.setScalar(0.35 + Math.random() * 0.2);
+    f.sprite.material.rotation = Math.random() * Math.PI;
+    f.sprite.visible = true;
+    this.muzzleLight(at);
   }
 
   /** Prepares effect shaders up front so the first shot doesn't stutter. */
   precompile(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
     this.tracers[0].mesh.visible = true;
+    this.flashes[0].sprite.visible = true;
     this.decals.count = 1;
     renderer.compile(this.scene, camera);
     this.tracers[0].mesh.visible = false;
+    this.flashes[0].sprite.visible = false;
     this.decals.count = this.decalCount;
   }
 
@@ -125,6 +154,8 @@ export class Effects {
     t.active = true;
     t.mesh.visible = true;
     t.mesh.quaternion.setFromUnitVectors(FORWARD, t.dir);
+    t.mesh.position.copy(from);
+    t.mesh.scale.set(1, 1, 0.01);
   }
 
   /** Bullet hits a wall: sparks, dust, and a bullet hole. */
@@ -180,6 +211,11 @@ export class Effects {
 
   update(dt: number): void {
     this.flashLight.intensity = Math.max(0, this.flashLight.intensity - dt * 50);
+    for (const f of this.flashes) {
+      if (f.life <= 0) continue;
+      f.life -= dt;
+      if (f.life <= 0) f.sprite.visible = false;
+    }
     for (const t of this.tracers) {
       if (!t.active) continue;
       t.traveled += TRACER_SPEED * dt;
@@ -214,20 +250,4 @@ export class Effects {
       this.points.geometry.attributes.color.needsUpdate = true;
     }
   }
-}
-
-function makeHoleTexture(): THREE.Texture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d')!;
-  const grad = g.createRadialGradient(32, 32, 2, 32, 32, 30);
-  grad.addColorStop(0, 'rgba(10,10,10,1)');
-  grad.addColorStop(0.3, 'rgba(25,22,20,0.95)');
-  grad.addColorStop(0.55, 'rgba(50,45,40,0.5)');
-  grad.addColorStop(1, 'rgba(60,55,50,0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 64, 64);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
 }

@@ -259,6 +259,156 @@ body {
   background: #ff3b30;
 }
 
+/* ---------- Health / armor ---------- */
+.vitals {
+  position: absolute;
+  left: 28px;
+  bottom: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vital-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: opacity 0.2s;
+}
+.vital-icon {
+  width: 22px;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1;
+}
+.health-icon {
+  color: #ff5a4e;
+  font-size: 30px;
+}
+.armor-icon {
+  color: #5fb4ff;
+  font-size: 18px;
+}
+.vital-num {
+  width: 54px;
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.armor-row .vital-num {
+  font-size: 20px;
+}
+.vital-bar {
+  width: 180px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.armor-row .vital-bar {
+  height: 5px;
+}
+.vital-fill {
+  height: 100%;
+  transition: width 0.15s;
+}
+.health-fill {
+  background: #f2f2f2;
+}
+.health-fill.low {
+  background: #ff4a3d;
+}
+.armor-fill {
+  background: #5fb4ff;
+}
+
+/* ---------- Damage feedback ---------- */
+.hurt-vignette,
+.low-health {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, 0.55) 100%);
+}
+.low-health {
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(120, 0, 0, 0.7) 100%);
+}
+.dmg-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+/* Each indicator is a red arc at the top of a circle, rotated toward the attacker. */
+.dmg-indicator {
+  position: absolute;
+  left: -130px;
+  top: -130px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  border: 7px solid transparent;
+  border-top-color: rgba(255, 40, 30, 0.9);
+  filter: drop-shadow(0 0 4px rgba(255, 0, 0, 0.7));
+  opacity: 0;
+  -webkit-mask: linear-gradient(90deg, transparent 32%, #000 42%, #000 58%, transparent 68%);
+  mask: linear-gradient(90deg, transparent 32%, #000 42%, #000 58%, transparent 68%);
+}
+
+/* ---------- Kill feed ---------- */
+.kill-feed {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 14px;
+}
+.kf-row {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 10px;
+  border-radius: 3px;
+  transition: opacity 1s;
+}
+.kf-row.fade {
+  opacity: 0;
+}
+.kf-name {
+  color: #ff8a70;
+}
+.kf-name.you {
+  color: #ffd23a;
+}
+.kf-weapon {
+  margin: 0 8px;
+  opacity: 0.75;
+  font-weight: 400;
+}
+
+/* ---------- Death screen ---------- */
+.death-screen {
+  display: none;
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(90, 0, 0, 0.35);
+}
+.death-title {
+  font-size: 40px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.death-timer {
+  font-size: 18px;
+  opacity: 0.85;
+}
+
 .debug {
   position: absolute;
   top: 8px;

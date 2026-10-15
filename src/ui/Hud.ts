@@ -1,4 +1,4 @@
-import { WEAPONS, type WeaponId } from '../config';
+import { CONFIG, WEAPONS, type WeaponId } from '../config';
 
 export type HitmarkerKind = 'hit' | 'head' | 'kill';
 
@@ -24,6 +24,19 @@ export class Hud {
   private slots = new Map<WeaponId, HTMLDivElement>();
   private scope: HTMLDivElement;
   private notice: HTMLDivElement;
+  private healthFill: HTMLDivElement;
+  private healthText: HTMLDivElement;
+  private armorFill: HTMLDivElement;
+  private armorText: HTMLDivElement;
+  private armorRow: HTMLDivElement;
+  private vignette: HTMLDivElement;
+  private lowHealth: HTMLDivElement;
+  private indicators: { el: HTMLDivElement; x: number; z: number; life: number }[] = [];
+  private killFeed: HTMLDivElement;
+  private deathScreen: HTMLDivElement;
+  private deathText: HTMLDivElement;
+  private deathTimer: HTMLDivElement;
+  private hurtFlash = 0;
 
   private hitTimer = 0;
   private frames = 0;
@@ -33,6 +46,8 @@ export class Hud {
 
   constructor(parent: HTMLElement) {
     this.root = el('div', 'hud', parent);
+    this.vignette = el('div', 'hurt-vignette', this.root);
+    this.lowHealth = el('div', 'low-health', this.root);
     this.scope = el('div', 'scope', this.root);
     el('div', 'scope-lines', this.scope);
 
@@ -58,7 +73,94 @@ export class Hud {
     this.reloadBar = el('div', 'reload-bar', weaponPanel);
     this.reloadFill = el('div', 'reload-fill', this.reloadBar);
 
+    // Damage direction indicators: arcs around the crosshair.
+    const ring = el('div', 'dmg-ring', this.root);
+    for (let i = 0; i < 6; i++) {
+      const ind = el('div', 'dmg-indicator', ring);
+      this.indicators.push({ el: ind, x: 0, z: 0, life: 0 });
+    }
+
+    // Health + armor, bottom left.
+    const vitals = el('div', 'vitals', this.root);
+    const hRow = el('div', 'vital-row', vitals);
+    el('div', 'vital-icon health-icon', hRow).textContent = '+';
+    this.healthText = el('div', 'vital-num', hRow);
+    const hBar = el('div', 'vital-bar', hRow);
+    this.healthFill = el('div', 'vital-fill health-fill', hBar);
+    this.armorRow = el('div', 'vital-row armor-row', vitals);
+    el('div', 'vital-icon armor-icon', this.armorRow).textContent = '◆';
+    this.armorText = el('div', 'vital-num', this.armorRow);
+    const aBar = el('div', 'vital-bar', this.armorRow);
+    this.armorFill = el('div', 'vital-fill armor-fill', aBar);
+
+    this.killFeed = el('div', 'kill-feed', this.root);
+
+    this.deathScreen = el('div', 'death-screen', this.root);
+    this.deathText = el('div', 'death-title', this.deathScreen);
+    this.deathTimer = el('div', 'death-timer', this.deathScreen);
+
     this.debugEl = el('div', 'debug', this.root);
+  }
+
+  updateVitals(health: number, armor: number): void {
+    const P = CONFIG.player;
+    this.healthText.textContent = String(Math.ceil(health));
+    this.healthFill.style.width = `${(health / P.maxHealth) * 100}%`;
+    this.healthFill.classList.toggle('low', health <= 30);
+    this.armorRow.style.opacity = armor > 0 ? '1' : '0.35';
+    this.armorText.textContent = String(Math.ceil(armor));
+    this.armorFill.style.width = `${(armor / P.maxArmor) * 100}%`;
+    // Red edges that pulse when health is low.
+    const low = health > 0 && health <= 35 ? 1 - health / 35 : 0;
+    this.lowHealth.style.opacity = String(low * (0.55 + 0.25 * Math.sin(performance.now() / 180)));
+  }
+
+  /** Show where damage came from (attacker's world position x/z). */
+  showDamage(fromX: number, fromZ: number, amount: number): void {
+    this.hurtFlash = Math.min(1, this.hurtFlash + 0.25 + amount / 60);
+    // Reuse an indicator for the same attacker spot, else the oldest one.
+    let ind = this.indicators.find((i) => i.life > 0 && Math.hypot(i.x - fromX, i.z - fromZ) < 2);
+    ind ??= this.indicators.reduce((a, b) => (a.life < b.life ? a : b));
+    ind.x = fromX;
+    ind.z = fromZ;
+    ind.life = 1.4;
+  }
+
+  /** Point each indicator at its attacker, relative to where you're facing. */
+  private updateIndicators(dt: number, px: number, pz: number, yaw: number): void {
+    for (const ind of this.indicators) {
+      if (ind.life <= 0) {
+        ind.el.style.opacity = '0';
+        continue;
+      }
+      ind.life -= dt;
+      const attackerYaw = Math.atan2(-(ind.x - px), -(ind.z - pz));
+      ind.el.style.opacity = String(Math.min(1, ind.life));
+      ind.el.style.transform = `rotate(${yaw - attackerYaw}rad)`;
+    }
+  }
+
+  addKill(killer: string, victim: string, weapon: WeaponId, headshot: boolean): void {
+    const row = document.createElement('div');
+    row.className = 'kf-row';
+    const you = (n: string) => (n === 'You' ? ' you' : '');
+    row.innerHTML = `<span class="kf-name${you(killer)}"></span><span class="kf-weapon"></span><span class="kf-name${you(victim)}"></span>`;
+    const spans = row.querySelectorAll('span');
+    spans[0].textContent = killer;
+    spans[1].textContent = `[${WEAPONS[weapon].name}]${headshot ? ' ✛' : ''}`;
+    spans[2].textContent = victim;
+    this.killFeed.prepend(row);
+    while (this.killFeed.children.length > 5) this.killFeed.lastElementChild!.remove();
+    setTimeout(() => row.classList.add('fade'), 5000);
+    setTimeout(() => row.remove(), 6000);
+  }
+
+  /** Death screen; pass null to hide. */
+  setDeath(info: { killer: string; seconds: number } | null): void {
+    this.deathScreen.style.display = info ? 'flex' : 'none';
+    if (!info) return;
+    this.deathText.textContent = `Killed by ${info.killer}`;
+    this.deathTimer.textContent = `Respawning in ${Math.max(0, Math.ceil(info.seconds))}`;
   }
 
   setVisible(v: boolean): void {
@@ -102,7 +204,11 @@ export class Hud {
     this.hitTimer = kind === 'kill' ? 0.35 : 0.18;
   }
 
-  update(dt: number): void {
+  /** @param px,pz,yaw the player's position and facing, for damage indicators */
+  update(dt: number, px: number, pz: number, yaw: number): void {
+    this.updateIndicators(dt, px, pz, yaw);
+    this.hurtFlash = Math.max(0, this.hurtFlash - dt * 1.8);
+    this.vignette.style.opacity = String(this.hurtFlash);
     if (this.hitTimer > 0) {
       this.hitTimer -= dt;
       if (this.hitTimer <= 0) this.hitmarker.classList.remove('show');
