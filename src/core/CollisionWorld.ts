@@ -16,6 +16,28 @@ interface Ramp extends AABB {
   dir: RampDef['dir'];
 }
 
+/** A plane n·p <= d. A solid is the space inside all of its planes. */
+interface Plane {
+  nx: number;
+  ny: number;
+  nz: number;
+  d: number;
+}
+
+interface Solid {
+  planes: Plane[];
+  /** Bounding box, for a quick reject before the exact test. */
+  bounds: AABB;
+}
+
+export interface RayHit {
+  distance: number;
+  /** Surface normal at the hit point (points out of the surface). */
+  nx: number;
+  ny: number;
+  nz: number;
+}
+
 /** A character's body for collision purposes: a box around a vertical cylinder. */
 export interface Body {
   x: number;
@@ -33,16 +55,20 @@ export interface Body {
 export class CollisionWorld {
   readonly boxes: AABB[] = [];
   readonly ramps: Ramp[] = [];
+  /** Every box and ramp as a convex shape, used for ray tests. */
+  private solids: Solid[] = [];
 
   addBox(b: BoxDef): void {
-    this.boxes.push({
+    const box: AABB = {
       minX: b.x - b.w / 2,
       maxX: b.x + b.w / 2,
       minY: b.y,
       maxY: b.y + b.h,
       minZ: b.z - b.d / 2,
       maxZ: b.z + b.d / 2,
-    });
+    };
+    this.boxes.push(box);
+    this.solids.push({ planes: boxPlanes(box), bounds: box });
   }
 
   addRamp(r: RampDef): void {
@@ -57,6 +83,62 @@ export class CollisionWorld {
       high: r.high,
       dir: r.dir,
     });
+    const ramp = this.ramps[this.ramps.length - 1];
+    // Same as a box, but the top is replaced by the sloped surface.
+    const planes = boxPlanes(ramp).filter((p) => p.ny !== 1);
+    const k = (ramp.high - ramp.low);
+    const w = ramp.maxX - ramp.minX, d = ramp.maxZ - ramp.minZ;
+    // Surface: y = low + k * t, where t goes 0..1 along `dir`. Written as n·p <= d.
+    switch (ramp.dir) {
+      case '+x': planes.push(norm(-k / w, 1, 0, ramp.low - (k / w) * ramp.minX)); break;
+      case '-x': planes.push(norm(k / w, 1, 0, ramp.low + (k / w) * ramp.maxX)); break;
+      case '+z': planes.push(norm(0, 1, -k / d, ramp.low - (k / d) * ramp.minZ)); break;
+      case '-z': planes.push(norm(0, 1, k / d, ramp.low + (k / d) * ramp.maxZ)); break;
+    }
+    this.solids.push({ planes, bounds: ramp });
+  }
+
+  /**
+   * Casts a ray against the map. Returns the closest hit within `maxDist`,
+   * or null. `dir` must be normalized.
+   */
+  raycast(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): RayHit | null {
+    let best: RayHit | null = null;
+    let bestDist = maxDist;
+    for (const s of this.solids) {
+      if (!rayHitsBox(s.bounds, ox, oy, oz, dx, dy, dz, bestDist)) continue;
+      let tEnter = 0, tExit = bestDist;
+      let hitPlane: Plane | null = null;
+      let missed = false;
+      for (const p of s.planes) {
+        const denom = p.nx * dx + p.ny * dy + p.nz * dz;
+        const dist = p.d - (p.nx * ox + p.ny * oy + p.nz * oz);
+        if (Math.abs(denom) < 1e-9) {
+          if (dist < 0) { missed = true; break; }
+          continue;
+        }
+        const t = dist / denom;
+        if (denom < 0) {
+          if (t > tEnter) { tEnter = t; hitPlane = p; }
+        } else if (t < tExit) {
+          tExit = t;
+        }
+        if (tEnter > tExit) { missed = true; break; }
+      }
+      // hitPlane null means the ray started inside the solid: ignore it.
+      if (missed || !hitPlane || tEnter >= bestDist) continue;
+      bestDist = tEnter;
+      best = { distance: tEnter, nx: hitPlane.nx, ny: hitPlane.ny, nz: hitPlane.nz };
+    }
+    return best;
+  }
+
+  /** True if nothing solid is between the two points. */
+  hasLineOfSight(ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {
+    const dx = bx - ax, dy = by - ay, dz = bz - az;
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1e-6) return true;
+    return this.raycast(ax, ay, az, dx / len, dy / len, dz / len, len) === null;
   }
 
   /** Height of a ramp's surface at (x, z), clamped to the ramp's footprint. */
@@ -132,4 +214,42 @@ export class CollisionWorld {
     }
     return best;
   }
+}
+
+function norm(nx: number, ny: number, nz: number, d: number): Plane {
+  const l = Math.hypot(nx, ny, nz);
+  return { nx: nx / l, ny: ny / l, nz: nz / l, d: d / l };
+}
+
+function boxPlanes(b: AABB): Plane[] {
+  return [
+    { nx: 1, ny: 0, nz: 0, d: b.maxX },
+    { nx: -1, ny: 0, nz: 0, d: -b.minX },
+    { nx: 0, ny: 1, nz: 0, d: b.maxY },
+    { nx: 0, ny: -1, nz: 0, d: -b.minY },
+    { nx: 0, ny: 0, nz: 1, d: b.maxZ },
+    { nx: 0, ny: 0, nz: -1, d: -b.minZ },
+  ];
+}
+
+/** Quick test: does the ray touch this box within maxDist? */
+function rayHitsBox(b: AABB, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): boolean {
+  let tmin = 0, tmax = maxDist;
+  const axes: [number, number, number, number][] = [
+    [ox, dx, b.minX, b.maxX],
+    [oy, dy, b.minY, b.maxY],
+    [oz, dz, b.minZ, b.maxZ],
+  ];
+  for (const [o, d, lo, hi] of axes) {
+    if (Math.abs(d) < 1e-9) {
+      if (o < lo || o > hi) return false;
+      continue;
+    }
+    let t1 = (lo - o) / d, t2 = (hi - o) / d;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    if (t1 > tmin) tmin = t1;
+    if (t2 < tmax) tmax = t2;
+    if (tmin > tmax) return false;
+  }
+  return true;
 }

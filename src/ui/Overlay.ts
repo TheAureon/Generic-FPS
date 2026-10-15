@@ -17,6 +17,10 @@ export class Overlay {
         <span><kbd>Space</kbd></span><span>Jump</span>
         <span><kbd>Shift</kbd></span><span>Sprint (hold)</span>
         <span><kbd>C</kbd></span><span>Crouch (hold)</span>
+        <span>Left click</span><span>Shoot</span>
+        <span>Right click</span><span>Aim down sights / scope (hold)</span>
+        <span><kbd>R</kbd></span><span>Reload</span>
+        <span><kbd>1</kbd>–<kbd>4</kbd> / wheel</span><span>Switch weapon (<kbd>Q</kbd> = last weapon)</span>
         <span><kbd>Esc</kbd></span><span>Pause / free the mouse</span>
       </div>`;
     this.subtitle = this.el.querySelector('.subtitle')!;

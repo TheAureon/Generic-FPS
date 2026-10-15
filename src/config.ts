@@ -62,3 +62,132 @@ export const CONFIG = {
 };
 
 export type GameConfig = typeof CONFIG;
+
+/* ===========================================================================
+ *  WEAPONS
+ * ===========================================================================
+ *  Spread and recoil are in degrees. "Spread" is how far (at most) a bullet
+ *  can stray from the center of the crosshair.
+ */
+export interface WeaponStats {
+  name: string;
+  /** Number key that selects it. */
+  slot: number;
+  /** Damage per bullet (per pellet for the shotgun). */
+  damage: number;
+  /** Damage multiplier for headshots. */
+  headshotMultiplier: number;
+  /** Bullets per shot (shotgun pellets). */
+  pellets: number;
+  /** Shots per second. */
+  fireRate: number;
+  /** true = hold to keep firing; false = one shot per click. */
+  automatic: boolean;
+  magazineSize: number;
+  /** Spare ammo you start with. */
+  startingReserve: number;
+  /** Most spare ammo you can carry. */
+  maxReserve: number;
+  /** Seconds for a full reload (or per shell for 'perShell'). */
+  reloadTime: number;
+  /** 'magazine' = swap the whole mag; 'perShell' = load one at a time (can interrupt by firing). */
+  reloadStyle: 'magazine' | 'perShell';
+  /** Max distance a bullet travels (meters). */
+  range: number;
+  /** Damage starts dropping after `falloffStart` meters, reaching `falloffMinMultiplier` at `falloffEnd`. */
+  falloffStart: number;
+  falloffEnd: number;
+  falloffMinMultiplier: number;
+
+  /** Spread when standing still, firing from the hip. */
+  baseSpread: number;
+  /** Extra spread added by each shot (recovers over time). */
+  spreadPerShot: number;
+  maxSpread: number;
+  /** How fast the extra spread recovers (degrees per second). */
+  spreadRecovery: number;
+  /** Extra spread while moving at full speed / while in the air. */
+  moveSpread: number;
+  airSpread: number;
+  /** Spread is multiplied by this while aiming down sights (right mouse). */
+  aimSpreadMultiplier: number;
+
+  /** How far the view kicks up per shot, and random sideways kick. */
+  recoilPitch: number;
+  recoilYaw: number;
+  /** How fast the view returns after recoil (degrees per second). */
+  recoilRecovery: number;
+
+  /** Zoom while aiming (2 = twice as zoomed in). */
+  aimZoom: number;
+  /** Shows a sniper scope overlay when aiming. */
+  scope: boolean;
+  /** Seconds to switch to this weapon. */
+  equipTime: number;
+  /** How loud the shot is to bots (meters they can hear it from). */
+  hearingRange: number;
+}
+
+export const WEAPONS = {
+  pistol: {
+    name: 'Pistol', slot: 1,
+    damage: 26, headshotMultiplier: 2, pellets: 1,
+    fireRate: 6.5, automatic: false,
+    magazineSize: 12, startingReserve: 60, maxReserve: 96,
+    reloadTime: 1.3, reloadStyle: 'magazine',
+    range: 150, falloffStart: 25, falloffEnd: 60, falloffMinMultiplier: 0.6,
+    baseSpread: 0.35, spreadPerShot: 0.9, maxSpread: 3.5, spreadRecovery: 6,
+    moveSpread: 1.2, airSpread: 3, aimSpreadMultiplier: 0.5,
+    recoilPitch: 1.6, recoilYaw: 0.5, recoilRecovery: 9,
+    aimZoom: 1.25, scope: false, equipTime: 0.3, hearingRange: 40,
+  },
+  rifle: {
+    name: 'Assault Rifle', slot: 2,
+    damage: 21, headshotMultiplier: 2, pellets: 1,
+    fireRate: 10, automatic: true,
+    magazineSize: 30, startingReserve: 120, maxReserve: 210,
+    reloadTime: 2.1, reloadStyle: 'magazine',
+    range: 150, falloffStart: 35, falloffEnd: 80, falloffMinMultiplier: 0.7,
+    baseSpread: 0.45, spreadPerShot: 0.32, maxSpread: 4, spreadRecovery: 5,
+    moveSpread: 1.8, airSpread: 4, aimSpreadMultiplier: 0.45,
+    recoilPitch: 0.95, recoilYaw: 0.45, recoilRecovery: 6,
+    aimZoom: 1.4, scope: false, equipTime: 0.45, hearingRange: 50,
+  },
+  shotgun: {
+    name: 'Shotgun', slot: 3,
+    damage: 12, headshotMultiplier: 1.5, pellets: 9,
+    fireRate: 1.15, automatic: false,
+    magazineSize: 6, startingReserve: 30, maxReserve: 40,
+    reloadTime: 0.55, reloadStyle: 'perShell',
+    range: 60, falloffStart: 8, falloffEnd: 25, falloffMinMultiplier: 0.25,
+    baseSpread: 5, spreadPerShot: 0, maxSpread: 5, spreadRecovery: 10,
+    moveSpread: 0.5, airSpread: 1, aimSpreadMultiplier: 0.8,
+    recoilPitch: 5, recoilYaw: 1.2, recoilRecovery: 12,
+    aimZoom: 1.15, scope: false, equipTime: 0.5, hearingRange: 55,
+  },
+  sniper: {
+    name: 'Sniper Rifle', slot: 4,
+    damage: 90, headshotMultiplier: 2.5, pellets: 1,
+    fireRate: 0.75, automatic: false,
+    magazineSize: 5, startingReserve: 20, maxReserve: 30,
+    reloadTime: 2.6, reloadStyle: 'magazine',
+    range: 400, falloffStart: 400, falloffEnd: 400, falloffMinMultiplier: 1,
+    baseSpread: 4, spreadPerShot: 0, maxSpread: 4, spreadRecovery: 10,
+    moveSpread: 3, airSpread: 6, aimSpreadMultiplier: 0,
+    recoilPitch: 6, recoilYaw: 1, recoilRecovery: 8,
+    aimZoom: 4, scope: true, equipTime: 0.6, hearingRange: 70,
+  },
+} satisfies Record<string, WeaponStats>;
+
+export type WeaponId = keyof typeof WEAPONS;
+
+export const COMBAT = {
+  /** Movement speed multiplier while aiming down sights. */
+  aimMoveSpeedMultiplier: 0.6,
+  /** How quickly you go in/out of aim-down-sights (per second). */
+  aimSpeed: 8,
+  /** Spread multiplier while crouching. */
+  crouchSpreadMultiplier: 0.7,
+  /** Can't sprint for this long after firing. */
+  sprintBlockAfterShot: 0.35,
+};

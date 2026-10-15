@@ -78,7 +78,177 @@ body {
 }
 
 /* ---------- HUD ---------- */
+.hud {
+  position: absolute;
+  inset: 0;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Crosshair: four lines pushed out by --gap (shows current spread). */
 .crosshair {
+  --gap: 6px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transition: opacity 0.08s;
+}
+.ch-line,
+.ch-dot {
+  position: absolute;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+.ch-dot {
+  width: 2px;
+  height: 2px;
+  left: -1px;
+  top: -1px;
+}
+.ch-top,
+.ch-bottom {
+  width: 2px;
+  height: 9px;
+  left: -1px;
+}
+.ch-left,
+.ch-right {
+  width: 9px;
+  height: 2px;
+  top: -1px;
+}
+.ch-top {
+  bottom: var(--gap);
+}
+.ch-bottom {
+  top: var(--gap);
+}
+.ch-left {
+  right: var(--gap);
+}
+.ch-right {
+  left: var(--gap);
+}
+
+/* Hit marker: an X around the crosshair. */
+.hitmarker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+.hitmarker.show {
+  opacity: 1;
+}
+.hm-line {
+  position: absolute;
+  width: 2px;
+  height: 9px;
+  background: #fff;
+  box-shadow: 0 0 2px #000;
+  left: -1px;
+  top: -4.5px;
+}
+.hm-line:nth-child(1) { transform: rotate(45deg) translateY(-11px); }
+.hm-line:nth-child(2) { transform: rotate(135deg) translateY(-11px); }
+.hm-line:nth-child(3) { transform: rotate(225deg) translateY(-11px); }
+.hm-line:nth-child(4) { transform: rotate(315deg) translateY(-11px); }
+.hitmarker.head .hm-line { background: #ffd23a; height: 11px; }
+.hitmarker.kill .hm-line { background: #ff3b30; height: 13px; width: 3px; }
+
+.notice {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 46px);
+  transform: translateX(-50%);
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ffd9a0;
+}
+
+/* Weapon + ammo panel, bottom right. */
+.weapon-panel {
+  position: absolute;
+  right: 28px;
+  bottom: 24px;
+  text-align: right;
+  min-width: 190px;
+}
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.slot {
+  opacity: 0.45;
+}
+.slot.active {
+  opacity: 1;
+  color: #ffd23a;
+}
+.slot .key {
+  display: inline-block;
+  width: 18px;
+  margin-right: 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  text-align: center;
+  font-size: 11px;
+}
+.ammo-name {
+  font-size: 15px;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.ammo-count {
+  font-size: 46px;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.ammo-count span {
+  font-size: 22px;
+  opacity: 0.7;
+}
+.ammo-count.low {
+  color: #ff6a55;
+}
+.reload-bar {
+  height: 4px;
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.reload-fill {
+  height: 100%;
+  width: 0;
+  background: #ffd23a;
+}
+
+/* Sniper scope: black ring with crosshairs. */
+.scope {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 0, transparent 41vh, #000 41.3vh);
+}
+.scope-lines {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(#000, #000) center / 1px 82vh no-repeat,
+    linear-gradient(#000, #000) center / 82vh 1px no-repeat;
+}
+.scope-lines::after {
+  content: '';
   position: absolute;
   left: 50%;
   top: 50%;
@@ -86,8 +256,7 @@ body {
   height: 4px;
   margin: -2px 0 0 -2px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 2px #000;
+  background: #ff3b30;
 }
 
 .debug {

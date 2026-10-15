@@ -49,6 +49,17 @@ export interface SpawnPoint {
   yaw: number;
 }
 
+/** A practice dummy (for testing weapons). */
+export interface PracticeTargetDef {
+  x: number;
+  y: number;
+  z: number;
+  /** Facing direction in degrees (0 = facing toward -Z). */
+  yaw?: number;
+  /** If set, slides this many meters left and right. */
+  strafe?: number;
+}
+
 export interface MapDef {
   id: string;
   name: string;
@@ -59,4 +70,5 @@ export interface MapDef {
   boxes: BoxDef[];
   ramps: RampDef[];
   playerSpawns: SpawnPoint[];
+  practiceTargets?: PracticeTargetDef[];
 }

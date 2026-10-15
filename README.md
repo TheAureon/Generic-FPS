@@ -3,8 +3,8 @@
 A singleplayer first-person shooter that runs in your web browser. You fight AI bots.
 It's built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https://vitejs.dev/) (development server).
 
-> **Status:** Milestone 1 of 6. You can walk, sprint, jump, and crouch around a test room.
-> Weapons, bots, game modes, and menus come in later milestones.
+> **Status:** Milestone 2 of 6. You can move around a test room and shoot four weapons at practice dummies.
+> Bots, game modes, and menus come in later milestones.
 
 ---
 
@@ -60,6 +60,12 @@ npm install
 | Space          | Jump                            |
 | Shift (hold)   | Sprint (while moving forward)   |
 | C (hold)       | Crouch                          |
+| Left click     | Shoot                           |
+| Right click (hold) | Aim down sights (scope on the sniper) |
+| R              | Reload                          |
+| 1 2 3 4        | Pistol, assault rifle, shotgun, sniper rifle |
+| Mouse wheel    | Next / previous weapon          |
+| Q              | Switch back to the last weapon  |
 | Esc            | Pause and free the mouse cursor |
 | F3             | Show or hide the debug readout  |
 
@@ -73,6 +79,7 @@ Click the game window to capture the mouse. Press Esc to get it back.
 
 **All the gameplay numbers are in one file: [`src/config.ts`](src/config.ts).**
 These include movement speed, jump height, gravity, crouch height, and head bob.
+The `WEAPONS` section has each gun's damage, fire rate, magazine size, reload time, spread, recoil, zoom, and more.
 Each number has a comment explaining it. While `npm run dev` is running, save the file and the game reloads with the new values.
 
 Mouse sensitivity, field of view, and volume will move to an in-game settings menu in milestone 5.
@@ -84,6 +91,11 @@ To add a map, copy `testRoom.ts`, change the numbers, and add it to the list in 
 
 ---
 
+### Sounds and models
+
+All sounds are generated in code (`src/audio/sounds.ts`), and all models are built from simple shapes (`src/assets/`).
+To use a real sound file instead, put it in a `public/sounds/` folder and list it in `SAMPLE_FILES` at the top of `src/audio/sounds.ts`.
+
 ## Project layout
 
 ```
@@ -93,8 +105,12 @@ src/
   core/              Game loop, input, settings, collision
   player/            Player movement
   map/               Map format, map builder, and maps/ (map data)
+  weapons/           Weapon logic, hitscan (bullet tracing), the gun in your hands
+  entities/          Practice dummies (bots come next)
+  effects/           Tracers, sparks, bullet holes
+  audio/             Sound engine and procedural sound effects
   ui/                HUD, overlays, styles
-  assets/            Materials and textures (generated in code; swap in real files here later)
+  assets/            Textures, gun models, character model (made in code; swap in real files here later)
 ```
 
 ## Other commands

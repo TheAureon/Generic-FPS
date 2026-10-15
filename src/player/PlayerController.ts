@@ -35,6 +35,21 @@ export class PlayerController {
   private stepSmoothing = 0;
   private fovBoost = 0;
 
+  /** View kick from weapon recoil (radians), recovers over time. */
+  recoilPitch = 0;
+  recoilYaw = 0;
+  /** Recoil recovery speed (radians per second), set by the current weapon. */
+  recoilRecovery = 0.1;
+  /** Set by the weapon system: slows you while aiming. */
+  speedMultiplier = 1;
+  /** Set by the weapon system: no sprinting while aiming or just after firing. */
+  sprintBlocked = false;
+  /** Camera zoom while aiming (1 = none). */
+  zoom = 1;
+  /** Mouse movement from the last applyLook (used for gun sway). */
+  lastLookDX = 0;
+  lastLookDY = 0;
+
   constructor(
     private world: CollisionWorld,
     private camera: THREE.PerspectiveCamera,
@@ -48,12 +63,38 @@ export class PlayerController {
     this.height = P.height;
     this.crouching = false;
     this.stepSmoothing = 0;
+    this.recoilPitch = 0;
+    this.recoilYaw = 0;
+  }
+
+  addRecoil(pitchDeg: number, yawDeg: number): void {
+    this.recoilPitch += pitchDeg * DEG;
+    this.recoilYaw += yawDeg * DEG;
+  }
+
+  /** Where the player is looking, including recoil (normalized). */
+  getAimDirection(out: THREE.Vector3): THREE.Vector3 {
+    const pitch = this.viewPitch, yaw = this.yaw + this.recoilYaw;
+    return out.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+  }
+
+  /** Eye position in the world. */
+  getEyePosition(out: THREE.Vector3): THREE.Vector3 {
+    return out.set(this.position.x, this.position.y + this.height - P.eyeFromTop, this.position.z);
+  }
+
+  private get viewPitch(): number {
+    const lim = 89 * DEG;
+    return Math.max(-lim, Math.min(lim, this.pitch + this.recoilPitch));
   }
 
   /** Mouse look is applied every rendered frame for responsiveness. */
   applyLook(input: Input): void {
     const { dx, dy } = input.consumeMouseDelta();
-    const sens = settings.get().mouseSensitivity * MOUSE_SCALE;
+    this.lastLookDX = dx;
+    this.lastLookDY = dy;
+    // Lower sensitivity when zoomed so aiming feels the same.
+    const sens = (settings.get().mouseSensitivity * MOUSE_SCALE) / this.zoom;
     this.yaw -= dx * sens;
     this.pitch -= dy * sens;
     const lim = 89 * DEG;
@@ -87,8 +128,8 @@ export class PlayerController {
 
     // ---- Sprint (hold Shift, forward only, not crouched) --------------------
     const wantSprint = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
-    this.sprinting = wantSprint && fwd > 0 && !this.crouching;
-    const speed = this.crouching ? P.crouchSpeed : this.sprinting ? P.sprintSpeed : P.walkSpeed;
+    this.sprinting = wantSprint && fwd > 0 && !this.crouching && !this.sprintBlocked;
+    const speed = (this.crouching ? P.crouchSpeed : this.sprinting ? P.sprintSpeed : P.walkSpeed) * this.speedMultiplier;
 
     // ---- Desired horizontal velocity ----------------------------------------
     const sinY = Math.sin(this.yaw), cosY = Math.cos(this.yaw);
@@ -155,6 +196,11 @@ export class PlayerController {
     if (moving) this.bobPhase += dt * hSpeed * CONFIG.camera.headBobFrequency;
     this.fovBoost += ((this.sprinting && hSpeed > 1 ? 1 : 0) - this.fovBoost) * Math.min(1, dt * 8);
     this.stepSmoothing *= Math.max(0, 1 - dt * 14);
+
+    // ---- Recoil recovery ---------------------------------------------------
+    const rec = this.recoilRecovery * dt;
+    this.recoilPitch = Math.abs(this.recoilPitch) <= rec ? 0 : this.recoilPitch - Math.sign(this.recoilPitch) * rec;
+    this.recoilYaw = Math.abs(this.recoilYaw) <= rec ? 0 : this.recoilYaw - Math.sign(this.recoilYaw) * rec;
   }
 
   private landAt(ground: number, prevY: number): void {
@@ -190,17 +236,19 @@ export class PlayerController {
     const bob = Math.sin(this.bobPhase) * CONFIG.camera.headBobAmount * this.bobAmount;
     const eye = this.position.y + this.height - P.eyeFromTop + bob + this.stepSmoothing;
     this.camera.position.set(this.position.x, eye, this.position.z);
-    this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+    this.camera.rotation.set(this.viewPitch, this.yaw + this.recoilYaw, 0, 'YXZ');
 
-    const fov = settings.get().fov + this.fovBoost * CONFIG.camera.sprintFovBoost;
+    // Zooming narrows the field of view (done on the tangent so it's a true zoom).
+    const baseFov = settings.get().fov + this.fovBoost * CONFIG.camera.sprintFovBoost;
+    const fov = (2 * Math.atan(Math.tan((baseFov * DEG) / 2) / this.zoom)) / DEG;
     if (Math.abs(this.camera.fov - fov) > 0.01) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
     }
   }
 
-  /** Eye position (where bullets come from in later milestones). */
-  get eyeHeight(): number {
-    return this.height - P.eyeFromTop;
+  /** 0..1 how fast we're moving horizontally compared to walking speed. */
+  get moveFactor(): number {
+    return Math.min(1, Math.hypot(this.velocity.x, this.velocity.z) / P.walkSpeed);
   }
 }

@@ -97,6 +97,21 @@ export class Input {
     this.mousePressed.clear();
   }
 
+  /** Testing/debug helper: simulate a mouse button being held or released. */
+  simulateMouse(button: number, isDown: boolean): void {
+    if (isDown) {
+      if (!this.mouseDown.has(button)) this.mousePressed.add(button);
+      this.mouseDown.add(button);
+    } else {
+      this.mouseDown.delete(button);
+    }
+  }
+
+  /** Testing/debug helper: simulate scrolling. */
+  simulateWheel(steps: number): void {
+    this.wheel += steps;
+  }
+
   /** Testing/debug helper: simulate a key being held or released. */
   simulateKey(code: string, isDown: boolean): void {
     if (isDown) {
