@@ -10,7 +10,17 @@ It's built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https:
 
 ## How to run it (Mac)
 
-### One-time setup
+### Quickest: double-click `Play.html`
+
+Double-click **`Play.html`** in the project folder. It opens in your browser and runs the game. You don't need Terminal or Node.js.
+
+> Don't open `index.html` directly. That file only works through the development server below, and opened on its own it just shows instructions.
+
+`Play.html` is rebuilt at each milestone. If you change `src/config.ts`, use the development server below to see your changes, or run `npm run build:play` to rebuild `Play.html`.
+
+### Development server (to tweak the game)
+
+#### One-time setup
 
 1. **Install Node.js.** Go to <https://nodejs.org>, download the **LTS** installer for macOS, and run it.
 2. **Get the code.** Open the **Terminal** app (press Cmd+Space, type *Terminal*, press Enter) and paste:
@@ -26,7 +36,7 @@ It's built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https:
    npm install
    ```
 
-### Every time you want to play
+#### Every time you want to play
 
 In Terminal:
 
@@ -40,7 +50,7 @@ To stop the game server, click the Terminal window and press **Ctrl+C**.
 
 Chrome is recommended. Safari and Firefox also work.
 
-### Getting updates
+#### Getting updates
 
 When new milestones are pushed, run this in the `Generic-FPS` folder:
 
@@ -119,4 +129,5 @@ src/
 ## Other commands
 
 - `npm run build`: checks the code for errors and builds a production version into `dist/`
+- `npm run build:play`: rebuilds the double-clickable `Play.html`
 - `npm run preview`: serves that production build locally

@@ -1,5 +1,8 @@
 import { Game } from './core/Game';
 
+// The game loaded, so hide the "how to start" message from index.html.
+document.getElementById('boot-message')?.remove();
+
 const game = new Game(document.getElementById('game-root')!, document.getElementById('ui-root')!);
 game.start();
 

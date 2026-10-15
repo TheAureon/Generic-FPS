@@ -7,7 +7,8 @@
     "dev": "vite --open",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --open",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:play": "tsc --noEmit && vite build --config vite.standalone.config.ts && node -e \"require('fs').copyFileSync('dist-play/index.html','Play.html')\""
   },
   "dependencies": {
     "three": "^0.170.0"
@@ -15,6 +16,7 @@
   "devDependencies": {
     "@types/three": "^0.170.0",
     "typescript": "5.6",
-    "vite": "^6.4.4"
+    "vite": "^6.4.4",
+    "vite-plugin-singlefile": "^2.3.3"
   }
 }
