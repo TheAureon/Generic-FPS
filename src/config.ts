@@ -63,8 +63,12 @@ export const CONFIG = {
 
   /** Until the match menu exists (milestone 5), these set up the test match. */
   testMatch: {
-    botCount: 1,
+    /** 'foundry' (the arena) or 'test-room'. */
+    map: 'foundry',
+    botCount: 4,
     difficulty: 'normal' as 'easy' | 'normal' | 'hard',
+    /** true = everyone for themselves (bots fight each other too); false = all bots hunt only you. */
+    freeForAll: true,
   },
 
   render: {

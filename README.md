@@ -3,8 +3,8 @@
 A singleplayer first-person shooter that runs in your web browser. You fight AI bots.
 It's built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https://vitejs.dev/) (development server).
 
-> **Status:** Milestone 3 of 6. A bot hunts you in a test room: it sees, hears, chases, and shoots back.
-> Smarter bots with map navigation, game modes, and menus come in later milestones.
+> **Status:** Milestone 4 of 6. A free-for-all against 4 bots in the Foundry arena. Bots navigate the map, take cover, retreat, chase, and search.
+> Game modes, menus, and pickups come in milestone 5; polish in milestone 6.
 
 ---
 
@@ -77,7 +77,8 @@ npm install
 | Mouse wheel    | Next / previous weapon          |
 | Q              | Switch back to the last weapon  |
 | Esc            | Pause and free the mouse cursor |
-| F3             | Show or hide the debug readout  |
+| ` (or F3)      | Show or hide the info readout (frame rate, bot states) |
+| B (or F4)      | Show or hide bot paths, the navigation graph, and bot state labels |
 
 Click the game window to capture the mouse. Press Esc to get it back.
 
@@ -91,15 +92,31 @@ Click the game window to capture the mouse. Press Esc to get it back.
 These include movement speed, jump height, gravity, crouch height, and head bob.
 The `WEAPONS` section has each gun's damage, fire rate, magazine size, reload time, spread, recoil, zoom, and more.
 The `BOTS` section sets bot speed, health, vision range and angle, and memory. `BOT_DIFFICULTY` sets reaction time, aim error, turn speed, burst length, and aggression for Easy, Normal, and Hard.
-Until the match menu arrives in milestone 5, `testMatch` near the top picks how many bots spawn and their difficulty.
+Until the match menu arrives in milestone 5, `testMatch` near the top picks the map, how many bots spawn, their difficulty, and whether bots also fight each other (`freeForAll`).
 Each number has a comment explaining it. While `npm run dev` is running, save the file and the game reloads with the new values.
 
 Mouse sensitivity, field of view, and volume will move to an in-game settings menu in milestone 5.
 
 ### Maps
 
-Maps are defined as plain data in [`src/map/maps/`](src/map/maps/). Each map is a list of boxes (walls, floors, crates) and ramps with positions and sizes in meters.
-To add a map, copy `testRoom.ts`, change the numbers, and add it to the list in `src/map/maps/index.ts`.
+Maps are defined as plain data in [`src/map/maps/`](src/map/maps/). Each map is a list of boxes (walls, floors, crates) and ramps with positions and sizes in meters, plus spawn points.
+To add a map, copy `foundry.ts` (the main arena) or `testRoom.ts` (a small room), change the numbers, and add it to the list in `src/map/maps/index.ts`.
+
+Bots find their way around any map automatically. When a map loads, the game scans it for every spot a bot can stand on, on every level, and links spots a bot can walk between. That includes ramps and drops off ledges. You don't need to place waypoints by hand. Press **B** in-game to see this navigation graph.
+
+### How the bots think
+
+Each bot runs a small state machine (`src/bots/BotBrain.ts`). Press **B** to see each bot's current state above its head:
+
+| State | What the bot does |
+| --- | --- |
+| patrol | Walks between random spots, pausing to look around |
+| investigate | Heard a gunshot (or was shot by someone it can't see): turns and goes to check |
+| attack | Sees an enemy: aims (with reaction time and imperfect aim), fires in bursts, strafes, keeps its distance |
+| cover | Under fire: runs to a nearby spot the enemy can't see, reloads, then peeks out |
+| retreat | Low on health: runs to a hidden spot farther away, fighting back if cornered |
+| chase | Lost sight of the enemy: goes to where it was last seen |
+| search | Reached that spot and found nothing: checks a few places nearby, then goes back to patrolling |
 
 ---
 
@@ -116,7 +133,7 @@ src/
   main.ts            Entry point
   core/              Game loop, input, settings, collision, shared walking physics
   player/            Player movement, health, and armor
-  bots/              Bot body, senses (Perception), aim, brain (state machine), and manager
+  bots/              Bot body, senses (Perception), aim, brain (state machine), navigation (NavGraph, Navigator), manager, debug view
   map/               Map format, map builder, and maps/ (map data)
   weapons/           Weapon logic, hitscan (bullet tracing), the gun in your hands
   entities/          Practice dummies

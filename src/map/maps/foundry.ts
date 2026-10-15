@@ -1,0 +1,151 @@
+import type { BoxDef, MapDef } from '../MapTypes';
+
+/**
+ * FOUNDRY — the main arena (60 x 44 m).
+ *
+ *   West yard | Center               | East yard
+ *   raised    | two-story building   | raised
+ *   deck      | with a roof you can  | deck
+ *   + ramp    | reach by a ramp      | + ramp
+ *
+ * Two dividing walls (x = -15 and x = +15) each have two doorways: these
+ * are the choke points between the yards and the center. The center
+ * building has doors on the north, south, and east sides.
+ *
+ * Coordinates: X runs west (-) to east (+), Z runs north (-) to south (+),
+ * Y is up. Box x/z = center, y = bottom.
+ */
+
+const HALF_X = 30;
+const HALF_Z = 22;
+const WALL_H = 7;
+const DIVIDER_H = 4;
+
+// The center building: 12 x 12, walls 0.5 thick, 3 m tall, roof on top.
+const BLD = 6;
+const BLD_H = 3;
+const ROOF_T = 0.5;
+const DOOR = 2.4; // doorway width
+const DOOR_H = 2.4;
+
+const perimeter: BoxDef[] = [
+  { x: 0, y: -1, z: 0, w: HALF_X * 2 + 2, h: 1, d: HALF_Z * 2 + 2, material: 'floor' },
+  { x: 0, y: 0, z: -HALF_Z - 0.5, w: HALF_X * 2 + 2, h: WALL_H, d: 1, material: 'wall' },
+  { x: 0, y: 0, z: HALF_Z + 0.5, w: HALF_X * 2 + 2, h: WALL_H, d: 1, material: 'wall' },
+  { x: -HALF_X - 0.5, y: 0, z: 0, w: 1, h: WALL_H, d: HALF_Z * 2, material: 'wall' },
+  { x: HALF_X + 0.5, y: 0, z: 0, w: 1, h: WALL_H, d: HALF_Z * 2, material: 'wall' },
+];
+
+// Dividing walls with two 3 m doorways each (at z = -12 and z = +12).
+const dividers: BoxDef[] = [-15, 15].flatMap((x) => [
+  { x, y: 0, z: -17.75, w: 1, h: DIVIDER_H, d: 8.5, material: 'concrete' as const },
+  { x, y: 0, z: 0, w: 1, h: DIVIDER_H, d: 21, material: 'concrete' as const },
+  { x, y: 0, z: 17.75, w: 1, h: DIVIDER_H, d: 8.5, material: 'concrete' as const },
+]);
+
+const side = (BLD - DOOR / 2) / 2 + DOOR / 2; // center of a wall segment beside a door
+const segLen = BLD - DOOR / 2;
+const building: BoxDef[] = [
+  // North wall (door in the middle) + lintel over the door
+  { x: -side, y: 0, z: -BLD + 0.25, w: segLen, h: BLD_H, d: 0.5, material: 'wall' },
+  { x: side, y: 0, z: -BLD + 0.25, w: segLen, h: BLD_H, d: 0.5, material: 'wall' },
+  { x: 0, y: DOOR_H, z: -BLD + 0.25, w: DOOR, h: BLD_H - DOOR_H, d: 0.5, material: 'wall' },
+  // South wall
+  { x: -side, y: 0, z: BLD - 0.25, w: segLen, h: BLD_H, d: 0.5, material: 'wall' },
+  { x: side, y: 0, z: BLD - 0.25, w: segLen, h: BLD_H, d: 0.5, material: 'wall' },
+  { x: 0, y: DOOR_H, z: BLD - 0.25, w: DOOR, h: BLD_H - DOOR_H, d: 0.5, material: 'wall' },
+  // West wall (solid)
+  { x: -BLD + 0.25, y: 0, z: 0, w: 0.5, h: BLD_H, d: BLD * 2 - 1, material: 'wall' },
+  // East wall (door in the middle)
+  { x: BLD - 0.25, y: 0, z: -side, w: 0.5, h: BLD_H, d: segLen - 0.5, material: 'wall' },
+  { x: BLD - 0.25, y: 0, z: side, w: 0.5, h: BLD_H, d: segLen - 0.5, material: 'wall' },
+  { x: BLD - 0.25, y: DOOR_H, z: 0, w: 0.5, h: BLD_H - DOOR_H, d: DOOR + 0.5, material: 'wall' },
+  // Roof
+  { x: 0, y: BLD_H, z: 0, w: BLD * 2, h: ROOF_T, d: BLD * 2, material: 'metal' },
+  // Low walls around the roof edge (cover up top). Gap on the west side for the ramp.
+  { x: 0, y: BLD_H + ROOF_T, z: -BLD + 0.2, w: BLD * 2, h: 1, d: 0.4, material: 'trim' },
+  { x: 0, y: BLD_H + ROOF_T, z: BLD - 0.2, w: BLD * 2, h: 1, d: 0.4, material: 'trim' },
+  { x: BLD - 0.2, y: BLD_H + ROOF_T, z: 0, w: 0.4, h: 1, d: BLD * 2 - 0.8, material: 'trim' },
+  { x: -BLD + 0.2, y: BLD_H + ROOF_T, z: -3.9, w: 0.4, h: 1, d: 3.4, material: 'trim' },
+  { x: -BLD + 0.2, y: BLD_H + ROOF_T, z: 3.9, w: 0.4, h: 1, d: 3.4, material: 'trim' },
+  // Crate on the roof
+  { x: 1.5, y: BLD_H + ROOF_T, z: 0, w: 1.5, h: 1.2, d: 1.5, material: 'crate' },
+  // Inside: a couple of crates
+  { x: -3, y: 0, z: -3, w: 1.4, h: 1.1, d: 1.4, material: 'crate' },
+  { x: 3, y: 0, z: 3.2, w: 1.4, h: 1.1, d: 1.4, material: 'crate' },
+];
+
+const center: BoxDef[] = [
+  // Low walls north and south of the building
+  { x: 0, y: 0, z: -11, w: 6, h: 1.2, d: 0.6, material: 'concrete' },
+  { x: 0, y: 0, z: 11, w: 6, h: 1.2, d: 0.6, material: 'concrete' },
+  // Tall pillars (full cover)
+  { x: -10, y: 0, z: -8, w: 1.5, h: 4, d: 1.5, material: 'concrete' },
+  { x: 10, y: 0, z: -8, w: 1.5, h: 4, d: 1.5, material: 'concrete' },
+  { x: -10, y: 0, z: 8, w: 1.5, h: 4, d: 1.5, material: 'concrete' },
+  { x: 10, y: 0, z: 8, w: 1.5, h: 4, d: 1.5, material: 'concrete' },
+  // Crates
+  { x: -8.5, y: 0, z: -16, w: 2, h: 1.3, d: 2, material: 'crate' },
+  { x: 8.5, y: 0, z: 16, w: 2, h: 1.3, d: 2, material: 'crate' },
+  { x: 9, y: 0, z: -17, w: 1.5, h: 2.2, d: 1.5, material: 'crate' },
+  { x: -9, y: 0, z: 17, w: 1.5, h: 2.2, d: 1.5, material: 'crate' },
+];
+
+// West yard: raised deck along the west wall, reached by a ramp from the south.
+const west: BoxDef[] = [
+  { x: -27.5, y: 0, z: 0, w: 5, h: 2.5, d: 20, material: 'concrete' },
+  // Low wall on the deck edge (gaps at both ends to drop down)
+  { x: -25.2, y: 2.5, z: 0, w: 0.4, h: 1, d: 14, material: 'trim' },
+  { x: -20, y: 0, z: -15, w: 2, h: 2, d: 2, material: 'crate' },
+  { x: -21.5, y: 0, z: -12.8, w: 1.5, h: 1.2, d: 1.5, material: 'crate' },
+  { x: -19, y: 0, z: 6, w: 2, h: 2, d: 2, material: 'crate' },
+  { x: -22, y: 0, z: 17, w: 3, h: 1.2, d: 1.5, material: 'crate' },
+  { x: -20, y: 0, z: -2, w: 1.5, h: 4, d: 1.5, material: 'concrete' },
+];
+
+// East yard: mirror image, ramp from the north.
+const east: BoxDef[] = [
+  { x: 27.5, y: 0, z: 0, w: 5, h: 2.5, d: 20, material: 'concrete' },
+  { x: 25.2, y: 2.5, z: 0, w: 0.4, h: 1, d: 14, material: 'trim' },
+  { x: 20, y: 0, z: 15, w: 2, h: 2, d: 2, material: 'crate' },
+  { x: 21.5, y: 0, z: 12.8, w: 1.5, h: 1.2, d: 1.5, material: 'crate' },
+  { x: 19, y: 0, z: -6, w: 2, h: 2, d: 2, material: 'crate' },
+  { x: 22, y: 0, z: -17, w: 3, h: 1.2, d: 1.5, material: 'crate' },
+  { x: 20, y: 0, z: 2, w: 1.5, h: 4, d: 1.5, material: 'concrete' },
+];
+
+export const foundry: MapDef = {
+  id: 'foundry',
+  name: 'Foundry',
+  description: 'Two yards with raised decks, split from a central two-story building by walls with doorways.',
+  skyColor: 0xa9c6de,
+  fogNear: 70,
+  fogFar: 180,
+  boxes: [...perimeter, ...dividers, ...building, ...center, ...west, ...east],
+  ramps: [
+    // Up to the building roof from the west (rises toward +x, reaching the roof edge).
+    { x: -10, z: 0, w: 8, d: 3, low: 0, high: BLD_H + ROOF_T, dir: '+x', material: 'metal' },
+    // West deck ramp, from the south (rises toward -z).
+    { x: -27.5, z: 13, w: 5, d: 6, low: 0, high: 2.5, dir: '-z', material: 'metal' },
+    // East deck ramp, from the north (rises toward +z).
+    { x: 27.5, z: -13, w: 5, d: 6, low: 0, high: 2.5, dir: '+z', material: 'metal' },
+  ],
+  playerSpawns: [
+    { x: -22, y: 0, z: -18, yaw: -45 },
+    { x: 22, y: 0, z: 18, yaw: 135 },
+    { x: -27.5, y: 2.5, z: -5, yaw: -90 },
+    { x: 27.5, y: 2.5, z: 5, yaw: 90 },
+    { x: 0, y: 0, z: -18, yaw: 0 },
+    { x: 0, y: 0, z: 18, yaw: 180 },
+  ],
+  botSpawns: [
+    { x: -22, y: 0, z: 18, yaw: -135 },
+    { x: 22, y: 0, z: -18, yaw: 45 },
+    { x: -27.5, y: 2.5, z: 5, yaw: -90 },
+    { x: 27.5, y: 2.5, z: -5, yaw: 90 },
+    { x: 0, y: 0, z: 0, yaw: 0 },
+    { x: 3, y: BLD_H + ROOF_T, z: 3, yaw: 180 },
+    { x: -10, y: 0, z: -18, yaw: 0 },
+    { x: 10, y: 0, z: 18, yaw: 180 },
+  ],
+};

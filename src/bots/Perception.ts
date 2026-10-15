@@ -72,7 +72,7 @@ export class Perception {
   }
 
   /** Field of view + range + line of sight (walls block vision). */
-  private checkVision(eye: THREE.Vector3, yaw: number, target: Trackable, world: CollisionWorld): boolean {
+  checkVision(eye: THREE.Vector3, yaw: number, target: Trackable, world: CollisionWorld): boolean {
     const p = target.position;
     const dx = p.x - eye.x, dz = p.z - eye.z;
     const flatDist = Math.hypot(dx, dz);
@@ -111,6 +111,14 @@ export class Perception {
 
   clearNoise(): void {
     this.hasNoise = false;
+  }
+
+  /** Switch attention to a different target (forget the old one). */
+  retarget(): void {
+    this.canSee = false;
+    this.visibleTime = 0;
+    this.hasLastSeen = false;
+    this.checkTimer = 0;
   }
 
   reset(): void {

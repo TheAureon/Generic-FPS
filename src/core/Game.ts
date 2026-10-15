@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config';
 import { audio } from '../audio/AudioEngine';
+import { BotDebugView } from '../bots/BotDebugView';
 import { BotManager } from '../bots/BotManager';
 import { Effects } from '../effects/Effects';
 import { TargetDummy } from '../entities/TargetDummy';
@@ -38,6 +39,7 @@ export class Game {
   readonly effects: Effects;
   readonly weapons: WeaponSystem;
   readonly bots: BotManager;
+  readonly botDebug: BotDebugView;
   readonly dummies: TargetDummy[] = [];
 
   private hud: Hud;
@@ -65,7 +67,7 @@ export class Game {
     this.scene.add(this.camera);
 
     this.input = new Input(this.renderer.domElement);
-    this.map = buildMap(getMap('test-room'), this.scene);
+    this.map = buildMap(getMap(CONFIG.testMatch.map), this.scene);
     this.controller = new PlayerController(this.map.world, this.camera);
     this.player = new Player(this.controller);
     this.player.respawn(this.map.def.playerSpawns[0]);
@@ -77,8 +79,15 @@ export class Game {
       this.dummies.push(new TargetDummy(`Dummy ${i + 1}`, t, this.scene));
     });
 
-    this.bots = new BotManager({ scene: this.scene, map: this.map, effects: this.effects, player: this.player });
+    this.bots = new BotManager({
+      scene: this.scene,
+      map: this.map,
+      effects: this.effects,
+      player: this.player,
+      freeForAll: CONFIG.testMatch.freeForAll,
+    });
     this.bots.spawnBots(CONFIG.testMatch.botCount, CONFIG.testMatch.difficulty);
+    this.botDebug = new BotDebugView(this.bots, this.scene);
 
     this.weapons = new WeaponSystem({
       world: this.map.world,
@@ -145,7 +154,9 @@ export class Game {
   private frame(): void {
     const dt = Math.min(this.clock.getDelta(), MAX_FRAME_DT);
 
-    if (this.input.wasPressed('F3')) this.hud.showDebug = !this.hud.showDebug;
+    // Debug toggles (F-keys need fn on a Mac, so there are letter alternatives).
+    if (this.input.wasPressed('F3') || this.input.wasPressed('Backquote')) this.hud.showDebug = !this.hud.showDebug;
+    if (this.input.wasPressed('F4') || this.input.wasPressed('KeyB')) this.botDebug.visible = !this.botDebug.visible;
 
     const playing = this.state === 'playing';
     const alive = this.player.isAlive();
@@ -166,6 +177,7 @@ export class Game {
       this.effects.update(dt);
       this.updateDeath(dt);
     }
+    this.botDebug.update();
     this.controller.updateCamera();
     // Weapons after the camera moves, so shots go exactly where you see.
     this.weapons.update(playing ? dt : 0, this.input, playing && alive);
@@ -183,9 +195,9 @@ export class Game {
       `pos ${p.position.x.toFixed(1)} ${p.position.y.toFixed(2)} ${p.position.z.toFixed(1)}`,
       `speed ${Math.hypot(p.velocity.x, p.velocity.z).toFixed(1)} m/s${p.sprinting ? ' (sprint)' : ''}${p.crouching ? ' (crouch)' : ''}`,
       `spread ${this.weapons.currentSpread().toFixed(2)}°`,
-      ...this.bots.bots.map((b) => `${b.name}: ${b.state} hp ${Math.ceil(b.health)}${b.perception.canSee ? ' (sees you)' : ''}`),
+      ...this.bots.brains.map((br) => `${br.bot.name}: ${br.state} hp ${Math.ceil(br.bot.health)}${br.target && br.bot.perception.canSee ? ' → ' + br.target.name : ''}`),
       `draw calls ${this.renderer.info.render.calls}`,
-      `F3 hides this`,
+      '` (or F3) hides this · B (or F4) shows bot paths',
     ]);
 
     this.input.endFrame();

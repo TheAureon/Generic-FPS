@@ -51,6 +51,14 @@ export class Bot implements Damageable, Trackable {
   moveSpeed: number = BOTS.walkSpeed;
   /** If set, the bot moves in this direction instead (for strafing). */
   moveDir: THREE.Vector3 | null = null;
+  /** Slow down when reaching moveTarget (true for the end of a path). */
+  slowOnArrive = true;
+
+  /** Who shot this bot last, and when (seconds of bot time). */
+  lastAttacker: string | null = null;
+  lastDamagedAt = -Infinity;
+  /** Seconds since this bot was created (its own clock). */
+  time = 0;
 
   private weaponModel: THREE.Group;
   private muzzle: THREE.Object3D;
@@ -78,6 +86,7 @@ export class Bot implements Damageable, Trackable {
     this.model.hand.add(this.weaponModel);
     this.muzzle = this.weaponModel.getObjectByName('muzzle')!;
     ctx.scene.add(this.model.root);
+    this.model.root.visible = false; // until spawned
 
     this.weapon = new Weapon(BOTS.weapon);
   }
@@ -111,6 +120,8 @@ export class Bot implements Damageable, Trackable {
     this.weapon.ammo = this.weapon.stats.magazineSize;
     this.weapon.cancelReload();
     this.perception.reset();
+    this.lastAttacker = null;
+    this.lastDamagedAt = -Infinity;
     this.moveTarget = null;
     this.moveDir = null;
     this.state = 'idle';
@@ -122,6 +133,8 @@ export class Bot implements Damageable, Trackable {
     if (!this.isAlive()) return false;
     this.health -= info.amount;
     this.flash = 1;
+    this.lastAttacker = info.attacker;
+    this.lastDamagedAt = this.time;
     // Getting shot tells the bot roughly where the shooter is.
     this.perception.alertFrom(info.from);
     const killed = this.health <= 0;
@@ -213,7 +226,7 @@ export class Bot implements Damageable, Trackable {
       const d = Math.hypot(dx, dz);
       if (d > 0.15) {
         // Slow down when arriving.
-        const speed = Math.min(this.moveSpeed, d * 4);
+        const speed = this.slowOnArrive ? Math.min(this.moveSpeed, d * 4) : this.moveSpeed;
         tvx = (dx / d) * speed;
         tvz = (dz / d) * speed;
       }
@@ -224,6 +237,7 @@ export class Bot implements Damageable, Trackable {
 
   /** Timers, animation, and keeping the model and hitbox in place. */
   update(dt: number): void {
+    this.time += dt;
     const w = this.weapon;
     w.update(dt);
 

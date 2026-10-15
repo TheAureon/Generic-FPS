@@ -7,25 +7,41 @@ import { events } from '../core/events';
 import type { Effects } from '../effects/Effects';
 import type { BuiltMap } from '../map/MapBuilder';
 import type { SpawnPoint } from '../map/MapTypes';
-import type { Player } from '../player/Player';
+import type { Player, Trackable } from '../player/Player';
 import { Bot } from './Bot';
 import { BotBrain } from './BotBrain';
+import { NavGraph } from './NavGraph';
 
 export interface BotManagerDeps {
   scene: THREE.Scene;
   map: BuiltMap;
   effects: Effects;
   player: Player;
+  /** true = bots also fight each other; false = they all hunt only the player. */
+  freeForAll: boolean;
+  /** Optional: where health can be found (for retreating bots). */
+  findHealth?: (from: THREE.Vector3) => THREE.Vector3 | null;
 }
 
 /** Creates bots, runs their brains, and respawns them. */
 export class BotManager {
   readonly bots: Bot[] = [];
-  private brains: BotBrain[] = [];
+  readonly brains: BotBrain[] = [];
+  readonly nav: NavGraph;
   private world: CollisionWorld;
+  /** Everyone in the fight (player + bots). */
+  private combatants: (Trackable & Damageable)[] = [];
+  private onlyPlayer: (Trackable & Damageable)[];
 
   constructor(private d: BotManagerDeps) {
     this.world = d.map.world;
+    this.combatants.push(d.player);
+    this.onlyPlayer = [d.player];
+
+    // Build the navigation graph from the map (connected to the spawn points).
+    const def = d.map.def;
+    const seeds = [...def.playerSpawns, ...def.botSpawns].map((s) => new THREE.Vector3(s.x, s.y, s.z));
+    this.nav = NavGraph.build(this.world, d.map.bounds, seeds, { radius: BOTS.radius + 0.06 });
 
     // Bots hear gunshots within each gun's hearing range.
     events.on('shot', (e) => {
@@ -36,28 +52,40 @@ export class BotManager {
     });
   }
 
+  /** Who a bot may shoot at. */
+  private enemiesOf(bot: Bot): readonly (Trackable & Damageable)[] {
+    return this.d.freeForAll ? this.combatants.filter((c) => c !== bot) : this.onlyPlayer;
+  }
+
   spawnBots(count: number, difficulty: Difficulty): void {
-    const enemies: Damageable[] = [this.d.player];
     for (let i = 0; i < count; i++) {
-      const name = BOTS.names[i % BOTS.names.length];
+      const idx = this.bots.length;
+      const name = BOTS.names[idx % BOTS.names.length];
+      this.enemyLists[idx] = [];
+      const getEnemies = () => this.enemyLists[idx];
       const bot = new Bot(name, difficulty, {
         world: this.world,
         scene: this.d.scene,
         effects: this.d.effects,
-        getEnemies: () => enemies,
+        getEnemies,
         listener: this.d.player,
       });
-      const brain = new BotBrain(bot, {
-        world: this.world,
-        target: this.d.player,
-        randomPoint: () => this.randomPoint(),
-      });
+      const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth });
       this.bots.push(bot);
       this.brains.push(brain);
-      bot.spawn(this.pickSpawn());
-      brain.reset();
+      this.combatants.push(bot);
     }
+    // Everyone's list of enemies, now that the roster is known.
+    this.bots.forEach((b, j) => (this.enemyLists[j] = this.enemiesOf(b)));
+    // Spawn one at a time so they spread out.
+    this.bots.forEach((b, j) => {
+      if (b.model.root.visible) return;
+      b.spawn(this.pickSpawn());
+      this.brains[j].reset();
+    });
   }
+
+  private enemyLists: (readonly (Trackable & Damageable)[])[] = [];
 
   /** Fixed-rate movement + keeping characters from overlapping. */
   physicsStep(dt: number): void {
@@ -80,42 +108,38 @@ export class BotManager {
         bot.spawn(this.pickSpawn());
         this.brains[i].reset();
       }
+      // Fell out of the map somehow: put it back.
+      if (bot.isAlive() && bot.position.y < -20) {
+        bot.spawn(this.pickSpawn());
+        this.brains[i].reset();
+      }
     }
   }
 
-  /** Bot spawn point that's far from the player and preferably out of sight. */
+  /** A spawn point far from everyone else and out of their sight. */
   pickSpawn(): SpawnPoint {
-    const spawns = this.d.map.def.botSpawns;
-    const pp = this.d.player.position;
-    const eyeY = pp.y + 1.6;
+    const def = this.d.map.def;
+    const spawns = this.d.freeForAll ? [...def.botSpawns, ...def.playerSpawns] : def.botSpawns;
     let best = spawns[0];
     let bestScore = -Infinity;
     for (const s of spawns) {
-      let score = Math.hypot(s.x - pp.x, s.z - pp.z);
-      if (this.world.hasLineOfSight(pp.x, eyeY, pp.z, s.x, s.y + 1.6, s.z)) score -= 30;
-      // Don't stack bots on the same spot.
-      for (const b of this.bots) if (b.isAlive() && Math.hypot(b.position.x - s.x, b.position.z - s.z) < 2) score -= 50;
-      score += Math.random() * 5;
+      let nearest = Infinity;
+      let seen = false;
+      for (const c of this.combatants) {
+        if (!c.isAlive() || (c instanceof Bot && !c.model.root.visible)) continue;
+        const p = c.position;
+        nearest = Math.min(nearest, Math.hypot(p.x - s.x, p.z - s.z));
+        if (c === this.d.player && this.world.hasLineOfSight(p.x, p.y + 1.6, p.z, s.x, s.y + 1.6, s.z)) seen = true;
+      }
+      let score = Math.min(nearest, 40) + Math.random() * 6;
+      if (seen) score -= 30;
+      if (nearest < 3) score -= 100;
       if (score > bestScore) {
         bestScore = score;
         best = s;
       }
     }
     return best;
-  }
-
-  /** A random spot a bot could stand on. */
-  randomPoint(): THREE.Vector3 {
-    const b = this.d.map.bounds;
-    for (let tries = 0; tries < 30; tries++) {
-      const x = THREE.MathUtils.lerp(b.min.x + 1, b.max.x - 1, Math.random());
-      const z = THREE.MathUtils.lerp(b.min.z + 1, b.max.z - 1, Math.random());
-      const y = this.world.groundHeight(x, z, BOTS.radius, b.max.y);
-      if (!Number.isFinite(y)) continue;
-      const blocked = this.world.findBlocker({ x, z, feet: y, height: BOTS.height, radius: BOTS.radius }, 0.45);
-      if (!blocked) return new THREE.Vector3(x, y, z);
-    }
-    return this.bots[0]?.position.clone() ?? new THREE.Vector3();
   }
 }
 

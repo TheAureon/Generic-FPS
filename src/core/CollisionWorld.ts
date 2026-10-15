@@ -8,6 +8,8 @@ export interface AABB {
   maxX: number;
   maxY: number;
   maxZ: number;
+  /** Internal: used to avoid checking the same object twice in one query. */
+  _q?: number;
 }
 
 interface Ramp extends AABB {
@@ -58,6 +60,16 @@ export class CollisionWorld {
   /** Every box and ramp as a convex shape, used for ray tests. */
   private solids: Solid[] = [];
 
+  // A grid over the map (seen from above) so walking checks only look at
+  // nearby boxes instead of all of them. Rebuilt when the map changes.
+  private static CELL = 4;
+  private boxGrid = new Map<number, AABB[]>();
+  private rampGrid = new Map<number, Ramp[]>();
+  private gridDirty = true;
+  private queryId = 0;
+  private nearBoxes: AABB[] = [];
+  private nearRamps: Ramp[] = [];
+
   addBox(b: BoxDef): void {
     const box: AABB = {
       minX: b.x - b.w / 2,
@@ -69,6 +81,7 @@ export class CollisionWorld {
     };
     this.boxes.push(box);
     this.solids.push({ planes: boxPlanes(box), bounds: box });
+    this.gridDirty = true;
   }
 
   addRamp(r: RampDef): void {
@@ -96,6 +109,50 @@ export class CollisionWorld {
       case '-z': planes.push(norm(0, 1, k / d, ramp.low + (k / d) * ramp.maxZ)); break;
     }
     this.solids.push({ planes, bounds: ramp });
+    this.gridDirty = true;
+  }
+
+  private static key(ix: number, iz: number): number {
+    return (ix + 2048) * 4096 + (iz + 2048);
+  }
+
+  private rebuildGrid(): void {
+    const C = CollisionWorld.CELL;
+    this.boxGrid.clear();
+    this.rampGrid.clear();
+    const insert = <T extends AABB>(grid: Map<number, T[]>, a: T) => {
+      for (let ix = Math.floor(a.minX / C); ix <= Math.floor(a.maxX / C); ix++) {
+        for (let iz = Math.floor(a.minZ / C); iz <= Math.floor(a.maxZ / C); iz++) {
+          const k = CollisionWorld.key(ix, iz);
+          let list = grid.get(k);
+          if (!list) grid.set(k, (list = []));
+          list.push(a);
+        }
+      }
+    };
+    for (const b of this.boxes) insert(this.boxGrid, b);
+    for (const r of this.ramps) insert(this.rampGrid, r);
+    this.gridDirty = false;
+  }
+
+  /** Collects boxes and ramps near a footprint into nearBoxes / nearRamps. */
+  private gather(x: number, z: number, radius: number): void {
+    if (this.gridDirty) this.rebuildGrid();
+    const C = CollisionWorld.CELL;
+    const q = ++this.queryId;
+    this.nearBoxes.length = 0;
+    this.nearRamps.length = 0;
+    for (let ix = Math.floor((x - radius) / C); ix <= Math.floor((x + radius) / C); ix++) {
+      for (let iz = Math.floor((z - radius) / C); iz <= Math.floor((z + radius) / C); iz++) {
+        const k = CollisionWorld.key(ix, iz);
+        for (const b of this.boxGrid.get(k) ?? EMPTY) {
+          if (b._q !== q) { b._q = q; this.nearBoxes.push(b); }
+        }
+        for (const r of this.rampGrid.get(k) ?? EMPTY) {
+          if (r._q !== q) { r._q = q; this.nearRamps.push(r as Ramp); }
+        }
+      }
+    }
   }
 
   /**
@@ -176,12 +233,13 @@ export class CollisionWorld {
   findBlocker(body: Body, stepHeight: number): AABB | null {
     const stepTop = body.feet + stepHeight;
     const head = body.feet + body.height;
-    for (const b of this.boxes) {
+    this.gather(body.x, body.z, body.radius);
+    for (const b of this.nearBoxes) {
       if (b.maxY > stepTop && b.minY < head && CollisionWorld.overlapsXZ(b, body.x, body.z, body.radius)) {
         return b;
       }
     }
-    for (const r of this.ramps) {
+    for (const r of this.nearRamps) {
       if (r.minY < head && CollisionWorld.overlapsXZ(r, body.x, body.z, body.radius)) {
         if (this.rampMaxUnder(r, body.x, body.z, body.radius) > stepTop) return r;
       }
@@ -195,10 +253,11 @@ export class CollisionWorld {
    */
   groundHeight(x: number, z: number, radius: number, maxY: number): number {
     let best = -Infinity;
-    for (const b of this.boxes) {
+    this.gather(x, z, radius);
+    for (const b of this.nearBoxes) {
       if (b.maxY <= maxY && b.maxY > best && CollisionWorld.overlapsXZ(b, x, z, radius)) best = b.maxY;
     }
-    for (const r of this.ramps) {
+    for (const r of this.nearRamps) {
       if (!CollisionWorld.overlapsXZ(r, x, z, radius)) continue;
       const h = this.rampHeightAt(r, x, z);
       if (h <= maxY && h > best) best = h;
@@ -209,12 +268,15 @@ export class CollisionWorld {
   /** Lowest ceiling above the body (bottom of a box above `minY`). */
   ceilingHeight(x: number, z: number, radius: number, minY: number): number {
     let best = Infinity;
-    for (const b of this.boxes) {
+    this.gather(x, z, radius);
+    for (const b of this.nearBoxes) {
       if (b.minY >= minY && b.minY < best && CollisionWorld.overlapsXZ(b, x, z, radius)) best = b.minY;
     }
     return best;
   }
 }
+
+const EMPTY: never[] = [];
 
 function norm(nx: number, ny: number, nz: number, d: number): Plane {
   const l = Math.hypot(nx, ny, nz);
