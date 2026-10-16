@@ -25,7 +25,12 @@ export type SoundId =
   | 'armor_hit'
   | 'whiz'
   | 'death'
-  | 'bot_death';
+  | 'bot_death'
+  | 'pickup'
+  | 'wave_start'
+  | 'win'
+  | 'lose'
+  | 'ui_click';
 
 export const SAMPLE_FILES: Partial<Record<SoundId, string>> = {};
 
@@ -163,6 +168,24 @@ export const SYNTHS: Record<SoundId, Synth> = {
   bot_death: (s) => {
     tone(s, { type: 'square', from: 300, to: 70, gain: 0.12, decay: 0.45 });
     noiseBurst(s, { type: 'lowpass', freq: 500, gain: 0.5, decay: 0.3, delay: 0.25 });
+  },
+  pickup: (s) => {
+    tone(s, { type: 'triangle', from: 660, to: 660, gain: 0.2, decay: 0.08 });
+    tone(s, { type: 'triangle', from: 990, to: 990, gain: 0.2, decay: 0.14, delay: 0.07 });
+  },
+  wave_start: (s) => {
+    // Low warning horn, twice.
+    tone(s, { type: 'sawtooth', from: 180, to: 170, gain: 0.18, decay: 0.45, attack: 0.05 });
+    tone(s, { type: 'sawtooth', from: 180, to: 170, gain: 0.18, decay: 0.6, attack: 0.05, delay: 0.55 });
+  },
+  win: (s) => {
+    [523, 659, 784, 1046].forEach((f, i) => tone(s, { type: 'triangle', from: f, to: f, gain: 0.2, decay: 0.3, delay: i * 0.13 }));
+  },
+  lose: (s) => {
+    [392, 330, 262].forEach((f, i) => tone(s, { type: 'triangle', from: f, to: f * 0.97, gain: 0.2, decay: 0.45, delay: i * 0.22 }));
+  },
+  ui_click: (s) => {
+    tone(s, { type: 'sine', from: 900, to: 700, gain: 0.12, decay: 0.04 });
   },
   impact: (s) => {
     noiseBurst(s, { type: 'bandpass', freq: 3000 + Math.random() * 1500, q: 2, gain: 0.12, decay: 0.04 });

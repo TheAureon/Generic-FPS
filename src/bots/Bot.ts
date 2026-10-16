@@ -39,7 +39,7 @@ export class Bot implements Damageable, Trackable {
   readonly weapon: Weapon;
   readonly perception = new Perception();
   readonly aim = new BotAim();
-  readonly skill;
+  skill: (typeof BOT_DIFFICULTY)[Difficulty];
   health: number = BOTS.maxHealth;
   /** Seconds until respawn while dead. */
   respawnTimer = 0;
@@ -103,6 +103,10 @@ export class Bot implements Damageable, Trackable {
 
   isAlive(): boolean {
     return this.health > 0;
+  }
+
+  heal(amount: number): void {
+    this.health = Math.min(BOTS.maxHealth, this.health + amount);
   }
 
   eyePosition(out = this._eye): THREE.Vector3 {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOTS, type Difficulty } from '../config';
+import { BOT_DIFFICULTY, BOTS, type Difficulty } from '../config';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { CharacterBody } from '../core/CharacterBody';
 import type { Damageable } from '../core/Hitbox';
@@ -21,6 +21,8 @@ export interface BotManagerDeps {
   freeForAll: boolean;
   /** Optional: where health can be found (for retreating bots). */
   findHealth?: (from: THREE.Vector3) => THREE.Vector3 | null;
+  /** Bring dead bots back automatically (deathmatch). Default true. */
+  autoRespawn?: boolean;
 }
 
 /** Creates bots, runs their brains, and respawns them. */
@@ -32,6 +34,7 @@ export class BotManager {
   /** Everyone in the fight (player + bots). */
   private combatants: (Trackable & Damageable)[] = [];
   private onlyPlayer: (Trackable & Damageable)[];
+  private unsubscribe: () => void;
 
   constructor(private d: BotManagerDeps) {
     this.world = d.map.world;
@@ -44,7 +47,7 @@ export class BotManager {
     this.nav = NavGraph.build(this.world, d.map.bounds, seeds, { radius: BOTS.radius + 0.06 });
 
     // Bots hear gunshots within each gun's hearing range.
-    events.on('shot', (e) => {
+    this.unsubscribe = events.on('shot', (e) => {
       for (const bot of this.bots) {
         if (!bot.isAlive() || e.shooter === bot.name) continue;
         if (bot.position.distanceTo(e.position) <= e.hearingRange * BOTS.hearingMultiplier) bot.perception.hear(e.position);
@@ -55,6 +58,23 @@ export class BotManager {
   /** Who a bot may shoot at. */
   private enemiesOf(bot: Bot): readonly (Trackable & Damageable)[] {
     return this.d.freeForAll ? this.combatants.filter((c) => c !== bot) : this.onlyPlayer;
+  }
+
+  /** Stop listening to game events (call when the match ends). */
+  dispose(): void {
+    this.unsubscribe();
+  }
+
+  /** Bring bot `i` (back) into the fight with a given skill (used by survival waves). */
+  revive(i: number, skill: (typeof BOT_DIFFICULTY)[Difficulty]): void {
+    const bot = this.bots[i];
+    bot.skill = skill;
+    bot.spawn(this.pickSpawn());
+    this.brains[i].reset();
+  }
+
+  get aliveCount(): number {
+    return this.bots.filter((b) => b.isAlive()).length;
   }
 
   spawnBots(count: number, difficulty: Difficulty): void {
@@ -103,10 +123,12 @@ export class BotManager {
       const bot = this.bots[i];
       this.brains[i].update(dt);
       bot.update(dt);
-      if (!bot.isAlive() && bot.respawnTimer <= 0) {
+      if (!bot.isAlive() && bot.respawnTimer <= 0 && bot.model.root.visible) {
         bot.hide();
-        bot.spawn(this.pickSpawn());
-        this.brains[i].reset();
+        if (this.d.autoRespawn !== false) {
+          bot.spawn(this.pickSpawn());
+          this.brains[i].reset();
+        }
       }
       // Fell out of the map somehow: put it back.
       if (bot.isAlive() && bot.position.y < -20) {

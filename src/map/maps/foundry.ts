@@ -1,4 +1,4 @@
-import type { BoxDef, MapDef } from '../MapTypes';
+import type { BoxDef, MapDef, SpawnPoint } from '../MapTypes';
 
 /**
  * FOUNDRY — the main arena (60 x 44 m).
@@ -114,6 +114,11 @@ const east: BoxDef[] = [
   { x: 20, y: 0, z: 2, w: 1.5, h: 4, d: 1.5, material: 'concrete' },
 ];
 
+/** A spawn point facing the middle of the arena. */
+function spawn(x: number, y: number, z: number): SpawnPoint {
+  return { x, y, z, yaw: (Math.atan2(x, z) * 180) / Math.PI };
+}
+
 export const foundry: MapDef = {
   id: 'foundry',
   name: 'Foundry',
@@ -131,21 +136,31 @@ export const foundry: MapDef = {
     { x: 27.5, z: -13, w: 5, d: 6, low: 0, high: 2.5, dir: '+z', material: 'metal' },
   ],
   playerSpawns: [
-    { x: -22, y: 0, z: -18, yaw: -45 },
-    { x: 22, y: 0, z: 18, yaw: 135 },
-    { x: -27.5, y: 2.5, z: -5, yaw: -90 },
-    { x: 27.5, y: 2.5, z: 5, yaw: 90 },
-    { x: 0, y: 0, z: -18, yaw: 0 },
-    { x: 0, y: 0, z: 18, yaw: 180 },
+    spawn(-22, 0, -18),
+    spawn(22, 0, 18),
+    spawn(-27.5, 2.5, -5),
+    spawn(27.5, 2.5, 5),
+    spawn(0, 0, -18),
+    spawn(0, 0, 18),
+  ],
+  pickups: [
+    { type: 'health', x: -2, y: 0, z: 2 }, // inside the building
+    { type: 'health', x: -20, y: 0, z: 12 },
+    { type: 'health', x: 20, y: 0, z: -12 },
+    { type: 'armor', x: -2, y: BLD_H + ROOF_T, z: -3 }, // on the roof: worth the climb
+    { type: 'ammo', x: -12.5, y: 0, z: -18 },
+    { type: 'ammo', x: 12.5, y: 0, z: 18 },
+    { type: 'ammo', x: -27.5, y: 2.5, z: 8 },
+    { type: 'ammo', x: 27.5, y: 2.5, z: -8 },
   ],
   botSpawns: [
-    { x: -22, y: 0, z: 18, yaw: -135 },
-    { x: 22, y: 0, z: -18, yaw: 45 },
-    { x: -27.5, y: 2.5, z: 5, yaw: -90 },
-    { x: 27.5, y: 2.5, z: -5, yaw: 90 },
-    { x: 0, y: 0, z: 0, yaw: 0 },
-    { x: 3, y: BLD_H + ROOF_T, z: 3, yaw: 180 },
-    { x: -10, y: 0, z: -18, yaw: 0 },
-    { x: 10, y: 0, z: 18, yaw: 180 },
+    spawn(-22, 0, 18),
+    spawn(22, 0, -18),
+    spawn(-27.5, 2.5, 5),
+    spawn(27.5, 2.5, -5),
+    spawn(0, 0, 0),
+    spawn(3, BLD_H + ROOF_T, 3),
+    spawn(-10, 0, -18),
+    spawn(10, 0, 18),
   ],
 };

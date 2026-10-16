@@ -55,10 +55,15 @@ export class Input {
     });
   }
 
+  /** Capture the mouse. Must be called from a click. */
   requestLock(): void {
-    const p = this.element.requestPointerLock() as unknown as Promise<void> | undefined;
-    // Newer browsers return a promise that can reject (e.g. clicked too soon after Esc).
-    p?.catch?.(() => {});
+    try {
+      const p = this.element.requestPointerLock() as unknown as Promise<void> | undefined;
+      // Newer browsers return a promise that can reject (e.g. clicked too soon after Esc).
+      p?.catch?.(() => {});
+    } catch {
+      // Older browsers may throw instead; the game shows "Resume" again.
+    }
   }
 
   exitLock(): void {

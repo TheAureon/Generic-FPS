@@ -61,16 +61,6 @@ export const CONFIG = {
     masterVolume: 0.8,
   },
 
-  /** Until the match menu exists (milestone 5), these set up the test match. */
-  testMatch: {
-    /** 'foundry' (the arena) or 'test-room'. */
-    map: 'foundry',
-    botCount: 4,
-    difficulty: 'normal' as 'easy' | 'normal' | 'hard',
-    /** true = everyone for themselves (bots fight each other too); false = all bots hunt only you. */
-    freeForAll: true,
-  },
-
   render: {
     /** Cap on screen resolution scaling (lower = faster on Retina screens). */
     maxPixelRatio: 2,
@@ -289,4 +279,47 @@ export const BOT_DIFFICULTY: Record<Difficulty, {
     burstSize: [4, 8], burstPause: [0.25, 0.55],
     aggression: 0.9, damageMultiplier: 1,
   },
+};
+
+/* ===========================================================================
+ *  MATCHES
+ * =========================================================================== */
+export const MATCH = {
+  /** What the match menu starts with (your last choices are remembered after that). */
+  defaultMode: 'deathmatch' as 'deathmatch' | 'survival',
+  defaultMap: 'foundry',
+  defaultDifficulty: 'normal' as Difficulty,
+  defaultBotCount: 4,
+  /** Bot count choices in the menu. */
+  minBots: 1,
+  maxBots: 10,
+
+  /** Deathmatch: kills needed to win (menu choices), and the time limit. */
+  killLimits: [10, 20, 30],
+  defaultKillLimit: 20,
+  timeLimitMinutes: 10,
+};
+
+export const SURVIVAL = {
+  /** Wave 1 has the bot count chosen in the menu; each wave adds this many more. */
+  extraBotsPerWave: 1,
+  maxBots: 12,
+  /** Seconds of calm between waves. */
+  intermission: 6,
+  /** Health you get back when you clear a wave. */
+  healOnWaveClear: 30,
+  /** Bots get tougher each wave, reaching full strength at this wave. */
+  wavesToFullStrength: 6,
+};
+
+/* ===========================================================================
+ *  PICKUPS
+ * =========================================================================== */
+export const PICKUPS = {
+  health: { amount: 35, respawnTime: 20 },
+  armor: { amount: 50, respawnTime: 30 },
+  /** Ammo gives this many spare magazines to every weapon. */
+  ammo: { magazines: 2, respawnTime: 20 },
+  /** How close you need to be to grab one (meters). */
+  radius: 1.1,
 };

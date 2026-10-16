@@ -49,6 +49,11 @@ export const testRoom: MapDef = {
     { x: 12, y: 0, z: 12, yaw: 0 },
     { x: -12, y: 0, z: -2, yaw: -90 },
   ],
+  pickups: [
+    { type: 'health', x: 12, y: 0, z: 8 },
+    { type: 'armor', x: 9, y: 3, z: -12 },
+    { type: 'ammo', x: -12, y: 0, z: 0 },
+  ],
   botSpawns: [
     { x: 8, y: 3, z: -11, yaw: 180 }, // on the platform
     { x: -12, y: 0, z: -12, yaw: 180 },

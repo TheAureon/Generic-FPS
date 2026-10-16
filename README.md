@@ -3,8 +3,8 @@
 A singleplayer first-person shooter that runs in your web browser. You fight AI bots.
 It's built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https://vitejs.dev/) (development server).
 
-> **Status:** Milestone 4 of 6. A free-for-all against 4 bots in the Foundry arena. Bots navigate the map, take cover, retreat, chase, and search.
-> Game modes, menus, and pickups come in milestone 5; polish in milestone 6.
+> **Status:** Milestone 5 of 6. Full game: main menu, Deathmatch and Survival modes, pickups, minimap, pause/settings menus, and an end-of-match scoreboard.
+> Visual and audio polish comes in milestone 6.
 
 ---
 
@@ -76,11 +76,12 @@ npm install
 | 1 2 3 4        | Pistol, assault rifle, shotgun, sniper rifle |
 | Mouse wheel    | Next / previous weapon          |
 | Q              | Switch back to the last weapon  |
-| Esc            | Pause and free the mouse cursor |
+| Tab (hold)     | Scoreboard                      |
+| Esc            | Pause menu (resume, restart, settings, quit) |
 | ` (or F3)      | Show or hide the info readout (frame rate, bot states) |
 | B (or F4)      | Show or hide bot paths, the navigation graph, and bot state labels |
 
-Click the game window to capture the mouse. Press Esc to get it back.
+Pick **Play** in the main menu, choose your match, and click **Start**. Press Esc at any time to pause and get your mouse back.
 
 > Crouch is on **C** rather than Ctrl because on a Mac, Ctrl+W closes the browser tab.
 
@@ -92,15 +93,26 @@ Click the game window to capture the mouse. Press Esc to get it back.
 These include movement speed, jump height, gravity, crouch height, and head bob.
 The `WEAPONS` section has each gun's damage, fire rate, magazine size, reload time, spread, recoil, zoom, and more.
 The `BOTS` section sets bot speed, health, vision range and angle, and memory. `BOT_DIFFICULTY` sets reaction time, aim error, turn speed, burst length, and aggression for Easy, Normal, and Hard.
-Until the match menu arrives in milestone 5, `testMatch` near the top picks the map, how many bots spawn, their difficulty, and whether bots also fight each other (`freeForAll`).
+`MATCH` sets the menu's defaults, kill limits, and the Deathmatch time limit. `SURVIVAL` sets how waves grow, the break between waves, and the health you get back. `PICKUPS` sets how much health, armor, and ammo pickups give and how long they take to come back.
 Each number has a comment explaining it. While `npm run dev` is running, save the file and the game reloads with the new values.
 
-Mouse sensitivity, field of view, and volume will move to an in-game settings menu in milestone 5.
+Mouse sensitivity, field of view, and volume are in the in-game **Settings** menu (from the main menu or the pause menu) and are remembered between visits.
+
+## Game modes
+
+- **Deathmatch**: everyone for themselves, bots included. First to the kill limit (10, 20, or 30) wins. If the 10-minute timer runs out first, the most kills wins. Everyone respawns a few seconds after dying.
+- **Survival**: waves of bots hunt you. Wave 1 has the number of bots you choose, and each wave adds one more (up to 12). Bots get tougher each wave, faster and more accurate, until wave 6. You have one life. Clearing a wave gives you back 30 health. Your score is how many waves you survive.
+
+Before each match you choose the mode, map, difficulty (Easy, Normal, Hard), and number of bots. Your choices are remembered for next time.
+
+**Pickups** are spread around the map: health (red cross), armor (blue vest), and ammo (green crate). Walk over one to grab it. A pickup comes back 20–30 seconds after it's taken, and hurt bots will go for health too.
+
+**The minimap** (top left) turns with you, so up is always the way you're facing. It shows walls and cover, pickups, and enemies you can see or that just fired. An enemy shown as a triangle is above or below you.
 
 ### Maps
 
 Maps are defined as plain data in [`src/map/maps/`](src/map/maps/). Each map is a list of boxes (walls, floors, crates) and ramps with positions and sizes in meters, plus spawn points.
-To add a map, copy `foundry.ts` (the main arena) or `testRoom.ts` (a small room), change the numbers, and add it to the list in `src/map/maps/index.ts`.
+To add a map, copy `foundry.ts` (the main arena) or `testRoom.ts` (a small room), change the numbers, and add it to the list in `src/map/maps/index.ts`. New maps show up in the match menu automatically. Each map also lists its pickup spots (`pickups`).
 
 Bots find their way around any map automatically. When a map loads, the game scans it for every spot a bot can stand on, on every level, and links spots a bot can walk between. That includes ramps and drops off ledges. You don't need to place waypoints by hand. Press **B** in-game to see this navigation graph.
 
@@ -131,7 +143,9 @@ To use a real sound file instead, put it in a `public/sounds/` folder and list i
 src/
   config.ts          All tunable numbers
   main.ts            Entry point
-  core/              Game loop, input, settings, collision, shared walking physics
+  core/              Game loop and screens (Game), one match (Match), input, settings, collision, walking physics
+  modes/             Deathmatch and Survival rules
+  pickups/           Health, armor, and ammo pickups
   player/            Player movement, health, and armor
   bots/              Bot body, senses (Perception), aim, brain (state machine), navigation (NavGraph, Navigator), manager, debug view
   map/               Map format, map builder, and maps/ (map data)
@@ -139,8 +153,8 @@ src/
   entities/          Practice dummies
   effects/           Tracers, sparks, bullet holes
   audio/             Sound engine and procedural sound effects
-  ui/                HUD, overlays, styles
-  assets/            Textures, gun models, character model (made in code; swap in real files here later)
+  ui/                HUD, minimap, menus, styles
+  assets/            Textures, gun/character/pickup models (made in code; swap in real files here later)
 ```
 
 ## Other commands

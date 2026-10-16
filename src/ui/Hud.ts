@@ -1,4 +1,7 @@
 import { CONFIG, WEAPONS, type WeaponId } from '../config';
+import type { PickupType } from '../map/MapTypes';
+import type { ScoreRow } from '../modes/GameMode';
+import { Minimap } from './Minimap';
 
 export type HitmarkerKind = 'hit' | 'head' | 'kill';
 
@@ -37,12 +40,21 @@ export class Hud {
   private deathText: HTMLDivElement;
   private deathTimer: HTMLDivElement;
   private hurtFlash = 0;
+  private statusEl: HTMLDivElement;
+  private announceEl: HTMLDivElement;
+  private announceTitle: HTMLDivElement;
+  private announceSub: HTMLDivElement;
+  private announceTimer = 0;
+  private pickupEl: HTMLDivElement;
+  private pickupTimer = 0;
+  private scoreboardEl: HTMLDivElement;
+  readonly minimap: Minimap;
 
   private hitTimer = 0;
   private frames = 0;
   private fpsTimer = 0;
   private fps = 0;
-  showDebug = true;
+  showDebug = false;
 
   constructor(parent: HTMLElement) {
     this.root = el('div', 'hud', parent);
@@ -99,7 +111,55 @@ export class Hud {
     this.deathText = el('div', 'death-title', this.deathScreen);
     this.deathTimer = el('div', 'death-timer', this.deathScreen);
 
+    this.statusEl = el('div', 'match-status', this.root);
+    this.announceEl = el('div', 'announce', this.root);
+    this.announceTitle = el('div', 'announce-title', this.announceEl);
+    this.announceSub = el('div', 'announce-sub', this.announceEl);
+    this.pickupEl = el('div', 'pickup-msg', this.root);
+    this.minimap = new Minimap(this.root);
+    this.scoreboardEl = el('div', 'scoreboard', this.root);
+
     this.debugEl = el('div', 'debug', this.root);
+  }
+
+  /** Clear everything from the last match. */
+  reset(): void {
+    this.killFeed.innerHTML = '';
+    this.announceTimer = 0;
+    this.announceEl.style.opacity = '0';
+    this.pickupTimer = 0;
+    this.pickupEl.style.opacity = '0';
+    this.hurtFlash = 0;
+    for (const ind of this.indicators) ind.life = 0;
+    this.setDeath(null);
+    this.showScoreboard(null);
+  }
+
+  setStatus(text: string): void {
+    if (this.statusEl.textContent !== text) this.statusEl.textContent = text;
+  }
+
+  /** Big message in the middle-top of the screen for a few seconds. */
+  announce(title: string, subtitle = '', seconds = 2.5): void {
+    this.announceTitle.textContent = title;
+    this.announceSub.textContent = subtitle;
+    this.announceTimer = seconds;
+  }
+
+  pickupMessage(text: string, type: PickupType): void {
+    this.pickupEl.textContent = text;
+    this.pickupEl.className = `pickup-msg ${type}`;
+    this.pickupTimer = 1.6;
+  }
+
+  /** Score table (hold Tab). Pass null to hide. */
+  showScoreboard(rows: ScoreRow[] | null, title = ''): void {
+    if (!rows) {
+      this.scoreboardEl.style.display = 'none';
+      return;
+    }
+    this.scoreboardEl.style.display = 'block';
+    this.scoreboardEl.innerHTML = scoreTableHtml(rows, title);
   }
 
   updateVitals(health: number, armor: number): void {
@@ -160,7 +220,7 @@ export class Hud {
     this.deathScreen.style.display = info ? 'flex' : 'none';
     if (!info) return;
     this.deathText.textContent = `Killed by ${info.killer}`;
-    this.deathTimer.textContent = `Respawning in ${Math.max(0, Math.ceil(info.seconds))}`;
+    this.deathTimer.textContent = info.seconds < 0 ? 'No respawns in Survival' : `Respawning in ${Math.max(0, Math.ceil(info.seconds))}`;
   }
 
   setVisible(v: boolean): void {
@@ -208,6 +268,10 @@ export class Hud {
   update(dt: number, px: number, pz: number, yaw: number): void {
     this.updateIndicators(dt, px, pz, yaw);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 1.8);
+    this.announceTimer = Math.max(0, this.announceTimer - dt);
+    this.announceEl.style.opacity = String(Math.min(1, this.announceTimer * 2));
+    this.pickupTimer = Math.max(0, this.pickupTimer - dt);
+    this.pickupEl.style.opacity = String(Math.min(1, this.pickupTimer * 2));
     this.vignette.style.opacity = String(this.hurtFlash);
     if (this.hitTimer > 0) {
       this.hitTimer -= dt;
@@ -233,4 +297,16 @@ function el(tag: string, className: string, parent: HTMLElement): HTMLDivElement
   e.className = className;
   parent.appendChild(e);
   return e;
+}
+
+/** HTML table of scores (used by the Tab scoreboard and the end screen). */
+export function scoreTableHtml(rows: ScoreRow[], title: string): string {
+  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const body = rows
+    .map(
+      (r, i) =>
+        `<tr class="${r.isPlayer ? 'me' : ''}"><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.kills}</td><td>${r.deaths}</td></tr>`,
+    )
+    .join('');
+  return `${title ? `<div class="sb-title">${esc(title)}</div>` : ''}<table class="score-table"><thead><tr><th>#</th><th>Name</th><th>Kills</th><th>Deaths</th></tr></thead><tbody>${body}</tbody></table>`;
 }

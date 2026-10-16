@@ -10,7 +10,7 @@ import type { Effects } from '../effects/Effects';
 import type { PlayerController } from '../player/PlayerController';
 import type { Hud } from '../ui/Hud';
 import { applySpread, shotDamage, traceShot } from './hitscan';
-import { Viewmodel } from './Viewmodel';
+import type { Viewmodel } from './Viewmodel';
 import { Weapon } from './Weapon';
 
 const DEG = Math.PI / 180;
@@ -29,12 +29,14 @@ export interface WeaponSystemDeps {
   getTargets: () => readonly Damageable[];
   /** Name used in the kill feed / events. */
   ownerName: string;
+  /** The first-person gun view (shared between matches). */
+  viewmodel: Viewmodel;
 }
 
 /** The player's guns: input, firing, reloading, switching, aiming. */
 export class WeaponSystem {
   readonly weapons: Weapon[];
-  readonly viewmodel = new Viewmodel();
+  readonly viewmodel: Viewmodel;
   private index = 0;
   private lastIndex = 1;
   /** Weapon we're switching to, or -1. */
@@ -53,6 +55,7 @@ export class WeaponSystem {
   private _muzzle = new THREE.Vector3();
 
   constructor(private d: WeaponSystemDeps) {
+    this.viewmodel = d.viewmodel;
     this.weapons = (Object.keys(WEAPONS) as WeaponId[])
       .sort((a, b) => WEAPONS[a].slot - WEAPONS[b].slot)
       .map((id) => new Weapon(id));
@@ -77,6 +80,18 @@ export class WeaponSystem {
     this.switchTo = -1;
     this.raiseTimer = 0;
     this.viewmodel.setWeapon(this.current.id);
+  }
+
+  /** Ammo pickup: add spare magazines to every weapon. Returns false if all are full. */
+  addAmmo(magazines: number): boolean {
+    let used = false;
+    for (const w of this.weapons) {
+      if (w.reserve < w.stats.maxReserve) {
+        w.addReserve(w.stats.magazineSize * magazines);
+        used = true;
+      }
+    }
+    return used;
   }
 
   /** Restore full ammo on every weapon (e.g. on respawn). */

@@ -60,6 +60,16 @@ export interface PracticeTargetDef {
   strafe?: number;
 }
 
+export type PickupType = 'health' | 'armor' | 'ammo';
+
+/** A spot where a pickup appears (and reappears a while after being taken). */
+export interface PickupDef {
+  type: PickupType;
+  x: number;
+  y: number;
+  z: number;
+}
+
 export interface MapDef {
   id: string;
   name: string;
@@ -71,5 +81,6 @@ export interface MapDef {
   ramps: RampDef[];
   playerSpawns: SpawnPoint[];
   botSpawns: SpawnPoint[];
+  pickups?: PickupDef[];
   practiceTargets?: PracticeTargetDef[];
 }

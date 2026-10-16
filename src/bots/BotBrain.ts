@@ -197,6 +197,11 @@ export class BotBrain {
     const p = this.bot.perception;
     if (p.hasNoise) return this.enter('investigate');
     const nav = this.navigator;
+    // Hurt and there's health nearby? Go get it.
+    if (this.bot.health < BOTS.maxHealth * 0.7 && this.stateTime < 0.1) {
+      const h = this.ctx.findHealth?.(this.bot.position);
+      if (h && this.flatDist(h) < 30) this.dest.copy(h);
+    }
     if (!nav.hasGoal || nav.arrived || nav.failed) {
       // Pause and look around a moment, then pick another spot.
       if (this.pauseTimer <= 0) {
