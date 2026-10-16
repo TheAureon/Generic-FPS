@@ -40,6 +40,10 @@ export class Hud {
   private deathText: HTMLDivElement;
   private deathTimer: HTMLDivElement;
   private hurtFlash = 0;
+  private ammoNumber = document.createTextNode('');
+  private lastAmmo = '';
+  private lastVitals = '';
+  private lastGap = '';
   private statusEl: HTMLDivElement;
   private announceEl: HTMLDivElement;
   private announceTitle: HTMLDivElement;
@@ -82,6 +86,7 @@ export class Hud {
     this.ammoName = el('div', 'ammo-name', weaponPanel);
     this.ammoCount = el('div', 'ammo-count', weaponPanel);
     this.ammoReserve = document.createElement('span');
+    this.ammoCount.append(this.ammoNumber, this.ammoReserve);
     this.reloadBar = el('div', 'reload-bar', weaponPanel);
     this.reloadFill = el('div', 'reload-fill', this.reloadBar);
 
@@ -164,15 +169,19 @@ export class Hud {
 
   updateVitals(health: number, armor: number): void {
     const P = CONFIG.player;
-    this.healthText.textContent = String(Math.ceil(health));
-    this.healthFill.style.width = `${(health / P.maxHealth) * 100}%`;
-    this.healthFill.classList.toggle('low', health <= 30);
-    this.armorRow.style.opacity = armor > 0 ? '1' : '0.35';
-    this.armorText.textContent = String(Math.ceil(armor));
-    this.armorFill.style.width = `${(armor / P.maxArmor) * 100}%`;
+    const key = `${Math.ceil(health)}|${Math.ceil(armor)}`;
+    if (key !== this.lastVitals) {
+      this.lastVitals = key;
+      this.healthText.textContent = String(Math.ceil(health));
+      this.healthFill.style.width = `${(health / P.maxHealth) * 100}%`;
+      this.healthFill.classList.toggle('low', health <= 30);
+      this.armorRow.style.opacity = armor > 0 ? '1' : '0.35';
+      this.armorText.textContent = String(Math.ceil(armor));
+      this.armorFill.style.width = `${(armor / P.maxArmor) * 100}%`;
+    }
     // Red edges that pulse when health is low.
     const low = health > 0 && health <= 35 ? 1 - health / 35 : 0;
-    this.lowHealth.style.opacity = String(low * (0.55 + 0.25 * Math.sin(performance.now() / 180)));
+    setStyle(this.lowHealth, 'opacity', low ? (low * (0.55 + 0.25 * Math.sin(performance.now() / 180))).toFixed(2) : '0');
   }
 
   /** Show where damage came from (attacker's world position x/z). */
@@ -190,7 +199,7 @@ export class Hud {
   private updateIndicators(dt: number, px: number, pz: number, yaw: number): void {
     for (const ind of this.indicators) {
       if (ind.life <= 0) {
-        ind.el.style.opacity = '0';
+        setStyle(ind.el, 'opacity', '0');
         continue;
       }
       ind.life -= dt;
@@ -233,20 +242,28 @@ export class Hud {
    * @param scoped show the sniper scope
    */
   updateCrosshair(gapPx: number, ads: number, scoped: boolean): void {
-    this.crosshair.style.setProperty('--gap', `${Math.min(gapPx, 160).toFixed(1)}px`);
-    this.crosshair.style.opacity = scoped ? '0' : String(1 - ads * 0.85);
-    this.scope.style.display = scoped ? 'block' : 'none';
+    const gap = `${Math.min(gapPx, 160).toFixed(0)}px`;
+    if (gap !== this.lastGap) {
+      this.lastGap = gap;
+      this.crosshair.style.setProperty('--gap', gap);
+    }
+    setStyle(this.crosshair, 'opacity', scoped ? '0' : (1 - ads * 0.85).toFixed(2));
+    setStyle(this.scope, 'display', scoped ? 'block' : 'none');
   }
 
   updateAmmo(a: AmmoInfo): void {
-    this.ammoName.textContent = WEAPONS[a.weapon].name;
-    this.ammoCount.textContent = String(a.ammo);
-    this.ammoCount.classList.toggle('low', a.ammo <= Math.ceil(a.magazine * 0.25));
-    this.ammoReserve.textContent = ` / ${a.reserve}`;
-    this.ammoCount.appendChild(this.ammoReserve);
-    for (const [id, s] of this.slots) s.classList.toggle('active', id === a.weapon);
-    this.reloadBar.style.visibility = a.reloadProgress > 0 ? 'visible' : 'hidden';
-    this.reloadFill.style.width = `${(a.reloadProgress * 100).toFixed(0)}%`;
+    // Only touch the page when something changed (keeps the frame rate smooth).
+    const key = `${a.weapon}|${a.ammo}|${a.reserve}`;
+    if (key !== this.lastAmmo) {
+      this.lastAmmo = key;
+      this.ammoName.textContent = WEAPONS[a.weapon].name;
+      this.ammoNumber.data = String(a.ammo);
+      this.ammoCount.classList.toggle('low', a.ammo <= Math.ceil(a.magazine * 0.25));
+      this.ammoReserve.textContent = ` / ${a.reserve}`;
+      for (const [id, s] of this.slots) s.classList.toggle('active', id === a.weapon);
+    }
+    setStyle(this.reloadBar, 'visibility', a.reloadProgress > 0 ? 'visible' : 'hidden');
+    if (a.reloadProgress > 0) setStyle(this.reloadFill, 'width', `${(a.reloadProgress * 100).toFixed(0)}%`);
 
     if (a.reloadProgress > 0) this.setNotice('Reloading');
     else if (a.ammo === 0 && a.reserve === 0) this.setNotice('Out of ammo');
@@ -269,10 +286,10 @@ export class Hud {
     this.updateIndicators(dt, px, pz, yaw);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 1.8);
     this.announceTimer = Math.max(0, this.announceTimer - dt);
-    this.announceEl.style.opacity = String(Math.min(1, this.announceTimer * 2));
+    setStyle(this.announceEl, 'opacity', Math.min(1, this.announceTimer * 2).toFixed(2));
     this.pickupTimer = Math.max(0, this.pickupTimer - dt);
-    this.pickupEl.style.opacity = String(Math.min(1, this.pickupTimer * 2));
-    this.vignette.style.opacity = String(this.hurtFlash);
+    setStyle(this.pickupEl, 'opacity', Math.min(1, this.pickupTimer * 2).toFixed(2));
+    setStyle(this.vignette, 'opacity', this.hurtFlash.toFixed(2));
     if (this.hitTimer > 0) {
       this.hitTimer -= dt;
       if (this.hitTimer <= 0) this.hitmarker.classList.remove('show');
@@ -309,4 +326,9 @@ export function scoreTableHtml(rows: ScoreRow[], title: string): string {
     )
     .join('');
   return `${title ? `<div class="sb-title">${esc(title)}</div>` : ''}<table class="score-table"><thead><tr><th>#</th><th>Name</th><th>Kills</th><th>Deaths</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+/** Set an inline style only if it changed (avoids needless page work). */
+function setStyle(el: HTMLElement, prop: 'opacity' | 'display' | 'visibility' | 'width', value: string): void {
+  if (el.style[prop] !== value) el.style[prop] = value;
 }

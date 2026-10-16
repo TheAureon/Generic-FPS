@@ -19,6 +19,21 @@ const AIM_POSE: Record<WeaponId, THREE.Vector3> = {
 };
 const HIP_POSE = new THREE.Vector3(0.15, -0.15, -0.42);
 
+/** Where spent shells pop out of each gun (in the gun's own coordinates). */
+const EJECT_PORT: Record<WeaponId, THREE.Vector3> = {
+  pistol: new THREE.Vector3(0.02, 0.045, -0.03),
+  rifle: new THREE.Vector3(0.03, 0.025, -0.03),
+  shotgun: new THREE.Vector3(0.03, 0.02, 0.0),
+  sniper: new THREE.Vector3(0.03, 0.025, 0.06),
+};
+
+interface Casing {
+  mesh: THREE.Mesh;
+  vel: THREE.Vector3;
+  spin: THREE.Vector3;
+  life: number;
+}
+
 export interface ViewmodelState {
   /** 0 = hip, 1 = fully aimed. */
   ads: number;
@@ -52,6 +67,8 @@ export class Viewmodel {
   private reloadBlend = 0;
   private flashTimer = 0;
   private time = 0;
+  private casings: Casing[] = [];
+  private nextCasing = 0;
   visible = true;
 
   constructor() {
@@ -78,6 +95,35 @@ export class Viewmodel {
       this.flashes.set(id, flash);
     }
     this.setWeapon('pistol');
+
+    // Pool of spent shell casings (brass; the shotgun's are red).
+    const brass = new THREE.MeshStandardMaterial({ color: 0xd9a63a, metalness: 0.8, roughness: 0.3 });
+    const geo = new THREE.CylinderGeometry(0.0045, 0.0045, 0.02, 8);
+    for (let i = 0; i < 14; i++) {
+      const mesh = new THREE.Mesh(geo, brass.clone());
+      mesh.visible = false;
+      mesh.renderOrder = 1;
+      this.camera.add(mesh);
+      this.casings.push({ mesh, vel: new THREE.Vector3(), spin: new THREE.Vector3(), life: 0 });
+    }
+  }
+
+  /** Pop a spent shell out of the gun's ejection port. */
+  private ejectCasing(): void {
+    const c = this.casings[this.nextCasing];
+    this.nextCasing = (this.nextCasing + 1) % this.casings.length;
+    const model = this.models.get(this.current)!;
+    model.updateMatrixWorld(true);
+    // The camera sits at the origin of this little scene, so world = camera space.
+    c.mesh.position.copy(EJECT_PORT[this.current]).applyMatrix4(model.matrixWorld);
+    c.mesh.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+    const shotgun = this.current === 'shotgun';
+    c.mesh.scale.set(shotgun ? 2.2 : 1, shotgun ? 2 : 1, shotgun ? 2.2 : 1);
+    (c.mesh.material as THREE.MeshStandardMaterial).color.set(shotgun ? 0xb3302a : 0xd9a63a);
+    c.vel.set(0.9 + Math.random() * 0.5, 0.9 + Math.random() * 0.5, 0.1 + Math.random() * 0.3);
+    c.spin.set(Math.random() * 30, Math.random() * 30, Math.random() * 30);
+    c.life = 0.6;
+    c.mesh.visible = true;
   }
 
   /** Gives the guns something to reflect so metal doesn't look black. */
@@ -96,7 +142,9 @@ export class Viewmodel {
     const saved = [...this.models.values()].map((m) => m.visible);
     for (const m of this.models.values()) m.visible = true;
     for (const f of this.flashes.values()) f.visible = true;
+    for (const c of this.casings) c.mesh.visible = true;
     renderer.compile(this.scene, this.camera);
+    for (const c of this.casings) c.mesh.visible = false;
     [...this.models.values()].forEach((m, i) => (m.visible = saved[i]));
     for (const f of this.flashes.values()) f.visible = false;
   }
@@ -117,6 +165,7 @@ export class Viewmodel {
     this.kickBack += 0.035 * strength;
     this.kickUp += 0.06 * strength;
     this.flashTimer = 0.05;
+    this.ejectCasing();
     const f = this.flashes.get(this.current)!;
     f.rotation.z = Math.random() * Math.PI;
     f.scale.setScalar(0.8 + Math.random() * 0.5);
@@ -157,6 +206,17 @@ export class Viewmodel {
       this.swayX * 2 + s.sprint * 0.6,
       this.reloadBlend * 0.5 + s.sprint * 0.25,
     );
+
+    for (const c of this.casings) {
+      if (c.life <= 0) continue;
+      c.life -= dt;
+      c.vel.y -= 6 * dt;
+      c.mesh.position.addScaledVector(c.vel, dt);
+      c.mesh.rotation.x += c.spin.x * dt;
+      c.mesh.rotation.y += c.spin.y * dt;
+      c.mesh.rotation.z += c.spin.z * dt;
+      if (c.life <= 0) c.mesh.visible = false;
+    }
 
     this.flashTimer -= dt;
     this.flashes.get(this.current)!.visible = this.flashTimer > 0;

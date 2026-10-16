@@ -106,7 +106,7 @@ export class Effects {
       depthWrite: false,
       transparent: true,
     });
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 32; i++) {
       const sprite = new THREE.Sprite(flashMat);
       sprite.visible = false;
       scene.add(sprite);
@@ -115,14 +115,14 @@ export class Effects {
   }
 
   /** A muzzle flash out in the world (someone else's gun). */
-  worldFlash(at: THREE.Vector3): void {
+  worldFlash(at: THREE.Vector3, size = 1, withLight = true): void {
     const f = this.flashes.find((x) => x.life <= 0) ?? this.flashes[0];
-    f.life = 0.05;
+    f.life = withLight ? 0.05 : 0.035;
     f.sprite.position.copy(at);
-    f.sprite.scale.setScalar(0.35 + Math.random() * 0.2);
+    f.sprite.scale.setScalar((0.35 + Math.random() * 0.2) * size);
     f.sprite.material.rotation = Math.random() * Math.PI;
     f.sprite.visible = true;
-    this.muzzleLight(at);
+    if (withLight) this.muzzleLight(at);
   }
 
   /** Prepares effect shaders up front so the first shot doesn't stutter. */
@@ -160,6 +160,8 @@ export class Effects {
 
   /** Bullet hits a wall: sparks, dust, and a bullet hole. */
   impact(point: THREE.Vector3, normal: THREE.Vector3): void {
+    // A tiny spark flash right at the hit.
+    this.worldFlash(this._v.copy(point).addScaledVector(normal, 0.05), 0.35, false);
     for (let i = 0; i < 6; i++) {
       this.spawnParticle(point, normal, 3 + Math.random() * 3, 1.0, 0.85, 0.45, 0.25 + Math.random() * 0.15, 9);
     }

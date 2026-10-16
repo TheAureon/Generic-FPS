@@ -84,6 +84,7 @@ export class PlayerController {
     this.recoilYaw = 0;
     this.deathCam = 0;
     this.inputEnabled = true;
+    this.shake = 0;
   }
 
   addRecoil(pitchDeg: number, yawDeg: number): void {
@@ -119,6 +120,21 @@ export class PlayerController {
     const lim = 89 * DEG;
     this.pitch = Math.max(-lim, Math.min(lim, this.pitch));
   }
+
+  /** Screen shake "trauma" (0..1); the shake is strongest right after a hit. */
+  private shake = 0;
+  private shakeTime = 0;
+
+  /** Add screen shake (0..1 scale). */
+  addShake(amount: number): void {
+    if (!settings.get().screenShake) return;
+    this.shake = Math.min(1, this.shake + amount);
+  }
+
+  /** Called on each footstep, and on landing (with the landing speed). */
+  onStep: (() => void) | null = null;
+  onLand: ((speed: number) => void) | null = null;
+  private lastStep = 0;
 
   /** False while dead: movement keys are ignored. */
   inputEnabled = true;
@@ -173,7 +189,10 @@ export class PlayerController {
     if (this.key(input, 'Space') && this.onGround && !this.crouching) this.body.jump(P.jumpSpeed);
 
     // ---- Move, collide, fall -------------------------------------------------
+    const wasAirborne = !this.onGround;
+    const fallSpeed = -this.velocity.y;
     const stepUp = this.body.step(dt);
+    if (wasAirborne && this.onGround && fallSpeed > 4) this.onLand?.(fallSpeed);
     // Stepped up onto something: hide the snap by easing the camera.
     if (stepUp > 0.05) this.stepSmoothing -= stepUp;
 
@@ -185,8 +204,18 @@ export class PlayerController {
     const moving = this.onGround && hSpeed > 0.5;
     this.bobAmount += ((moving ? Math.min(1, hSpeed / P.sprintSpeed) : 0) - this.bobAmount) * Math.min(1, dt * 10);
     if (moving) this.bobPhase += dt * hSpeed * CONFIG.camera.headBobFrequency;
+    // A footstep each time the head bob reaches its low point.
+    const step = Math.floor(this.bobPhase / Math.PI);
+    if (step !== this.lastStep) {
+      this.lastStep = step;
+      if (moving && !this.crouching) this.onStep?.();
+    }
     this.fovBoost += ((this.sprinting && hSpeed > 1 ? 1 : 0) - this.fovBoost) * Math.min(1, dt * 8);
     this.stepSmoothing *= Math.max(0, 1 - dt * 14);
+
+    // ---- Screen shake fades -------------------------------------------------
+    this.shake = Math.max(0, this.shake - dt * 1.8);
+    this.shakeTime += dt;
 
     // ---- Recoil recovery ---------------------------------------------------
     const rec = this.recoilRecovery * dt;
@@ -202,7 +231,13 @@ export class PlayerController {
     const d = this.deathCam * this.deathCam * (3 - 2 * this.deathCam);
     const eye = standingEye + (this.position.y + 0.3 - standingEye) * d;
     this.camera.position.set(this.position.x, eye, this.position.z);
-    this.camera.rotation.set(this.viewPitch * (1 - d) + 0.3 * d, this.yaw + this.recoilYaw, 1.1 * d, 'YXZ');
+    // Screen shake: smooth wobble that fades quickly (squared so small hits stay subtle).
+    const s = this.shake * this.shake * CONFIG.camera.maxShake * DEG;
+    const t = this.shakeTime;
+    const sp = s * (Math.sin(t * 37) * 0.6 + Math.sin(t * 61) * 0.4);
+    const sy = s * (Math.sin(t * 43 + 1.3) * 0.6 + Math.sin(t * 71 + 0.4) * 0.4);
+    const sr = s * Math.sin(t * 29 + 2.1) * 0.7;
+    this.camera.rotation.set(this.viewPitch * (1 - d) + 0.3 * d + sp, this.yaw + this.recoilYaw + sy, 1.1 * d + sr, 'YXZ');
 
     // Zooming narrows the field of view (done on the tangent so it's a true zoom).
     const baseFov = settings.get().fov + this.fovBoost * CONFIG.camera.sprintFovBoost;

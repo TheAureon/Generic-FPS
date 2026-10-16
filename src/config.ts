@@ -52,6 +52,12 @@ export const CONFIG = {
     /** Head bob while walking (meters). Set to 0 to disable. */
     headBobAmount: 0.035,
     headBobFrequency: 1.9,
+    /** Strongest screen shake (degrees). Set to 0 to turn shake off entirely. */
+    maxShake: 2.2,
+    /** Shake from your own shots (times the gun's recoil). */
+    shakePerShot: 0.05,
+    /** Shake from getting hit (per point of damage). */
+    shakePerDamage: 0.012,
   },
 
   /** Defaults for the player-adjustable settings (saved in the browser). */
@@ -59,11 +65,22 @@ export const CONFIG = {
     mouseSensitivity: 1.0,
     fov: 80,
     masterVolume: 0.8,
+    screenShake: true,
+    quality: 'high' as 'low' | 'medium' | 'high',
+  },
+
+  /**
+   * Graphics quality presets (picked in Settings). Lower = smoother on
+   * slower computers. pixelRatio caps the resolution on Retina screens.
+   */
+  quality: {
+    low: { pixelRatio: 1, shadows: false },
+    medium: { pixelRatio: 1.5, shadows: true },
+    high: { pixelRatio: 2, shadows: true },
   },
 
   render: {
-    /** Cap on screen resolution scaling (lower = faster on Retina screens). */
-    maxPixelRatio: 2,
+    /** Shadows are switched on per quality preset; this is the master switch. */
     shadows: true,
   },
 };

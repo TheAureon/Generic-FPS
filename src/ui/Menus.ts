@@ -167,7 +167,13 @@ export class Menus {
     slider(field(p, 'Volume'), 0, 1, 0.05, s.masterVolume, (v) => `${Math.round(v * 100)}%`, (v) => settings.set({ masterVolume: v }), () =>
       audio.play('pickup'),
     );
-    div('menu-note', p).textContent = 'Changes are saved automatically.';
+    segmented(field(p, 'Screen shake'), [['on', 'On'], ['off', 'Off']], s.screenShake ? 'on' : 'off', (v) =>
+      settings.set({ screenShake: v === 'on' }),
+    );
+    segmented(field(p, 'Graphics'), [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality, (v) =>
+      settings.set({ quality: v as 'low' | 'medium' | 'high' }),
+    );
+    div('menu-note', p).textContent = 'Changes are saved automatically. Lower graphics quality if the game feels choppy.';
     const row = div('menu-buttons row', p);
     button(row, 'Back', () => this.show(this.settingsReturn ?? 'main'), 'primary');
   }

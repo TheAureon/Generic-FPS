@@ -5,6 +5,10 @@ export interface SettingsData {
   mouseSensitivity: number;
   fov: number;
   masterVolume: number;
+  /** Camera shake when shooting and getting hit. */
+  screenShake: boolean;
+  /** low = fastest, high = best looking. */
+  quality: 'low' | 'medium' | 'high';
 }
 
 const STORAGE_KEY = 'generic-fps-settings';

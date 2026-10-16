@@ -30,7 +30,9 @@ export type SoundId =
   | 'wave_start'
   | 'win'
   | 'lose'
-  | 'ui_click';
+  | 'ui_click'
+  | 'step'
+  | 'land';
 
 export const SAMPLE_FILES: Partial<Record<SoundId, string>> = {};
 
@@ -186,6 +188,15 @@ export const SYNTHS: Record<SoundId, Synth> = {
   },
   ui_click: (s) => {
     tone(s, { type: 'sine', from: 900, to: 700, gain: 0.12, decay: 0.04 });
+  },
+  step: (s) => {
+    // Soft scuff of a boot on concrete (slightly different each time).
+    noiseBurst(s, { type: 'lowpass', freq: 380 + Math.random() * 220, gain: 0.22, decay: 0.07 });
+    noiseBurst(s, { type: 'bandpass', freq: 2200 + Math.random() * 900, q: 2, gain: 0.05, decay: 0.03 });
+  },
+  land: (s) => {
+    noiseBurst(s, { type: 'lowpass', freq: 300, gain: 0.5, decay: 0.14 });
+    tone(s, { type: 'sine', from: 90, to: 45, gain: 0.35, decay: 0.12 });
   },
   impact: (s) => {
     noiseBurst(s, { type: 'bandpass', freq: 3000 + Math.random() * 1500, q: 2, gain: 0.12, decay: 0.04 });

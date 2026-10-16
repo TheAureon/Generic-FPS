@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { COMBAT, WEAPONS, type WeaponId } from '../config';
+import { COMBAT, CONFIG, WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
 import type { CollisionWorld } from '../core/CollisionWorld';
@@ -281,6 +281,7 @@ export class WeaponSystem {
 
     // Recoil, visual kick, sound, and let everyone (bots) hear it.
     player.addRecoil(w.stats.recoilPitch, (Math.random() * 2 - 1) * w.stats.recoilYaw);
+    player.addShake(w.stats.recoilPitch * CONFIG.camera.shakePerShot);
     this.viewmodel.kick(Math.min(2.5, 0.6 + w.stats.recoilPitch * 0.35));
     effects.muzzleLight(this._muzzle);
     audio.play(`shot_${w.id}` as SoundId);

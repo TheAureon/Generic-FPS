@@ -45,9 +45,9 @@ export class Game {
 
   constructor(gameRoot: HTMLElement, uiRoot: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.render.maxPixelRatio));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = CONFIG.render.shadows;
+    this.applyQuality();
+    settings.onChange(() => this.applyQuality());
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -74,6 +74,14 @@ export class Game {
 
     document.addEventListener('pointerlockchange', () => this.onPointerLockChange());
     window.addEventListener('resize', () => this.onResize());
+  }
+
+  /** Resolution and shadows from the Graphics quality setting. */
+  private applyQuality(): void {
+    const q = CONFIG.quality[settings.get().quality] ?? CONFIG.quality.high;
+    const ratio = Math.min(window.devicePixelRatio, q.pixelRatio);
+    if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio);
+    this.renderer.shadowMap.enabled = CONFIG.render.shadows && q.shadows;
   }
 
   start(): void {

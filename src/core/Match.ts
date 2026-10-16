@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PICKUPS } from '../config';
+import { CONFIG, PICKUPS } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { BotDebugView } from '../bots/BotDebugView';
 import { BotManager } from '../bots/BotManager';
@@ -115,8 +115,14 @@ export class Match {
     this.effects.precompile(d.renderer, d.camera);
 
     // ---- Scorekeeping and feedback --------------------------------------
+    this.controller.onStep = () => audio.play('step', { volume: this.controller.sprinting ? 0.55 : 0.4 });
+    this.controller.onLand = (speed) => {
+      audio.play('land', { volume: Math.min(1, speed / 10) });
+      this.controller.addShake(Math.min(0.35, speed * 0.025));
+    };
     this.player.onHurt = (info, armorHit) => {
       hud.showDamage(info.from.x, info.from.z, info.amount);
+      this.controller.addShake(0.15 + info.amount * CONFIG.camera.shakePerDamage + (this.player.isAlive() ? 0 : 0.4));
       audio.play(armorHit ? 'armor_hit' : 'hurt', { volume: 0.9 });
     };
     this.unsubscribers.push(

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeMeshes } from './mergeMeshes';
 
 /**
  * A simple low-poly humanoid made of boxes, about 1.8 m tall, facing -Z.
@@ -11,7 +12,7 @@ export interface CharacterModel {
   root: THREE.Group;
   /** Everything above the legs; lean/turn this for aiming. */
   upper: THREE.Group;
-  head: THREE.Mesh;
+  head: THREE.Group;
   leftArm: THREE.Group;
   rightArm: THREE.Group;
   leftLeg: THREE.Group;
@@ -53,9 +54,14 @@ export function createCharacterModel(bodyColor: number, accentColor = 0x222222):
     mesh(0.42, 0.56, 0.26, body, 0, 0.3, 0), // torso
     mesh(0.44, 0.1, 0.28, accent, 0, 0.03, 0), // belt
   );
-  const head = mesh(0.26, 0.28, 0.27, skin, 0, 0.74, 0);
-  head.add(mesh(0.24, 0.07, 0.04, visor, 0, 0.03, -0.14)); // eyes/visor
-  head.add(mesh(0.28, 0.08, 0.29, accent, 0, 0.12, 0)); // helmet
+  // Head pivots at the neck so it can snap back on a headshot.
+  const head = new THREE.Group();
+  head.position.set(0, 0.6, 0);
+  head.add(
+    mesh(0.26, 0.28, 0.27, skin, 0, 0.14, 0),
+    mesh(0.24, 0.07, 0.04, visor, 0, 0.17, -0.14), // eyes/visor
+    mesh(0.28, 0.08, 0.29, accent, 0, 0.26, 0), // helmet
+  );
   upper.add(head);
 
   // Arms pivot at the shoulders.
@@ -75,5 +81,13 @@ export function createCharacterModel(bodyColor: number, accentColor = 0x222222):
   upper.add(leftArm, rightArm, hand);
 
   root.add(leftLeg, rightLeg, upper);
-  return { root, upper, head, leftArm, rightArm, leftLeg, rightLeg, hand, materials: [body, accent, skin, visor] };
+
+  // Combine each moving part's boxes into one mesh (one shared material with
+  // per-part colors): far fewer draw calls, so many bots stay smooth.
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 });
+  for (const part of [leftLeg, rightLeg, leftArm, rightArm, head]) mergeMeshes(part, material);
+  mergeMeshes(upper, material, new Set<THREE.Object3D>([head, leftArm, rightArm, hand]));
+  for (const m of [body, accent, skin, visor]) m.dispose();
+
+  return { root, upper, head, leftArm, rightArm, leftLeg, rightLeg, hand, materials: [material] };
 }
