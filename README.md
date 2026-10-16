@@ -82,7 +82,7 @@ Chrome is recommended. Safari and Firefox also work.
 
 ## Playing
 
-From the main menu, click **Play**, choose your match, and click **Start**. Your choices are remembered for next time.
+The game opens on the title screen. Click or press any key to reach the main menu, where you can **Play**, read **How to play**, or open **Settings**. Click **Play**, choose your match, and click **Start**. Your choices are remembered for next time.
 
 - **Mode**: Deathmatch or Survival (below)
 - **Map**: Foundry (the main arena) or Test Room (small)
@@ -217,7 +217,8 @@ src/
   map/            Map format, map builder, and maps/ (the map data)
   effects/        Tracers, sparks, bullet holes, muzzle flashes
   audio/          Sound engine and generated sound effects
-  ui/             HUD, minimap, menus, styles
+  ui/             HUD, minimap, menus (title screen, main menu, setup, pause, settings,
+                  end screen), the animated menu background (MenuBackdrop), styles
   assets/         Textures and models (made in code; swap in real files here)
   entities/       Practice dummies (optional, per map)
 ```

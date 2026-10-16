@@ -12,7 +12,7 @@ export interface MenuActions {
   quitToMenu(): void;
 }
 
-type Screen = 'main' | 'setup' | 'pause' | 'settings' | 'end' | null;
+type Screen = 'title' | 'main' | 'controls' | 'setup' | 'pause' | 'settings' | 'end' | null;
 
 const CONFIG_KEY = 'generic-fps-match';
 
@@ -40,6 +40,32 @@ export class Menus {
 
     // Any click in a menu also unlocks audio (browsers require a click first).
     this.root.addEventListener('pointerdown', () => audio.unlock());
+
+    // Film grain for the title screen and main menu (a small noise image, tiled).
+    const g = document.createElement('canvas');
+    g.width = g.height = 160;
+    const ctx = g.getContext('2d')!;
+    const img = ctx.createImageData(160, 160);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = Math.random() * 255;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 22;
+    }
+    ctx.putImageData(img, 0, 0);
+    this.root.style.setProperty('--grain', `url(${g.toDataURL()})`);
+
+    // On the title screen, any key or click starts.
+    window.addEventListener('keydown', (e) => {
+      if (this.screen === 'title' && !e.repeat) this.leaveTitle();
+    });
+  }
+
+  private leaveTitle(): void {
+    if (this.screen !== 'title' || this.root.classList.contains('leaving')) return;
+    audio.unlock();
+    audio.play('title_start');
+    this.root.classList.add('leaving');
+    setTimeout(() => this.show('main'), 450);
   }
 
   get current(): Screen {
@@ -80,11 +106,18 @@ export class Menus {
     if (screen === 'pause') this.pauseHint = hint;
     this.screen = screen;
     this.root.style.display = 'flex';
-    this.root.className = `menu-root ${screen === 'main' || screen === 'setup' ? 'solid' : ''}`;
+    const cinematic = screen === 'title' || screen === 'main';
+    this.root.className = `menu-root ${cinematic ? `cinematic ${screen}` : screen === 'setup' || screen === 'controls' ? 'solid' : ''}`;
     this.root.innerHTML = '';
+    if (cinematic) {
+      div('grain', this.root);
+      if (screen === 'title') this.buildTitle();
+      else this.buildMain();
+      return;
+    }
     const panel = div('menu-panel', this.root);
     switch (screen) {
-      case 'main': this.buildMain(panel); break;
+      case 'controls': this.buildControls(panel); break;
       case 'setup': this.buildSetup(panel); break;
       case 'pause': this.buildPause(panel); break;
       case 'settings': this.buildSettings(panel); break;
@@ -99,17 +132,52 @@ export class Menus {
 
   // ---- Screens -------------------------------------------------------------
 
-  private buildMain(p: HTMLElement): void {
-    div('menu-title', p).textContent = 'Generic FPS';
-    div('menu-sub', p).textContent = 'A singleplayer shooter against AI bots';
-    const col = div('menu-buttons', p);
-    button(col, 'Play', () => this.show('setup'), 'primary');
-    button(col, 'Settings', () => this.openSettings('main'));
-    const help = div('menu-help', p);
-    help.innerHTML =
-      'WASD move · Mouse look · Space jump · Shift sprint · C crouch<br>' +
-      'Left click shoot · Right click aim · R reload · 1–4 / wheel switch weapon<br>' +
-      'Tab scoreboard · Esc pause';
+  private buildTitle(): void {
+    const wrap = div('title-screen', this.root);
+    const center = div('title-center', wrap);
+    center.appendChild(logo('big'));
+    div('title-tagline', center).textContent = 'Outthink them. Outaim them. Outlast them.';
+    div('title-prompt', wrap).textContent = 'Click or press any key to start';
+    const foot = div('title-footer', wrap);
+    foot.innerHTML = '<span>Singleplayer · AI bots · Deathmatch & Survival</span><span>v1.0</span>';
+    wrap.addEventListener('click', () => this.leaveTitle());
+  }
+
+  private buildMain(): void {
+    const wrap = div('main-layout', this.root);
+    const left = div('main-left', wrap);
+    left.appendChild(logo('small'));
+    const nav = div('main-nav', left);
+    const item = (label: string, hint: string, onClick: () => void, featured = false) => {
+      const b = button(nav, '', onClick, `nav-item ${featured ? 'featured' : ''}`);
+      b.innerHTML = `<span class="nav-label">${label}</span><span class="nav-hint">${hint}</span>`;
+    };
+    item('Play', 'Deathmatch or Survival against bots', () => this.show('setup'), true);
+    item('How to play', 'Controls and tips', () => this.show('controls'));
+    item('Settings', 'Mouse, field of view, sound, graphics', () => this.openSettings('main'));
+    div('main-foot', left).textContent = 'Tip: hold right click to aim down sights — bots miss more when you keep moving.';
+  }
+
+  private buildControls(p: HTMLElement): void {
+    div('menu-title small', p).textContent = 'How to play';
+    const rows: [string, string][] = [
+      ['W A S D', 'Move'], ['Mouse', 'Look'], ['Space', 'Jump'], ['Shift', 'Sprint'], ['C', 'Crouch'],
+      ['Left click', 'Shoot'], ['Right click', 'Aim / scope'], ['R', 'Reload'], ['1 – 4 / Wheel', 'Switch weapon'],
+      ['Q', 'Last weapon'], ['Tab', 'Scoreboard'], ['Esc', 'Pause'],
+    ];
+    const grid = div('controls-grid', p);
+    for (const [k, v] of rows) {
+      div('controls-key', grid).innerHTML = k.split(' / ').map((x) => `<kbd>${x}</kbd>`).join(' ');
+      div('controls-action', grid).textContent = v;
+    }
+    const tips = div('controls-tips', p);
+    tips.innerHTML =
+      '<b>Tips</b><br>' +
+      'Pickups: <span class="t-health">health</span>, <span class="t-armor">armor</span> (on the roof), and <span class="t-ammo">ammo</span> respawn after a while.<br>' +
+      'Bots hear gunshots and come to look — and hurt bots run for cover or health.<br>' +
+      'Headshots do double damage (more with the sniper rifle).';
+    const row = div('menu-buttons row', p);
+    button(row, 'Back', () => this.show('main'), 'primary');
   }
 
   private buildSetup(p: HTMLElement): void {
@@ -257,4 +325,18 @@ function slider(
   });
   if (onRelease) input.addEventListener('change', onRelease);
   parent.prepend(input);
+}
+
+/** The game logo: a crosshair emblem plus the name. */
+function logo(size: 'big' | 'small'): HTMLElement {
+  const el = document.createElement('div');
+  el.className = `logo ${size}`;
+  el.innerHTML = `
+    <svg class="logo-mark" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" stroke-width="5"/>
+      <circle cx="50" cy="50" r="5" fill="currentColor"/>
+      <path d="M50 2 V30 M50 70 V98 M2 50 H30 M70 50 H98" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+    <div class="logo-text"><span class="logo-top">Generic</span><span class="logo-main">FPS</span></div>`;
+  return el;
 }

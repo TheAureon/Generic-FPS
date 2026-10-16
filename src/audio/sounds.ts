@@ -31,6 +31,7 @@ export type SoundId =
   | 'win'
   | 'lose'
   | 'ui_click'
+  | 'title_start'
   | 'step'
   | 'land';
 
@@ -188,6 +189,14 @@ export const SYNTHS: Record<SoundId, Synth> = {
   },
   ui_click: (s) => {
     tone(s, { type: 'sine', from: 900, to: 700, gain: 0.12, decay: 0.04 });
+  },
+  title_start: (s) => {
+    // A rising whoosh into a deep hit.
+    noiseBurst(s, { type: 'bandpass', freq: 900, q: 1.2, gain: 0.35, decay: 0.3, attack: 0.25 });
+    tone(s, { type: 'sine', from: 70, to: 38, gain: 0.8, decay: 0.9, delay: 0.25 });
+    noiseBurst(s, { type: 'lowpass', freq: 500, gain: 0.6, decay: 0.6, delay: 0.25 });
+    tone(s, { type: 'triangle', from: 440, to: 440, gain: 0.08, decay: 0.8, delay: 0.27 });
+    tone(s, { type: 'triangle', from: 660, to: 660, gain: 0.06, decay: 0.8, delay: 0.27 });
   },
   step: (s) => {
     // Soft scuff of a boot on concrete (slightly different each time).

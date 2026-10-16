@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { CONFIG, MATCH } from '../config';
 import { audio } from '../audio/AudioEngine';
-import { buildMap } from '../map/MapBuilder';
 import { getMap } from '../map/maps';
 import type { MatchConfig } from '../modes/GameMode';
 import { Hud } from '../ui/Hud';
+import { MenuBackdrop } from '../ui/MenuBackdrop';
 import { Menus } from '../ui/Menus';
 import { Viewmodel } from '../weapons/Viewmodel';
 import { Input } from './Input';
@@ -38,8 +38,7 @@ export class Game {
   private clock = new THREE.Clock();
   private accumulator = 0;
   private lastConfig: MatchConfig | null = null;
-  private backdrop: THREE.Scene | null = null;
-  private menuTime = 0;
+  private backdrop: MenuBackdrop | null = null;
   /** Testing aid: lets automated checks play without pointer lock. */
   private forcePlay = false;
 
@@ -70,7 +69,7 @@ export class Game {
       restart: () => this.lastConfig && this.startMatch(this.lastConfig),
       quitToMenu: () => this.quitToMenu(),
     });
-    this.menus.show('main');
+    this.menus.show('title');
 
     document.addEventListener('pointerlockchange', () => this.onPointerLockChange());
     window.addEventListener('resize', () => this.onResize());
@@ -231,22 +230,12 @@ export class Game {
     if (playing && m.mode.result) this.endMatch();
   }
 
-  /** Behind the main menu: the arena, seen from a slowly circling camera. */
+  /** Behind the title screen and menus: the arena at dusk with a slow camera. */
   private renderMenuBackdrop(dt: number): void {
-    if (!this.backdrop) {
-      this.backdrop = new THREE.Scene();
-      buildMap(getMap(MATCH.defaultMap), this.backdrop);
-    }
-    this.menuTime += dt;
-    const a = this.menuTime * 0.05;
-    this.camera.position.set(Math.sin(a) * 38, 20, Math.cos(a) * 30);
-    this.camera.lookAt(0, 0, 0);
-    if (this.camera.fov !== 60) {
-      this.camera.fov = 60;
-      this.camera.updateProjectionMatrix();
-    }
+    this.backdrop ??= new MenuBackdrop(getMap(MATCH.defaultMap));
+    this.backdrop.update(dt, this.camera, this.menus.current !== 'title');
     this.renderer.clear();
-    this.renderer.render(this.backdrop, this.camera);
+    this.renderer.render(this.backdrop.scene, this.camera);
   }
 
   // ---- Testing aids (used by automated checks) ---------------------------------
