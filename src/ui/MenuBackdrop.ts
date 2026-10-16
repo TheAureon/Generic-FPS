@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createCharacterModel, type CharacterModel } from '../assets/characterModel';
 import { mergeMeshes } from '../assets/mergeMeshes';
 import { createWeaponModel } from '../assets/weaponModels';
+import { CharacterAnimator, RIFLE_GRIPS } from '../bots/CharacterAnimator';
 import { buildMap } from '../map/MapBuilder';
 import type { MapDef } from '../map/MapTypes';
 
@@ -13,7 +14,7 @@ export class MenuBackdrop {
   readonly scene = new THREE.Scene();
   private dust: THREE.Points;
   private dustVel: Float32Array;
-  private guards: { model: CharacterModel; baseYaw: number; phase: number }[] = [];
+  private guards: { model: CharacterModel; anim: CharacterAnimator; baseYaw: number; phase: number }[] = [];
   private time = 0;
   /** Camera blends between the title shot and the menu shot. */
   private menuBlend = 0;
@@ -89,16 +90,16 @@ export class MenuBackdrop {
       [8, 0, 1.5, -Math.PI * 0.6],
     ];
     for (const [x, y, z, yaw] of posts) {
-      const model = createCharacterModel(0xb8402f, 0x2c2f33);
+      const model = createCharacterModel(0xb8402f, 0x3f444c);
       const gun = createWeaponModel('rifle');
       mergeMeshes(gun, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }));
-      gun.scale.setScalar(1.3);
-      gun.position.set(-0.04, 0, 0.12);
+      gun.scale.setScalar(1.1);
       model.hand.add(gun);
       model.root.position.set(x, y, z);
       model.root.rotation.y = yaw;
+      built.sampleLampLight(new THREE.Vector3(x, y + 1.2, z), model.material.lampLight);
       this.scene.add(model.root);
-      this.guards.push({ model, baseYaw: yaw, phase: Math.random() * 10 });
+      this.guards.push({ model, anim: new CharacterAnimator(model, gun, RIFLE_GRIPS), baseYaw: yaw, phase: Math.random() * 10 });
     }
   }
 
@@ -123,12 +124,17 @@ export class MenuBackdrop {
     }
     p.needsUpdate = true;
 
-    // Guards breathe and slowly scan around.
+    // Guards breathe and slowly scan around (taking small steps as they turn).
     for (const gd of this.guards) {
       const s = t + gd.phase;
-      gd.model.root.rotation.y = gd.baseYaw + Math.sin(s * 0.25) * 0.5;
-      gd.model.upper.rotation.x = Math.sin(s * 1.6) * 0.025 - 0.05;
-      gd.model.head.rotation.y = Math.sin(s * 0.4) * 0.3;
+      gd.anim.update(dt, {
+        velocity: STILL,
+        onGround: true,
+        yaw: gd.baseYaw + Math.sin(s * 0.25) * 0.9,
+        pitch: -0.12 + Math.sin(s * 0.31) * 0.08,
+        reload: -1,
+        runSpeed: 5,
+      });
     }
 
     // Camera: a low, slow sweep around the center building for the title; a
@@ -149,6 +155,8 @@ export class MenuBackdrop {
     }
   }
 }
+
+const STILL = new THREE.Vector3();
 
 /** Soft round dot texture for the dust. */
 function softDot(): THREE.Texture {

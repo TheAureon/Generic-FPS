@@ -153,6 +153,21 @@ export const foundry: MapDef = {
     { type: 'ammo', x: -27.5, y: 2.5, z: 8 },
     { type: 'ammo', x: 27.5, y: 2.5, z: -8 },
   ],
+  // Lamps: warm sodium lights in the yards, cool white lights by the building.
+  lamps: [
+    { x: 0, y: 2.85, z: 0, color: 0xffd9a0, intensity: 1.6, range: 9, facing: 'down' }, // inside the building
+    { x: 0, y: 2.7, z: -6.08, color: 0xbfe0ff, intensity: 0.8, range: 7, facing: '-z' }, // above the north door
+    { x: 0, y: 2.7, z: 6.08, color: 0xbfe0ff, intensity: 0.8, range: 7, facing: '+z' }, // above the south door
+    { x: 6.08, y: 2.7, z: 0, color: 0xbfe0ff, intensity: 0.8, range: 7, facing: '+x' }, // above the east door
+    { x: -14.42, y: 3.2, z: -16, color: 0xffa04a, intensity: 1.5, range: 10, facing: '+x' }, // west wall, by the north doorway
+    { x: -15.58, y: 3.2, z: 16, color: 0xffa04a, intensity: 1.5, range: 10, facing: '-x' }, // west wall, yard side
+    { x: 14.42, y: 3.2, z: 16, color: 0xffa04a, intensity: 1.5, range: 10, facing: '-x' }, // east wall, by the south doorway
+    { x: 15.58, y: 3.2, z: -16, color: 0xffa04a, intensity: 1.5, range: 10, facing: '+x' }, // east wall, yard side
+    { x: -29.92, y: 5, z: 0, color: 0xffb35c, intensity: 1.6, range: 11, facing: '+x' }, // over the west deck
+    { x: 29.92, y: 5, z: 0, color: 0xffb35c, intensity: 1.6, range: 11, facing: '-x' }, // over the east deck
+    { x: -22, y: 5, z: -21.92, color: 0xbfe0ff, intensity: 1.2, range: 10, facing: '+z' }, // west yard, north wall
+    { x: 22, y: 5, z: 21.92, color: 0xbfe0ff, intensity: 1.2, range: 10, facing: '-z' }, // east yard, south wall
+  ],
   botSpawns: [
     spawn(-22, 0, 18),
     spawn(22, 0, -18),

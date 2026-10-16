@@ -89,6 +89,7 @@ export class BotManager {
         effects: this.d.effects,
         getEnemies,
         listener: this.d.player,
+        sampleLight: this.d.map.sampleLampLight,
       });
       const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth });
       this.bots.push(bot);

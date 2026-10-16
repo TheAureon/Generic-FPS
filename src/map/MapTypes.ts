@@ -70,6 +70,24 @@ export interface PickupDef {
   z: number;
 }
 
+/**
+ * A lamp fixture: a glowing light on a wall or ceiling. Its light is
+ * "baked" into the map when it loads (free while playing).
+ */
+export interface LampDef {
+  x: number;
+  y: number;
+  z: number;
+  /** Light color, e.g. 0xffb060 for warm, 0xbfe0ff for cool. */
+  color: number;
+  /** Brightness (1 = normal). */
+  intensity: number;
+  /** How far the light reaches (meters). */
+  range: number;
+  /** Which way the fixture faces: the direction the light shines from the wall. */
+  facing: '+x' | '-x' | '+z' | '-z' | 'down';
+}
+
 export interface MapDef {
   id: string;
   name: string;
@@ -82,5 +100,6 @@ export interface MapDef {
   playerSpawns: SpawnPoint[];
   botSpawns: SpawnPoint[];
   pickups?: PickupDef[];
+  lamps?: LampDef[];
   practiceTargets?: PracticeTargetDef[];
 }

@@ -70,8 +70,11 @@ export class Viewmodel {
   private casings: Casing[] = [];
   private nextCasing = 0;
   visible = true;
+  /** Extra light matching nearby lamps (starts dark). */
+  private lampAmbient = new THREE.AmbientLight(0x000000, 1);
 
   constructor() {
+    this.scene.add(this.lampAmbient);
     this.scene.add(this.camera);
     this.camera.add(this.rig);
     this.scene.add(new THREE.HemisphereLight(0xdde8ff, 0x4a4036, 1.4));
@@ -153,6 +156,11 @@ export class Viewmodel {
     this.models.get(this.current)!.visible = false;
     this.current = id;
     this.models.get(id)!.visible = true;
+  }
+
+  /** Blend the gun's extra light toward the lamp light around the player. */
+  tintLamp(color: THREE.Color, dt: number): void {
+    this.lampAmbient.color.lerp(color, 1 - Math.exp(-dt * 5));
   }
 
   setAspect(aspect: number): void {

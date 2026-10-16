@@ -54,6 +54,10 @@ export const testRoom: MapDef = {
     { type: 'armor', x: 9, y: 3, z: -12 },
     { type: 'ammo', x: -12, y: 0, z: 0 },
   ],
+  lamps: [
+    { x: 0, y: 4.5, z: -14.92, color: 0xffb35c, intensity: 1.4, range: 11, facing: '+z' },
+    { x: -14.92, y: 4.5, z: 6, color: 0xbfe0ff, intensity: 1.2, range: 10, facing: '+x' },
+  ],
   botSpawns: [
     { x: 8, y: 3, z: -11, yaw: 180 }, // on the platform
     { x: -12, y: 0, z: -12, yaw: 180 },

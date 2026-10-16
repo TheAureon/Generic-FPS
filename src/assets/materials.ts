@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { MaterialId } from '../map/MapTypes';
+import { addBakedLighting } from '../render/shaders';
 
 /**
  * Materials for map surfaces. Textures are drawn in code on a canvas.
@@ -101,18 +102,27 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
   return tex;
 }
 
-const cache = new Map<MaterialId, THREE.MeshStandardMaterial>();
+const textures = new Map<MaterialId, THREE.Texture>();
+const cache = new Map<string, THREE.Material>();
 
-export function getMaterial(id: MaterialId): THREE.MeshStandardMaterial {
-  let m = cache.get(id);
+/**
+ * Material for a map surface. 'standard' looks better (reflections, metal);
+ * 'lambert' is a cheaper shader for the Low graphics setting. Both include
+ * the baked lighting (corner shading + lamp light).
+ */
+export function getMaterial(id: MaterialId, kind: 'standard' | 'lambert' = 'standard'): THREE.Material {
+  const key = `${id}:${kind}`;
+  let m = cache.get(key);
   if (!m) {
     const s = STYLES[id];
-    m = new THREE.MeshStandardMaterial({
-      map: makeTexture(s),
-      roughness: s.roughness,
-      metalness: s.metalness,
-    });
-    cache.set(id, m);
+    let tex = textures.get(id);
+    if (!tex) textures.set(id, (tex = makeTexture(s)));
+    const mat =
+      kind === 'lambert'
+        ? new THREE.MeshLambertMaterial({ map: tex })
+        : new THREE.MeshStandardMaterial({ map: tex, roughness: s.roughness, metalness: s.metalness });
+    addBakedLighting(mat);
+    cache.set(key, (m = mat));
   }
   return m;
 }

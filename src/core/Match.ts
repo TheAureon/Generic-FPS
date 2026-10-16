@@ -292,7 +292,7 @@ export class Match {
     for (const u of this.unsubscribers) u();
     this.scene.traverse((o) => {
       if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments || o instanceof THREE.Line || o instanceof THREE.Points) {
-        o.geometry.dispose();
+        if (!o.geometry.userData.cached) o.geometry.dispose();
       }
     });
   }

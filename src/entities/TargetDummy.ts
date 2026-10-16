@@ -25,6 +25,12 @@ export class TargetDummy implements Damageable {
 
   constructor(readonly name: string, private def: PracticeTargetDef, scene: THREE.Scene) {
     this.model = createCharacterModel(0xd9772b, 0x3a3a3a);
+    // Arms hanging at the sides.
+    const b = this.model.bones;
+    b.lShoulder.rotation.set(0.05, 0, -0.14);
+    b.rShoulder.rotation.set(0.05, 0, 0.14);
+    b.lElbow.rotation.set(0.2, 0, 0);
+    b.rElbow.rotation.set(0.2, 0, 0);
     this.base = new THREE.Vector3(def.x, def.y, def.z);
     this.model.root.rotation.y = ((def.yaw ?? 0) * Math.PI) / 180;
     scene.add(this.model.root);
@@ -66,7 +72,7 @@ export class TargetDummy implements Damageable {
 
     // Flash white when hit.
     this.flash = Math.max(0, this.flash - dt * 8);
-    for (const m of this.model.materials) m.emissive.setRGB(this.flash * 0.6, this.flash * 0.6, this.flash * 0.6);
+    this.model.material.emissive.setRGB(this.flash * 0.6, this.flash * 0.6, this.flash * 0.6);
   }
 
   private place(): void {

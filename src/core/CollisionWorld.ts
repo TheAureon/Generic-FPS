@@ -190,6 +190,23 @@ export class CollisionWorld {
     return best;
   }
 
+  /** Is this point inside any solid box or ramp? */
+  isInsideSolid(x: number, y: number, z: number, margin = 0.001): boolean {
+    for (const s of this.solids) {
+      const b = s.bounds;
+      if (x < b.minX - margin || x > b.maxX + margin || y < b.minY - margin || y > b.maxY + margin || z < b.minZ - margin || z > b.maxZ + margin) continue;
+      let inside = true;
+      for (const p of s.planes) {
+        if (p.nx * x + p.ny * y + p.nz * z > p.d - margin) {
+          inside = false;
+          break;
+        }
+      }
+      if (inside) return true;
+    }
+    return false;
+  }
+
   /** True if nothing solid is between the two points. */
   hasLineOfSight(ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {
     const dx = bx - ax, dy = by - ay, dz = bz - az;

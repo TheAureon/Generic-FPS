@@ -241,7 +241,7 @@ export class Menus {
     segmented(field(p, 'Graphics'), [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality, (v) =>
       settings.set({ quality: v as 'low' | 'medium' | 'high' }),
     );
-    div('menu-note', p).textContent = 'Changes are saved automatically. Lower graphics quality if the game feels choppy.';
+    div('menu-note', p).textContent = 'Changes are saved automatically. Lower graphics quality if the game feels choppy. Some graphics changes take full effect from the next match.';
     const row = div('menu-buttons row', p);
     button(row, 'Back', () => this.show(this.settingsReturn ?? 'main'), 'primary');
   }

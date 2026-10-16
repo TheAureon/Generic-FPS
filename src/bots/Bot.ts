@@ -15,6 +15,7 @@ import type { Trackable } from '../player/Player';
 import { shotDamage, traceShot } from '../weapons/hitscan';
 import { Weapon } from '../weapons/Weapon';
 import { anglesTo, BotAim } from './BotAim';
+import { CharacterAnimator, RIFLE_GRIPS } from './CharacterAnimator';
 import { Perception } from './Perception';
 
 const DEG = Math.PI / 180;
@@ -27,6 +28,8 @@ export interface BotContext {
   getEnemies: () => readonly Damageable[];
   /** Who hears near-miss "whiz" sounds (the player). */
   listener: Trackable;
+  /** Colored light from nearby map lamps at a point (tints the body). */
+  sampleLight?: (p: THREE.Vector3, out: THREE.Color) => THREE.Color;
 }
 
 /**
@@ -63,15 +66,15 @@ export class Bot implements Damageable, Trackable {
 
   private weaponModel: THREE.Group;
   private muzzle: THREE.Object3D;
-  private walkPhase = 0;
-  private lastStepPhase = 0;
+  readonly anim: CharacterAnimator;
   private flash = 0;
+  private lightTimer = Math.random() * 0.25;
+  private lightTarget = new THREE.Color();
+  private _lightPos = new THREE.Vector3();
 
-  // Death animation.
+  // Death.
   /** Seconds since death (-1 while alive). */
   private deathTime = -1;
-  private deathTwist = 0;
-  private headshotDeath = false;
   /** The gun's resting place in the hand (restored on respawn). */
   private gunHome = { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
   private gunVel = new THREE.Vector3();
@@ -88,15 +91,17 @@ export class Bot implements Damageable, Trackable {
   ) {
     this.skill = BOT_DIFFICULTY[difficulty];
     this.body = new CharacterBody(ctx.world, BOTS.height, BOTS.radius, 0.45, 20);
-    this.model = createCharacterModel(0xb8402f, 0x2c2f33);
-    this.model.root.rotation.order = 'YXZ';
+    this.model = createCharacterModel(0xb8402f, 0x3f444c);
     this.weaponModel = createWeaponModel(BOTS.weapon);
     // Slightly oversized so it reads clearly at a distance.
-    this.weaponModel.scale.setScalar(1.3);
-    this.weaponModel.position.set(-0.04, 0, 0.12);
+    this.weaponModel.scale.setScalar(1.1);
     // One mesh for the whole gun (cheaper to draw).
     mergeMeshes(this.weaponModel, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }));
     this.model.hand.add(this.weaponModel);
+    this.anim = new CharacterAnimator(this.model, this.weaponModel, RIFLE_GRIPS);
+    this.anim.onStep = (speed) => {
+      if (speed > 1.5) audio.play('step', { position: this.position, volume: 0.5 + speed * 0.08 });
+    };
     this.gunHome.pos.copy(this.weaponModel.position);
     this.gunHome.quat.copy(this.weaponModel.quaternion);
     this.muzzle = this.weaponModel.getObjectByName('muzzle')!;
@@ -152,6 +157,7 @@ export class Bot implements Damageable, Trackable {
     if (!this.isAlive()) return false;
     this.health -= info.amount;
     this.flash = 1;
+    this.anim.hit();
     this.lastAttacker = info.attacker;
     this.lastDamagedAt = this.time;
     // Getting shot tells the bot roughly where the shooter is.
@@ -189,6 +195,7 @@ export class Bot implements Damageable, Trackable {
     }
     if (!w.canFire()) return false;
     w.fire();
+    this.anim.fire();
 
     const { world, effects } = this.ctx;
     const origin = this.eyePosition();
@@ -262,7 +269,19 @@ export class Bot implements Damageable, Trackable {
     w.update(dt);
 
     this.flash = Math.max(0, this.flash - dt * 8);
-    for (const m of this.model.materials) m.emissive.setRGB(this.flash * 0.7, this.flash * 0.25, this.flash * 0.2);
+    const mat = this.model.material;
+    mat.emissive.setRGB(this.flash * 0.7, this.flash * 0.25, this.flash * 0.2);
+
+    // Pick up the color of nearby lamps (checked a few times a second, blended smoothly).
+    if (this.ctx.sampleLight) {
+      this.lightTimer -= dt;
+      if (this.lightTimer <= 0) {
+        this.lightTimer = 0.25;
+        this._lightPos.set(this.position.x, this.position.y + 1.2, this.position.z);
+        this.ctx.sampleLight(this._lightPos, this.lightTarget);
+      }
+      mat.lampLight.lerp(this.lightTarget, 1 - Math.exp(-dt * 6));
+    }
 
     if (!this.isAlive()) {
       this.respawnTimer -= dt;
@@ -271,26 +290,19 @@ export class Bot implements Damageable, Trackable {
       return;
     }
     this.syncModel();
-
-    // Walk animation: swing legs based on speed, with a footstep sound per step.
-    const speed = Math.hypot(this.velocity.x, this.velocity.z);
-    this.walkPhase += dt * speed * 2.2;
-    const swing = Math.sin(this.walkPhase) * Math.min(1, speed / BOTS.walkSpeed) * 0.6;
-    this.model.leftLeg.rotation.x = swing;
-    this.model.rightLeg.rotation.x = -swing;
-    // Lean the upper body to aim up/down.
-    this.model.upper.rotation.x = this.aim.pitch * 0.8;
-    const step = Math.floor(this.walkPhase / Math.PI);
-    if (step !== this.lastStepPhase) {
-      this.lastStepPhase = step;
-      if (speed > 1.5 && this.body.onGround) audio.play('step', { position: this.position, volume: 0.5 + speed * 0.08 });
-    }
+    this.anim.update(dt, {
+      velocity: this.velocity,
+      onGround: this.body.onGround,
+      yaw: this.aim.yaw,
+      pitch: this.aim.pitch,
+      reload: w.reloading ? w.reloadProgress : -1,
+      runSpeed: BOTS.runSpeed,
+    });
   }
 
   private syncModel(): void {
     const root = this.model.root;
     root.position.copy(this.position);
-    root.rotation.set(0, this.aim.yaw, 0);
     this.hitbox.setPosition(this.position);
   }
 
@@ -298,23 +310,16 @@ export class Bot implements Damageable, Trackable {
   private resetPose(): void {
     const m = this.model;
     this.deathTime = -1;
-    m.root.rotation.set(0, 0, 0);
-    m.upper.rotation.set(0, 0, 0);
-    m.head.rotation.set(0, 0, 0);
-    m.leftLeg.rotation.set(0, 0, 0);
-    m.rightLeg.rotation.set(0, 0, 0);
-    m.rightArm.rotation.set(-1.25, 0, 0);
-    m.leftArm.rotation.set(-1.35, 0, 0.45);
     if (this.weaponModel.parent !== m.hand) m.hand.add(this.weaponModel);
     this.weaponModel.position.copy(this.gunHome.pos);
     this.weaponModel.quaternion.copy(this.gunHome.quat);
     this.gunResting = true;
+    this.anim.reset();
   }
 
   private startDeath(from: THREE.Vector3, headshot: boolean): void {
     this.deathTime = 0;
-    this.headshotDeath = headshot;
-    this.deathTwist = (Math.random() - 0.5) * 0.7;
+    this.anim.startDeath(headshot);
     // Face the shooter, so the body falls backward, away from the shot.
     this.aim.yaw = Math.atan2(-(from.x - this.position.x), -(from.z - this.position.z));
     this.aim.pitch = 0;
@@ -330,27 +335,11 @@ export class Bot implements Damageable, Trackable {
 
   /** Falling over, limbs going limp, the gun clattering, then sinking away. */
   private animateDeath(dt: number): void {
-    const m = this.model;
-    const t = this.deathTime;
-    const root = m.root;
+    const root = this.model.root;
     root.position.copy(this.position);
     this.hitbox.setPosition(this.position);
 
-    // Fall: speeds up like gravity, with a small bounce on hitting the floor.
-    const FALL = 0.55;
-    const k = Math.min(1, t / FALL);
-    let angle = (Math.PI / 2) * k * k;
-    if (t > FALL) angle += 0.09 * Math.sin((t - FALL) * 20) * Math.exp(-(t - FALL) * 9);
-    root.rotation.set(angle, this.aim.yaw, this.deathTwist * k, 'YXZ');
-
-    // Knees buckle, arms fling out, head snaps back on a headshot.
-    const limp = Math.min(1, t / 0.35);
-    m.leftLeg.rotation.x = 0.55 * limp;
-    m.rightLeg.rotation.x = 0.3 * limp;
-    m.upper.rotation.x = 0.25 * limp;
-    m.rightArm.rotation.set(-1.25 - 1.4 * limp, 0, -0.6 * limp);
-    m.leftArm.rotation.set(-1.35 - 1.2 * limp, 0, 0.45 + 0.5 * limp);
-    if (this.headshotDeath) m.head.rotation.x = 0.8 * Math.min(1, t / 0.1);
+    this.anim.update(dt, { velocity: this.velocity, onGround: true, yaw: this.aim.yaw, pitch: 0, reload: -1, runSpeed: BOTS.runSpeed });
 
     // Before respawning, sink into the floor.
     const sink = this.respawnTimer < 1.2 ? (1.2 - Math.max(0, this.respawnTimer)) * 0.8 : 0;

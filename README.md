@@ -126,7 +126,25 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
 
 - **Mouse sensitivity**, **Field of view**, **Volume**
 - **Screen shake**: on or off
-- **Graphics**: Low, Medium, or High. If the game feels choppy, try Medium or Low. Low turns off shadows and draws at a lower resolution, which helps most on Retina screens.
+- **Graphics**: Low, Medium, or High. If the game feels choppy, try Medium or Low. Some changes take full effect from the next match.
+  - **Low**: no shadows, simpler (cheaper) surface shading, lower resolution. Helps most on Retina screens.
+  - **Medium**: shadows, and faint reflections on metal and armor.
+  - **High**: full resolution, sharper soft-edged shadows, and a glow ("bloom") around lamps, visors, and muzzle flashes.
+
+  On every setting the map has **baked lighting**: when a map loads, the game works out once how dark each corner is and how much light each wall lamp throws, and paints that onto the surfaces. That looks like many lights but costs almost nothing while playing. Soldiers pick up the color of lamps they walk past the same way, and so does the gun in your hands.
+
+---
+
+## The soldiers
+
+Bots are low-poly soldiers (helmet with a glowing visor, armored vest, backpack, team-colored shoulder pads) with a real skeleton, drawn as a single mesh so many bots stay cheap. All animation is done in code:
+
+- legs walk or run in the direction they move (including strafing and backing up) while the upper body keeps aiming at you
+- both hands stay on the rifle, with elbows bending naturally; the gun kicks when they fire
+- they flinch when hit, tilt the rifle and swap the magazine when reloading, tuck their legs when jumping, take small steps when turning on the spot, and breathe and shift weight when standing
+- when killed they crumple and fall away from the shot (a headshot snaps the head back) and drop their gun
+
+The model is in `src/assets/characterModel.ts` and the animation in `src/bots/CharacterAnimator.ts`.
 
 ---
 
@@ -213,12 +231,14 @@ src/
                   collision, walking physics, events
   player/         Player movement and camera (PlayerController), health and armor (Player)
   bots/           Bot body (Bot), senses (Perception), aim (BotAim), state machine (BotBrain),
-                  navigation (NavGraph, Navigator), spawning (BotManager), debug view
+                  navigation (NavGraph, Navigator), spawning (BotManager), animation
+                  (CharacterAnimator), debug view
   weapons/        Weapon stats/state, bullet tracing (hitscan), firing and switching
                   (WeaponSystem), the gun in your hands (Viewmodel)
   modes/          Deathmatch and Survival rules
   pickups/        Health, armor, and ammo pickups
-  map/            Map format, map builder, and maps/ (the map data)
+  map/            Map format, map builder (incl. baked lighting), and maps/ (the map data)
+  render/         Graphics quality, shader tweaks, and the bloom/reflection pipeline
   effects/        Tracers, sparks, bullet holes, muzzle flashes
   audio/          Sound engine and generated sound effects
   ui/             HUD, minimap, menus (title screen, main menu, setup, pause, settings,

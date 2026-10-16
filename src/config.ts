@@ -74,10 +74,17 @@ export const CONFIG = {
    * slower computers. pixelRatio caps the resolution on Retina screens.
    */
   quality: {
-    low: { pixelRatio: 1, shadows: false },
-    medium: { pixelRatio: 1.5, shadows: true },
-    high: { pixelRatio: 2, shadows: true },
-  },
+    // pixelRatio: resolution cap (Retina screens); shadowMapSize: shadow sharpness;
+    // softShadows: blurred shadow edges; materials: 'lambert' is cheaper, 'standard'
+    // looks better (reflections); envMap: subtle reflections of the sky;
+    // bloom: glow around bright things (visors, lamps, muzzle flashes).
+    low: { pixelRatio: 1, shadows: false, shadowMapSize: 1024, softShadows: false, materials: 'lambert', envMap: false, bloom: false },
+    medium: { pixelRatio: 1.5, shadows: true, shadowMapSize: 2048, softShadows: false, materials: 'standard', envMap: true, bloom: false },
+    high: { pixelRatio: 2, shadows: true, shadowMapSize: 4096, softShadows: true, materials: 'standard', envMap: true, bloom: true },
+  } as Record<'low' | 'medium' | 'high', {
+    pixelRatio: number; shadows: boolean; shadowMapSize: number; softShadows: boolean;
+    materials: 'lambert' | 'standard'; envMap: boolean; bloom: boolean;
+  }>,
 
   render: {
     /** Shadows are switched on per quality preset; this is the master switch. */

@@ -8,6 +8,7 @@ import { MenuBackdrop } from '../ui/MenuBackdrop';
 import { Menus } from '../ui/Menus';
 import { Viewmodel } from '../weapons/Viewmodel';
 import { Input } from './Input';
+import { RenderPipeline } from '../render/Pipeline';
 import { Match } from './Match';
 import { settings } from './Settings';
 
@@ -39,15 +40,19 @@ export class Game {
   private accumulator = 0;
   private lastConfig: MatchConfig | null = null;
   private backdrop: MenuBackdrop | null = null;
+  private readonly pipeline: RenderPipeline;
+  private lampTimer = 0;
+  private lampColor = new THREE.Color();
+  private _eye = new THREE.Vector3();
   /** Testing aid: lets automated checks play without pointer lock. */
   private forcePlay = false;
 
   constructor(gameRoot: HTMLElement, uiRoot: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.pipeline = new RenderPipeline(this.renderer);
     this.applyQuality();
     settings.onChange(() => this.applyQuality());
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     // We draw the world, then the gun on top, so clear manually.
@@ -80,8 +85,12 @@ export class Game {
     const q = CONFIG.quality[settings.get().quality] ?? CONFIG.quality.high;
     const ratio = Math.min(window.devicePixelRatio, q.pixelRatio);
     if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio);
-    this.renderer.shadowMap.enabled = CONFIG.render.shadows && q.shadows;
+    if (q !== this.appliedQuality) {
+      this.appliedQuality = q;
+      this.pipeline.qualityChanged();
+    }
   }
+  private appliedQuality: unknown = null;
 
   start(): void {
     this.clock.start();
@@ -177,8 +186,7 @@ export class Game {
 
     if (m && this.state !== 'menu') {
       this.updateMatch(dt, m);
-      this.renderer.clear();
-      this.renderer.render(m.scene, this.camera);
+      this.pipeline.render(m.scene, this.camera, [this.viewmodel.scene]);
       if (this.state === 'playing' || this.state === 'paused') this.viewmodel.render(this.renderer);
     } else {
       this.renderMenuBackdrop(dt);
@@ -218,6 +226,14 @@ export class Game {
     this.hud.showScoreboard(playing && this.input.isDown('Tab') ? m.mode.scoreboard() : null, m.mode.name);
     audio.updateListener(this.camera);
 
+    // The gun in your hands picks up the color of nearby lamps.
+    this.lampTimer -= dt;
+    if (this.lampTimer <= 0) {
+      this.lampTimer = 0.2;
+      m.map.sampleLampLight(this.camera.getWorldPosition(this._eye), this.lampColor);
+    }
+    this.viewmodel.tintLamp(this.lampColor, dt);
+
     const p = m.controller;
     this.hud.updateDebug(dt, () => [
       `pos ${p.position.x.toFixed(1)} ${p.position.y.toFixed(2)} ${p.position.z.toFixed(1)}`,
@@ -234,8 +250,7 @@ export class Game {
   private renderMenuBackdrop(dt: number): void {
     this.backdrop ??= new MenuBackdrop(getMap(MATCH.defaultMap));
     this.backdrop.update(dt, this.camera, this.menus.current !== 'title');
-    this.renderer.clear();
-    this.renderer.render(this.backdrop.scene, this.camera);
+    this.pipeline.render(this.backdrop.scene, this.camera);
   }
 
   // ---- Testing aids (used by automated checks) ---------------------------------

@@ -27,7 +27,7 @@ function mat(color: number, emissive = 0.15): THREE.MeshStandardMaterial {
 function box(w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0): THREE.Mesh {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
   mesh.position.set(x, y, z);
-  mesh.castShadow = true;
+  mesh.castShadow = false; // small and floating: not worth a shadow
   return mesh;
 }
 
