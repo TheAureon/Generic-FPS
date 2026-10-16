@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generic FPS</title>
+    <link rel="stylesheet" href="/src/ui/style.css" />
+    <style>@keyframes boot-show { to { opacity: 1; } }</style>
+  </head>
+  <body>
+    <!-- Development entry page (used by `npm run dev`). The playable game is the built index.html. -->
+    <!-- Shown only if the game fails to start (e.g. this file was opened directly). -->
+    <div id="boot-message" style="opacity:0;animation:boot-show 0.3s 1.5s forwards;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#14171c;color:#eee;font:16px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;text-align:left;padding:24px">
+      <div style="max-width:560px">
+        <h1 style="margin:0 0 12px;font-size:28px">Generic FPS</h1>
+        <p>This is the development page. It only runs through the development server.</p>
+        <p><b>To play:</b> open <code>index.html</code> (or <code>Play.html</code>) in the same folder instead.</p>
+        <p><b>To develop:</b> open Terminal in this folder and run <code>npm run dev</code>.</p>
+      </div>
+    </div>
+    <div id="game-root"></div>
+    <div id="ui-root"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

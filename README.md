@@ -8,13 +8,17 @@ Built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https://vit
 
 ## How to play (Mac)
 
-### Quickest: double-click `Play.html`
+### Quickest: double-click `index.html`
 
-Double-click **`Play.html`** in the project folder. It opens in your browser and the game starts at the main menu. You don't need Terminal or Node.js.
+Double-click **`index.html`** in the project folder. It opens in your browser at the title screen. You don't need Terminal or Node.js. (`Play.html` is an identical copy, kept so older links still work.)
 
-> Don't open `index.html` directly. That file only works through the development server below; opened on its own it just shows instructions.
+`index.html` is the complete game in a single file. If you change `src/config.ts`, either play through the development server below, which shows your changes instantly, or run `npm run build` to rebuild `index.html` and `Play.html`.
 
-`Play.html` is a snapshot of the game. If you change `src/config.ts`, either play through the development server below, which shows your changes instantly, or run `npm run build:play` to rebuild `Play.html`.
+### Putting it on a website
+
+Upload **`index.html`** to any web host. It's the whole game in one file, with nothing else needed. When someone opens your site (or the folder you put it in), the game starts.
+
+For **GitHub Pages**, go to the repository's **Settings → Pages**. Under "Build and deployment", choose "Deploy from a branch", pick this branch and the `/ (root)` folder, and save. The site serves `index.html` automatically.
 
 ### Development server (to tweak the game)
 
@@ -41,7 +45,7 @@ cd ~/Desktop/Generic-FPS
 npm run dev
 ```
 
-Your browser opens the game automatically. If it doesn't, open <http://localhost:5173>.
+Your browser opens the game automatically. If it doesn't, open <http://localhost:5173/dev.html>.
 To stop the server, click the Terminal window and press **Ctrl+C**.
 
 #### Getting updates
@@ -191,7 +195,7 @@ It appears in the match menu automatically, and bots can navigate it without any
 
 ## Troubleshooting
 
-- **A blank or white page**: you probably opened `index.html`. Open `Play.html` instead, or use `npm run dev`.
+- **A page of text instead of the game**: that's `dev.html`, the development page. Open `index.html` instead, or use `npm run dev`.
 - **The mouse isn't captured / "Click Resume"**: browsers only capture the mouse right after a click, and they refuse if you press Esc and click again very quickly. Wait a second and click **Resume**.
 - **The game feels choppy**: Settings → Graphics → Medium or Low.
 - **No sound**: check the volume in Settings and your Mac's volume. Browsers only allow sound after your first click in the page.
@@ -204,7 +208,7 @@ It appears in the match menu automatically, and bots can navigate it without any
 ```
 src/
   config.ts       All tunable numbers
-  main.ts         Starts the game
+  main.ts         Starts the game (loaded by dev.html)
   core/           Game loop and screens (Game.ts), one match (Match.ts), input, settings,
                   collision, walking physics, events
   player/         Player movement and camera (PlayerController), health and armor (Player)
@@ -225,6 +229,9 @@ src/
 
 ## Other commands
 
-- `npm run build`: checks the code for errors and builds a production version into `dist/`
-- `npm run build:play`: rebuilds the double-clickable `Play.html`
-- `npm run preview`: serves the production build locally
+- `npm run build`: checks the code for errors and rebuilds `index.html` and `Play.html` from the source code (run this after changing anything if you play by double-clicking or host it on a website)
+- `npm run typecheck`: just checks the code for errors
+
+Files at the top level:
+- `index.html` / `Play.html`: the finished game (built, single file)
+- `dev.html`: the development page that `npm run dev` uses (only works through the dev server)

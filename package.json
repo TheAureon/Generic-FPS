@@ -4,11 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --open",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --open",
-    "typecheck": "tsc --noEmit",
-    "build:play": "tsc --noEmit && vite build --config vite.standalone.config.ts && node -e \"require('fs').copyFileSync('dist-play/index.html','Play.html')\""
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build --config vite.standalone.config.ts && node -e \"const fs=require('fs');fs.copyFileSync('dist-play/dev.html','index.html');fs.copyFileSync('dist-play/dev.html','Play.html')\"",
+    "build:play": "npm run build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "three": "^0.170.0"
