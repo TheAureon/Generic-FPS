@@ -146,6 +146,8 @@ Bots are low-poly soldiers (helmet with a glowing visor, armored vest, backpack,
 
 The model is in `src/assets/characterModel.ts` and the animation in `src/bots/CharacterAnimator.ts`.
 
+In first person you see your own arms (simple box sleeves and gloves) holding each gun. They follow every bob, sway and recoil. When reloading, the gun tilts and your left hand pulls the magazine out, drops out of view for a fresh one, pushes it in and slaps it home (the shotgun instead loads shells one at a time). This is in `src/weapons/ViewmodelArms.ts`.
+
 ---
 
 ## How the bots work

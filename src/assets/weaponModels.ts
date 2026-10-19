@@ -51,7 +51,11 @@ const builders: Record<WeaponId, () => THREE.Group> = {
     );
     const grip = box(0.03, 0.1, 0.048, mats.dark, 0, -0.045, 0.04);
     grip.rotation.x = -0.25;
-    g.add(grip, muzzle(-0.15, 0.03));
+    // Magazine base sticking out of the grip (comes out when reloading).
+    const mag = box(0.026, 0.03, 0.042, mats.metal, 0, -0.098, 0.055);
+    mag.rotation.x = -0.25;
+    mag.name = 'mag';
+    g.add(grip, mag, muzzle(-0.15, 0.03));
     return g;
   },
   rifle: () => {
@@ -71,6 +75,7 @@ const builders: Record<WeaponId, () => THREE.Group> = {
     );
     const mag = box(0.03, 0.13, 0.055, mats.dark, 0, -0.09, -0.06);
     mag.rotation.x = 0.25;
+    mag.name = 'mag';
     const grip = box(0.03, 0.09, 0.045, mats.dark, 0, -0.07, 0.09);
     grip.rotation.x = -0.3;
     g.add(mag, grip, muzzle(-0.58, 0.005));
@@ -108,6 +113,7 @@ const builders: Record<WeaponId, () => THREE.Group> = {
     );
     const lens = tube(0.03, 0.002, mats.lens, 0, 0.085, -0.196);
     const mag = box(0.03, 0.06, 0.07, mats.dark, 0, -0.055, -0.03);
+    mag.name = 'mag';
     const grip = box(0.032, 0.08, 0.05, mats.wood, 0, -0.07, 0.12);
     grip.rotation.x = -0.35;
     g.add(lens, mag, grip, muzzle(-0.83, 0.008));

@@ -3,6 +3,7 @@ import { WEAPONS, type WeaponId } from '../config';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { getFlashTexture } from '../assets/textures';
 import { createWeaponModel } from '../assets/weaponModels';
+import { ViewmodelArms } from './ViewmodelArms';
 
 /**
  * The gun you see in your hands. It lives in its own little scene with its
@@ -17,7 +18,7 @@ const AIM_POSE: Record<WeaponId, THREE.Vector3> = {
   shotgun: new THREE.Vector3(0, -0.041, -0.38),
   sniper: new THREE.Vector3(0, -0.085, -0.12),
 };
-const HIP_POSE = new THREE.Vector3(0.15, -0.15, -0.42);
+const HIP_POSE = new THREE.Vector3(0.14, -0.12, -0.43);
 
 /** Where spent shells pop out of each gun (in the gun's own coordinates). */
 const EJECT_PORT: Record<WeaponId, THREE.Vector3> = {
@@ -46,7 +47,10 @@ export interface ViewmodelState {
   lookDY: number;
   /** 0 = gun fully up, 1 = fully lowered (switching weapons). */
   lowered: number;
-  reloading: boolean;
+  /** 0..1 through the current reload (or current shell), -1 if not reloading. */
+  reloadProgress: number;
+  /** Shotgun-style: shells loaded one at a time. */
+  perShell: boolean;
   onGround: boolean;
 }
 
@@ -65,6 +69,7 @@ export class Viewmodel {
   private swayY = 0;
   private bobT = 0;
   private reloadBlend = 0;
+  private arms: ViewmodelArms;
   private flashTimer = 0;
   private time = 0;
   private casings: Casing[] = [];
@@ -97,6 +102,7 @@ export class Viewmodel {
       model.getObjectByName('muzzle')!.add(flash);
       this.flashes.set(id, flash);
     }
+    this.arms = new ViewmodelArms(this.rig);
     this.setWeapon('pistol');
 
     // Pool of spent shell casings (brass; the shotgun's are red).
@@ -156,6 +162,7 @@ export class Viewmodel {
     this.models.get(this.current)!.visible = false;
     this.current = id;
     this.models.get(id)!.visible = true;
+    this.arms.setWeapon(id, this.models.get(id)!);
   }
 
   /** Blend the gun's extra light toward the lamp light around the player. */
@@ -201,19 +208,25 @@ export class Viewmodel {
     const bobY = -Math.abs(Math.cos(this.bobT)) * bobAmt;
     const breathe = Math.sin(this.time * 1.6) * 0.002 * (1 - s.ads);
 
-    this.reloadBlend += ((s.reloading ? 1 : 0) - this.reloadBlend) * Math.min(1, dt * 10);
+    this.reloadBlend += ((s.reloadProgress >= 0 ? 1 : 0) - this.reloadBlend) * Math.min(1, dt * 10);
+    // Magazine reloads tilt the gun to show the magazine well; shell loading tilts it less.
+    const rl = this.reloadBlend * (s.perShell ? 0.6 : 1);
+    // A small jolt when the new magazine is slapped in.
+    const seat = s.reloadProgress >= 0 && !s.perShell ? Math.exp(-Math.pow((s.reloadProgress - 0.8) * 18, 2)) : 0;
 
     // Blend hip -> aim pose.
     const pos = model.position.lerpVectors(HIP_POSE, AIM_POSE[this.current], s.ads);
-    pos.x += bobX + this.swayX;
-    pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 - this.reloadBlend * 0.06 - s.sprint * 0.04;
-    pos.z += this.kickBack;
+    // Reloading brings the gun in toward the middle, canted so you see the magazine.
+    pos.x += bobX + this.swayX - rl * 0.06;
+    pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 + rl * 0.045 + seat * 0.012 - s.sprint * 0.04;
+    pos.z += this.kickBack + rl * 0.06;
 
     model.rotation.set(
-      this.kickUp - s.lowered * 0.9 - this.reloadBlend * 0.5 - s.sprint * 0.35,
-      this.swayX * 2 + s.sprint * 0.6,
-      this.reloadBlend * 0.5 + s.sprint * 0.25,
+      this.kickUp - s.lowered * 0.9 + rl * 0.12 + seat * 0.05 - s.sprint * 0.35,
+      this.swayX * 2 + rl * 0.3 + s.sprint * 0.6,
+      rl * 0.6 + s.sprint * 0.25,
     );
+    this.arms.update(dt, model, s.reloadProgress, s.perShell);
 
     for (const c of this.casings) {
       if (c.life <= 0) continue;

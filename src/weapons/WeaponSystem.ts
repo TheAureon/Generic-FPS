@@ -160,7 +160,8 @@ export class WeaponSystem {
       lookDX: player.lastLookDX,
       lookDY: player.lastLookDY,
       lowered,
-      reloading: this.current.reloading && this.current.stats.reloadStyle === 'magazine',
+      reloadProgress: this.current.reloading ? this.current.reloadProgress : -1,
+      perShell: this.current.stats.reloadStyle === 'perShell',
       onGround: player.onGround,
     });
 
