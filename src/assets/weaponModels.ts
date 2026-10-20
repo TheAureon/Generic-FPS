@@ -87,13 +87,14 @@ const builders: Record<WeaponId, () => THREE.Group> = {
       box(0.05, 0.065, 0.24, mats.metal, 0, 0, 0), // receiver
       tube(0.016, 0.5, mats.metal, 0, 0.012, -0.36), // barrel
       tube(0.013, 0.4, mats.metal, 0, -0.022, -0.31), // magazine tube
-      box(0.05, 0.05, 0.16, mats.wood, 0, -0.022, -0.3), // pump
       box(0.045, 0.075, 0.28, mats.wood, 0, -0.02, 0.24), // stock
       box(0.008, 0.012, 0.008, mats.accent, 0, 0.033, -0.6), // bead sight
     );
+    const pump = box(0.05, 0.05, 0.16, mats.wood, 0, -0.022, -0.3); // slides back after each shot
+    pump.name = 'pump';
     const grip = box(0.032, 0.08, 0.05, mats.wood, 0, -0.065, 0.1);
     grip.rotation.x = -0.35;
-    g.add(grip, muzzle(-0.62, 0.012));
+    g.add(pump, grip, muzzle(-0.62, 0.012));
     return g;
   },
   sniper: () => {

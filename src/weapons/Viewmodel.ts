@@ -69,6 +69,8 @@ export class Viewmodel {
   private swayY = 0;
   private bobT = 0;
   private reloadBlend = 0;
+  /** Seconds since the last shotgun shot (drives the pump action). */
+  private pumpT = 99;
   private arms: ViewmodelArms;
   private flashTimer = 0;
   private time = 0;
@@ -161,6 +163,7 @@ export class Viewmodel {
   setWeapon(id: WeaponId): void {
     this.models.get(this.current)!.visible = false;
     this.current = id;
+    this.pumpT = 99;
     this.models.get(id)!.visible = true;
     this.arms.setWeapon(id, this.models.get(id)!);
   }
@@ -180,7 +183,9 @@ export class Viewmodel {
     this.kickBack += 0.035 * strength;
     this.kickUp += 0.06 * strength;
     this.flashTimer = 0.05;
-    this.ejectCasing();
+    // The shotgun's shell comes out when it's pumped, not when it fires.
+    if (this.current === 'shotgun') this.pumpT = 0;
+    else this.ejectCasing();
     const f = this.flashes.get(this.current)!;
     f.rotation.z = Math.random() * Math.PI;
     f.scale.setScalar(0.8 + Math.random() * 0.5);
@@ -211,6 +216,18 @@ export class Viewmodel {
     this.reloadBlend += ((s.reloadProgress >= 0 ? 1 : 0) - this.reloadBlend) * Math.min(1, dt * 10);
     // Magazine reloads tilt the gun to show the magazine well; shell loading tilts it less.
     const rl = this.reloadBlend * (s.perShell ? 0.6 : 1);
+
+    // Shotgun pump: shortly after a shot, rack the pump back (spent shell pops
+    // out) and push it forward again, well before the next shot is ready.
+    const prevPumpT = this.pumpT;
+    this.pumpT += dt;
+    const PUMP_START = 0.1, PUMP_BACK = 0.16, PUMP_FWD = 0.2;
+    const u = this.pumpT - PUMP_START;
+    let rack = 0;
+    if (u > 0 && u < PUMP_BACK) rack = smoothstep(u / PUMP_BACK);
+    else if (u >= PUMP_BACK && u < PUMP_BACK + PUMP_FWD) rack = 1 - smoothstep((u - PUMP_BACK) / PUMP_FWD);
+    const pump = rack * 0.1;
+    if (prevPumpT - PUMP_START < PUMP_BACK && u >= PUMP_BACK) this.ejectCasing();
     // A small jolt when the new magazine is slapped in.
     const seat = s.reloadProgress >= 0 && !s.perShell ? Math.exp(-Math.pow((s.reloadProgress - 0.8) * 18, 2)) : 0;
 
@@ -219,14 +236,14 @@ export class Viewmodel {
     // Reloading brings the gun in toward the middle, canted so you see the magazine.
     pos.x += bobX + this.swayX - rl * 0.06;
     pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 + rl * 0.045 + seat * 0.012 - s.sprint * 0.04;
-    pos.z += this.kickBack + rl * 0.06;
+    pos.z += this.kickBack + rl * 0.06 + rack * 0.015;
 
     model.rotation.set(
       this.kickUp - s.lowered * 0.9 + rl * 0.12 + seat * 0.05 - s.sprint * 0.35,
       this.swayX * 2 + rl * 0.3 + s.sprint * 0.6,
-      rl * 0.6 + s.sprint * 0.25,
+      rl * 0.6 + rack * 0.12 + s.sprint * 0.25,
     );
-    this.arms.update(dt, model, s.reloadProgress, s.perShell);
+    this.arms.update(dt, model, s.reloadProgress, s.perShell, pump);
 
     for (const c of this.casings) {
       if (c.life <= 0) continue;
@@ -256,6 +273,10 @@ export class Viewmodel {
     renderer.clearDepth();
     renderer.render(this.scene, this.camera);
   }
+}
+
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t);
 }
 
 function makeFlash(tex: THREE.Texture, size: number): THREE.Object3D {

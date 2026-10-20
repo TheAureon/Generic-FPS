@@ -61,6 +61,7 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _inv = new THREE.Matrix4();
 const Z = new THREE.Vector3(0, 0, 1);
 
 export class ViewmodelArms {
@@ -69,9 +70,12 @@ export class ViewmodelArms {
   /** A shotgun shell carried by the left hand while loading. */
   private shell: THREE.Mesh;
   private leftPos = new THREE.Vector3();
+  private leftLocal = new THREE.Vector3();
   private leftInit = false;
   private mag: THREE.Object3D | null = null;
   private magHome = new THREE.Vector3();
+  private pump: THREE.Object3D | null = null;
+  private pumpHome = 0;
   private weapon: WeaponId = 'pistol';
 
   constructor(parent: THREE.Object3D) {
@@ -97,14 +101,18 @@ export class ViewmodelArms {
     this.weapon = id;
     this.mag = model.getObjectByName('mag') ?? null;
     if (this.mag) this.magHome.copy(this.mag.position);
+    if (this.pump) this.pump.position.z = this.pumpHome;
+    this.pump = model.getObjectByName('pump') ?? null;
+    if (this.pump) this.pumpHome = this.pump.position.z;
     this.leftInit = false;
   }
 
   /**
    * Place both arms on `model` (already posed for this frame).
    * `reload` is 0..1 through the current reload (or one shell), or -1.
+   * `pump` is how far the shotgun's pump is pulled back (meters).
    */
-  update(dt: number, model: THREE.Object3D, reload: number, perShell: boolean): void {
+  update(dt: number, model: THREE.Object3D, reload: number, perShell: boolean, pump = 0): void {
     const hands = HANDS[this.weapon];
     model.updateMatrix();
     const m = model.matrix;
@@ -114,7 +122,8 @@ export class ViewmodelArms {
     this.place(this.right, _a, RIGHT_ELBOW);
 
     // Left hand: on the front grip, or doing the reload.
-    let target = _b.copy(hands.left).applyMatrix4(m);
+    if (this.pump) this.pump.position.z = this.pumpHome + pump;
+    let target = _b.copy(hands.left).setZ(hands.left.z + pump).applyMatrix4(m);
     let holding = false;
     if (reload >= 0) {
       const keys = perShell ? SHELL_KEYS : MAG_KEYS;
@@ -124,13 +133,18 @@ export class ViewmodelArms {
     } else {
       this.shell.visible = false;
     }
-    // Follow the target quickly but smoothly (no pops when a reload starts or is cancelled).
+    // Follow the target quickly but smoothly (no pops when a reload starts or
+    // is cancelled). Smoothed in the gun's own coordinates, so the hand stays
+    // glued to the gun when it kicks or sways.
+    _inv.copy(m).invert();
+    target.applyMatrix4(_inv);
     if (!this.leftInit) {
-      this.leftPos.copy(target);
+      this.leftLocal.copy(target);
       this.leftInit = true;
     } else {
-      this.leftPos.lerp(target, 1 - Math.exp(-dt * 28));
+      this.leftLocal.lerp(target, 1 - Math.exp(-dt * 30));
     }
+    this.leftPos.copy(this.leftLocal).applyMatrix4(m);
     this.place(this.left, this.leftPos, LEFT_ELBOW);
 
     // The magazine travels with the hand while it's out of the gun.
