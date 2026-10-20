@@ -146,7 +146,7 @@ Bots are low-poly soldiers (helmet with a glowing visor, armored vest, backpack,
 
 The model is in `src/assets/characterModel.ts` and the animation in `src/bots/CharacterAnimator.ts`.
 
-In first person you see your own arms (simple box sleeves and gloves) holding each gun. They follow every bob, sway and recoil. When reloading, the gun tilts and your left hand pulls the magazine out, drops out of view for a fresh one, pushes it in and slaps it home (the shotgun instead loads shells one at a time). After each shotgun blast your left hand racks the pump back, the spent shell flies out, and the pump slides forward again. This is in `src/weapons/ViewmodelArms.ts`.
+In first person you see your own arms (simple box sleeves and gloves) holding each gun. They follow every bob, sway and recoil. When reloading, the gun tilts and your left hand pulls the magazine out, drops out of view for a fresh one, pushes it in and slaps it home (the shotgun instead loads shells one at a time). After each shotgun blast your left hand racks the pump back, the spent shell flies out, and the pump slides forward again. After each sniper shot your right hand works the bolt (up, back, the case flies out, forward, down); the scope comes off while you do, and goes back on by itself if you're still holding right-click. This is in `src/weapons/ViewmodelArms.ts`.
 
 ---
 

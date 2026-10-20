@@ -197,7 +197,9 @@ export class WeaponSystem {
     const w = this.current;
 
     // Aim down sights (hold right mouse).
-    const wantAds = input.isMouseDown(2) && !busy && !(w.reloading && w.stats.reloadStyle === 'magazine');
+    // (The sniper also comes off the scope while its bolt is being worked.)
+    const wantAds =
+      input.isMouseDown(2) && !busy && !(w.reloading && w.stats.reloadStyle === 'magazine') && !this.viewmodel.cyclingBolt;
     const aimRate = COMBAT.aimSpeed * dt;
     this.ads = wantAds ? Math.min(1, this.ads + aimRate) : Math.max(0, this.ads - aimRate);
 

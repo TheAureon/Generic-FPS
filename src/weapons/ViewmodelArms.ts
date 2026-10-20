@@ -57,6 +57,7 @@ const SHELL_KEYS: [number, Spot][] = [
   [1, 'grip'],
 ];
 
+const NO_BOLT = { reach: 0, lift: 0, back: 0 };
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _dir = new THREE.Vector3();
@@ -76,6 +77,8 @@ export class ViewmodelArms {
   private magHome = new THREE.Vector3();
   private pump: THREE.Object3D | null = null;
   private pumpHome = 0;
+  private bolt: THREE.Object3D | null = null;
+  private boltHome = 0;
   private weapon: WeaponId = 'pistol';
 
   constructor(parent: THREE.Object3D) {
@@ -104,6 +107,10 @@ export class ViewmodelArms {
     if (this.pump) this.pump.position.z = this.pumpHome;
     this.pump = model.getObjectByName('pump') ?? null;
     if (this.pump) this.pumpHome = this.pump.position.z;
+    if (this.bolt) this.bolt.position.z = this.boltHome;
+    if (this.bolt) this.bolt.rotation.z = 0;
+    this.bolt = model.getObjectByName('bolt') ?? null;
+    if (this.bolt) this.boltHome = this.bolt.position.z;
     this.leftInit = false;
   }
 
@@ -111,14 +118,28 @@ export class ViewmodelArms {
    * Place both arms on `model` (already posed for this frame).
    * `reload` is 0..1 through the current reload (or one shell), or -1.
    * `pump` is how far the shotgun's pump is pulled back (meters).
+   * `bolt` is the sniper's bolt action: how far the right hand has moved from
+   * the grip to the bolt (0..1), how far the bolt is turned up (0..1), and how
+   * far it's pulled back (meters).
    */
-  update(dt: number, model: THREE.Object3D, reload: number, perShell: boolean, pump = 0): void {
+  update(dt: number, model: THREE.Object3D, reload: number, perShell: boolean, pump = 0, bolt = NO_BOLT): void {
     const hands = HANDS[this.weapon];
     model.updateMatrix();
     const m = model.matrix;
 
-    // Right hand: always on the grip.
-    _a.copy(hands.right).applyMatrix4(m);
+    // Right hand: on the grip, or working the bolt.
+    _a.copy(hands.right);
+    if (this.bolt) {
+      this.bolt.rotation.z = bolt.lift * 1.25;
+      this.bolt.position.z = this.boltHome + bolt.back;
+      if (bolt.reach > 0) {
+        // The knob, in gun coordinates (follows the bolt as it turns and slides).
+        this.bolt.updateMatrix();
+        _b.set(0.065, -0.012, 0.005).applyMatrix4(this.bolt.matrix);
+        _a.lerp(_b, bolt.reach);
+      }
+    }
+    _a.applyMatrix4(m);
     this.place(this.right, _a, RIGHT_ELBOW);
 
     // Left hand: on the front grip, or doing the reload.

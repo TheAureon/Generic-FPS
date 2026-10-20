@@ -71,6 +71,9 @@ export class Viewmodel {
   private reloadBlend = 0;
   /** Seconds since the last shotgun shot (drives the pump action). */
   private pumpT = 99;
+  /** Seconds since the last sniper shot (drives the bolt action). */
+  private boltT = 99;
+  private bolt = { reach: 0, lift: 0, back: 0 };
   private arms: ViewmodelArms;
   private flashTimer = 0;
   private time = 0;
@@ -164,6 +167,7 @@ export class Viewmodel {
     this.models.get(this.current)!.visible = false;
     this.current = id;
     this.pumpT = 99;
+    this.boltT = 99;
     this.models.get(id)!.visible = true;
     this.arms.setWeapon(id, this.models.get(id)!);
   }
@@ -171,6 +175,11 @@ export class Viewmodel {
   /** Blend the gun's extra light toward the lamp light around the player. */
   tintLamp(color: THREE.Color, dt: number): void {
     this.lampAmbient.color.lerp(color, 1 - Math.exp(-dt * 5));
+  }
+
+  /** The sniper's bolt is being worked: the scope is unusable until it's done. */
+  get cyclingBolt(): boolean {
+    return this.current === 'sniper' && boltBusy(this.boltT);
   }
 
   setAspect(aspect: number): void {
@@ -184,7 +193,9 @@ export class Viewmodel {
     this.kickUp += 0.06 * strength;
     this.flashTimer = 0.05;
     // The shotgun's shell comes out when it's pumped, not when it fires.
+    // Same for the sniper: the case comes out when the bolt is pulled back.
     if (this.current === 'shotgun') this.pumpT = 0;
+    else if (this.current === 'sniper') this.boltT = 0;
     else this.ejectCasing();
     const f = this.flashes.get(this.current)!;
     f.rotation.z = Math.random() * Math.PI;
@@ -228,6 +239,13 @@ export class Viewmodel {
     else if (u >= PUMP_BACK && u < PUMP_BACK + PUMP_FWD) rack = 1 - smoothstep((u - PUMP_BACK) / PUMP_FWD);
     const pump = rack * 0.1;
     if (prevPumpT - PUMP_START < PUMP_BACK && u >= PUMP_BACK) this.ejectCasing();
+
+    // Sniper bolt action: right hand to the bolt, turn it up, pull it back
+    // (the case flies out), push it forward, turn it down, hand back to the grip.
+    const prevBoltT = this.boltT;
+    this.boltT += dt;
+    const bk = boltKeys(this.boltT, this.bolt);
+    if (prevBoltT < BOLT_EJECT && this.boltT >= BOLT_EJECT) this.ejectCasing();
     // A small jolt when the new magazine is slapped in.
     const seat = s.reloadProgress >= 0 && !s.perShell ? Math.exp(-Math.pow((s.reloadProgress - 0.8) * 18, 2)) : 0;
 
@@ -237,13 +255,18 @@ export class Viewmodel {
     pos.x += bobX + this.swayX - rl * 0.06;
     pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 + rl * 0.045 + seat * 0.012 - s.sprint * 0.04;
     pos.z += this.kickBack + rl * 0.06 + rack * 0.015;
+    // Working the bolt: the gun cants to show its right side and moves out a
+    // little, so you can see the bolt and the hand doesn't fill the screen.
+    pos.x -= bk * 0.02;
+    pos.y -= bk * 0.02;
+    pos.z -= bk * 0.05;
 
     model.rotation.set(
       this.kickUp - s.lowered * 0.9 + rl * 0.12 + seat * 0.05 - s.sprint * 0.35,
       this.swayX * 2 + rl * 0.3 + s.sprint * 0.6,
-      rl * 0.6 + rack * 0.12 + s.sprint * 0.25,
+      rl * 0.6 + rack * 0.12 + bk * 0.4 + s.sprint * 0.25,
     );
-    this.arms.update(dt, model, s.reloadProgress, s.perShell, pump);
+    this.arms.update(dt, model, s.reloadProgress, s.perShell, pump, this.bolt);
 
     for (const c of this.casings) {
       if (c.life <= 0) continue;
@@ -273,6 +296,38 @@ export class Viewmodel {
     renderer.clearDepth();
     renderer.render(this.scene, this.camera);
   }
+}
+
+/** Bolt action timeline (seconds after the shot); the case ejects at the back of the pull. */
+const BOLT = { start: 0.22, reach: 0.14, lift: 0.1, back: 0.13, fwd: 0.12, down: 0.09, ret: 0.16 };
+const BOLT_EJECT = BOLT.start + BOLT.reach + BOLT.lift + BOLT.back;
+const BOLT_END = BOLT_EJECT + BOLT.fwd + BOLT.down + BOLT.ret;
+
+/** Fills in the bolt pose for time `t`; returns how "busy" the hand is (0..1). */
+function boltKeys(t: number, out: { reach: number; lift: number; back: number }): number {
+  let u = t - BOLT.start;
+  out.reach = out.lift = out.back = 0;
+  if (u <= 0 || t >= BOLT_END) return 0;
+  const seg = (len: number) => {
+    const k = Math.min(1, Math.max(0, u / len));
+    u -= len;
+    return smoothstep(k);
+  };
+  const reach = seg(BOLT.reach);
+  const lift = seg(BOLT.lift);
+  const back = seg(BOLT.back);
+  const fwd = seg(BOLT.fwd);
+  const down = seg(BOLT.down);
+  const ret = seg(BOLT.ret);
+  out.reach = reach * (1 - ret);
+  out.lift = lift * (1 - down);
+  out.back = back * (1 - fwd) * 0.075;
+  return out.reach;
+}
+
+/** True while the sniper's bolt is being worked (you can't use the scope then). */
+export function boltBusy(t: number): boolean {
+  return t > BOLT.start && t < BOLT_END - BOLT.ret * 0.5;
 }
 
 function smoothstep(t: number): number {

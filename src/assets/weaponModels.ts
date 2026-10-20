@@ -110,8 +110,18 @@ const builders: Record<WeaponId, () => THREE.Group> = {
       tube(0.03, 0.04, mats.dark, 0, 0.085, 0.13), // scope eyepiece
       box(0.015, 0.04, 0.015, mats.metal, 0, 0.05, -0.08), // scope mount
       box(0.015, 0.04, 0.015, mats.metal, 0, 0.05, 0.06), // scope mount
-      box(0.04, 0.012, 0.012, mats.metal, 0.035, 0.015, 0.08), // bolt handle
     );
+    // Bolt: turns up, slides back and forward again after each shot.
+    // Its pivot is on the bore line, so turning it swings the handle up.
+    const bolt = new THREE.Group();
+    bolt.name = 'bolt';
+    bolt.position.set(0, 0.015, 0.08);
+    bolt.add(
+      box(0.03, 0.022, 0.06, mats.metal, 0, 0.0, 0.0), // bolt body (shows when pulled back)
+      box(0.04, 0.012, 0.012, mats.metal, 0.035, 0, 0), // handle
+      box(0.02, 0.02, 0.02, mats.dark, 0.06, 0, 0), // knob
+    );
+    g.add(bolt);
     const lens = tube(0.03, 0.002, mats.lens, 0, 0.085, -0.196);
     const mag = box(0.03, 0.06, 0.07, mats.dark, 0, -0.055, -0.03);
     mag.name = 'mag';
