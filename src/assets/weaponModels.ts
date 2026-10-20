@@ -42,12 +42,18 @@ function muzzle(z: number, y = 0): THREE.Object3D {
 const builders: Record<WeaponId, () => THREE.Group> = {
   pistol: () => {
     const g = new THREE.Group();
-    g.add(
+    // The slide (with its sights) is racked back at the end of a reload.
+    const slide = new THREE.Group();
+    slide.name = 'slide';
+    slide.add(
       box(0.034, 0.038, 0.19, mats.metal, 0, 0.03, -0.03), // slide
-      box(0.03, 0.025, 0.15, mats.dark, 0, 0.002, -0.015), // frame
-      tube(0.008, 0.03, mats.metal, 0, 0.03, -0.13), // barrel tip
       box(0.006, 0.01, 0.006, mats.dark, 0, 0.053, -0.115), // front sight
       box(0.016, 0.01, 0.006, mats.dark, 0, 0.053, 0.055), // rear sight
+    );
+    g.add(
+      slide,
+      box(0.03, 0.025, 0.15, mats.dark, 0, 0.002, -0.015), // frame
+      tube(0.008, 0.03, mats.metal, 0, 0.03, -0.13), // barrel tip
     );
     const grip = box(0.03, 0.1, 0.048, mats.dark, 0, -0.045, 0.04);
     grip.rotation.x = -0.25;

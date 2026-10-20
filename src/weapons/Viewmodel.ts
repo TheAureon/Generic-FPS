@@ -238,6 +238,11 @@ export class Viewmodel {
     if (u > 0 && u < PUMP_BACK) rack = smoothstep(u / PUMP_BACK);
     else if (u >= PUMP_BACK && u < PUMP_BACK + PUMP_FWD) rack = 1 - smoothstep((u - PUMP_BACK) / PUMP_FWD);
     const pump = rack * 0.1;
+
+    // Pistol reload ends with racking the slide: the gun is pushed out and
+    // turned to show its left side, where the left hand grabs the slide.
+    const rp = s.reloadProgress;
+    const slideRack = this.current === 'pistol' && rp >= 0 ? smoothstep(clamp01((rp - 0.68) / 0.1)) * (1 - smoothstep(clamp01((rp - 0.9) / 0.1))) : 0;
     if (prevPumpT - PUMP_START < PUMP_BACK && u >= PUMP_BACK) this.ejectCasing();
 
     // Sniper bolt action: right hand to the bolt, turn it up, pull it back
@@ -254,7 +259,9 @@ export class Viewmodel {
     // Reloading brings the gun in toward the middle, canted so you see the magazine.
     pos.x += bobX + this.swayX - rl * 0.06;
     pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 + rl * 0.045 + seat * 0.012 - s.sprint * 0.04;
-    pos.z += this.kickBack + rl * 0.06 + rack * 0.015;
+    pos.z += this.kickBack + rl * 0.06 + rack * 0.015 - slideRack * 0.1;
+    pos.x -= slideRack * 0.06;
+    pos.y += slideRack * 0.02;
     // Working the bolt: the gun cants to show its right side and moves out a
     // little, so you can see the bolt and the hand doesn't fill the screen.
     pos.x -= bk * 0.02;
@@ -263,8 +270,8 @@ export class Viewmodel {
 
     model.rotation.set(
       this.kickUp - s.lowered * 0.9 + rl * 0.12 + seat * 0.05 - s.sprint * 0.35,
-      this.swayX * 2 + rl * 0.3 + s.sprint * 0.6,
-      rl * 0.6 + rack * 0.12 + bk * 0.4 + s.sprint * 0.25,
+      this.swayX * 2 + rl * 0.3 - slideRack * 1.1 + s.sprint * 0.6,
+      rl * 0.6 + rack * 0.12 + bk * 0.4 - slideRack * 0.6 + s.sprint * 0.25,
     );
     this.arms.update(dt, model, s.reloadProgress, s.perShell, pump, this.bolt);
 
@@ -328,6 +335,10 @@ function boltKeys(t: number, out: { reach: number; lift: number; back: number })
 /** True while the sniper's bolt is being worked (you can't use the scope then). */
 export function boltBusy(t: number): boolean {
   return t > BOLT.start && t < BOLT_END - BOLT.ret * 0.5;
+}
+
+function clamp01(t: number): number {
+  return Math.min(1, Math.max(0, t));
 }
 
 function smoothstep(t: number): number {

@@ -14,10 +14,12 @@ interface HandPoints {
   left: THREE.Vector3;
   /** Where the left hand grabs the magazine / pushes shells in. */
   reload: THREE.Vector3;
+  /** Pistol: where the left hand grabs the back of the slide to rack it. */
+  slide?: THREE.Vector3;
 }
 
 const HANDS: Record<WeaponId, HandPoints> = {
-  pistol: { right: v(0, -0.055, 0.05), left: v(-0.03, -0.07, 0.03), reload: v(0, -0.125, 0.06) },
+  pistol: { right: v(0, -0.055, 0.05), left: v(-0.03, -0.07, 0.03), reload: v(0, -0.125, 0.06), slide: v(-0.03, 0.035, 0.075) },
   rifle: { right: v(0, -0.08, 0.1), left: v(0, -0.045, -0.25), reload: v(0, -0.15, -0.075) },
   shotgun: { right: v(0, -0.08, 0.1), left: v(0, -0.05, -0.3), reload: v(0, -0.05, -0.06) },
   sniper: { right: v(0, -0.085, 0.12), left: v(0, -0.03, -0.2), reload: v(0, -0.09, -0.03) },
@@ -26,6 +28,8 @@ const HANDS: Record<WeaponId, HandPoints> = {
 /** Where each elbow is, relative to its hand (camera space): arms come from the lower corners. */
 const RIGHT_ELBOW = v(0.15, -0.13, 0.26);
 const LEFT_ELBOW = v(-0.17, -0.17, 0.22);
+/** Left elbow while racking the pistol slide: out to the side, so the arm doesn't cover the gun. */
+const LEFT_ELBOW_RACK = v(-0.3, -0.1, 0.12);
 
 function v(x: number, y: number, z: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z);
@@ -35,7 +39,7 @@ function smooth(t: number): number {
 }
 
 /** Keyframes for the left hand: [time 0..1, point name]. */
-type Spot = 'grip' | 'reload' | 'below' | 'away' | 'tap';
+type Spot = 'grip' | 'reload' | 'below' | 'away' | 'tap' | 'slide' | 'slideBack' | 'slideOff';
 const MAG_KEYS: [number, Spot][] = [
   [0, 'grip'],
   [0.16, 'reload'],
@@ -48,6 +52,24 @@ const MAG_KEYS: [number, Spot][] = [
   [0.86, 'reload'],
   [1, 'grip'],
 ];
+/** Pistol: a quicker magazine swap, then rack the slide to chamber a round. */
+const PISTOL_KEYS: [number, Spot][] = [
+  [0, 'grip'],
+  [0.12, 'reload'],
+  [0.18, 'reload'], // grab the magazine
+  [0.32, 'away'],
+  [0.42, 'away'],
+  [0.54, 'below'],
+  [0.6, 'reload'], // push it in
+  [0.65, 'tap'],
+  [0.68, 'reload'],
+  [0.78, 'slide'], // grab the back of the slide
+  [0.86, 'slideBack'], // pull it back...
+  [0.9, 'slideOff'], // ...and let go: it snaps forward
+  [1, 'grip'],
+];
+/** When the slide is pulled back and released (fractions of the pistol reload). */
+const SLIDE_GRAB = 0.78, SLIDE_RELEASE = 0.86, SLIDE_TRAVEL = 0.04;
 const SHELL_KEYS: [number, Spot][] = [
   [0, 'grip'],
   [0.25, 'away'], // fetch a shell
@@ -63,6 +85,7 @@ const _b = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _inv = new THREE.Matrix4();
+const _elbow = new THREE.Vector3();
 const Z = new THREE.Vector3(0, 0, 1);
 
 export class ViewmodelArms {
@@ -77,6 +100,8 @@ export class ViewmodelArms {
   private magHome = new THREE.Vector3();
   private pump: THREE.Object3D | null = null;
   private pumpHome = 0;
+  private slide: THREE.Object3D | null = null;
+  private slideHome = 0;
   private bolt: THREE.Object3D | null = null;
   private boltHome = 0;
   private weapon: WeaponId = 'pistol';
@@ -107,6 +132,9 @@ export class ViewmodelArms {
     if (this.pump) this.pump.position.z = this.pumpHome;
     this.pump = model.getObjectByName('pump') ?? null;
     if (this.pump) this.pumpHome = this.pump.position.z;
+    if (this.slide) this.slide.position.z = this.slideHome;
+    this.slide = model.getObjectByName('slide') ?? null;
+    if (this.slide) this.slideHome = this.slide.position.z;
     if (this.bolt) this.bolt.position.z = this.boltHome;
     if (this.bolt) this.bolt.rotation.z = 0;
     this.bolt = model.getObjectByName('bolt') ?? null;
@@ -147,9 +175,10 @@ export class ViewmodelArms {
     let target = _b.copy(hands.left).setZ(hands.left.z + pump).applyMatrix4(m);
     let holding = false;
     if (reload >= 0) {
-      const keys = perShell ? SHELL_KEYS : MAG_KEYS;
+      const pistol = !!hands.slide;
+      const keys = perShell ? SHELL_KEYS : pistol ? PISTOL_KEYS : MAG_KEYS;
       target = this.keyframe(keys, reload, hands, m, _b);
-      holding = perShell ? reload > 0.22 && reload < 0.7 : reload > 0.24 && reload < 0.76;
+      holding = perShell ? reload > 0.22 && reload < 0.7 : pistol ? reload > 0.18 && reload < 0.6 : reload > 0.24 && reload < 0.76;
       this.shell.visible = perShell && holding;
     } else {
       this.shell.visible = false;
@@ -166,7 +195,16 @@ export class ViewmodelArms {
       this.leftLocal.lerp(target, 1 - Math.exp(-dt * 30));
     }
     this.leftPos.copy(this.leftLocal).applyMatrix4(m);
-    this.place(this.left, this.leftPos, LEFT_ELBOW);
+    const racking = hands.slide && reload >= 0 ? smooth(Math.min(1, Math.max(0, (reload - 0.68) / 0.1))) * (1 - smooth(Math.min(1, Math.max(0, (reload - 0.9) / 0.1)))) : 0;
+    this.place(this.left, this.leftPos, racking > 0 ? _elbow.lerpVectors(LEFT_ELBOW, LEFT_ELBOW_RACK, racking) : LEFT_ELBOW);
+
+    // Pistol slide: follows the hand back, then snaps forward when let go.
+    if (this.slide) {
+      let back = 0;
+      if (reload > SLIDE_GRAB && reload < SLIDE_RELEASE) back = smooth((reload - SLIDE_GRAB) / (SLIDE_RELEASE - SLIDE_GRAB));
+      else if (reload >= SLIDE_RELEASE && reload < SLIDE_RELEASE + 0.025) back = 1 - (reload - SLIDE_RELEASE) / 0.025;
+      this.slide.position.z = this.slideHome + back * SLIDE_TRAVEL;
+    }
 
     // The magazine travels with the hand while it's out of the gun.
     if (this.mag) {
@@ -195,6 +233,13 @@ export class ViewmodelArms {
     switch (s) {
       case 'grip':
         return out.copy(hands.left).applyMatrix4(m);
+      case 'slide':
+        return out.copy(hands.slide ?? hands.left).applyMatrix4(m);
+      case 'slideBack':
+        return out.copy(hands.slide ?? hands.left).setZ((hands.slide?.z ?? 0) + SLIDE_TRAVEL).applyMatrix4(m);
+      case 'slideOff':
+        // Let go: the hand flicks up and back off the slide.
+        return out.copy(hands.slide ?? hands.left).add(v0.set(-0.05, 0.015, 0.07)).applyMatrix4(m);
       case 'reload':
         return out.copy(hands.reload).applyMatrix4(m);
       case 'below':
