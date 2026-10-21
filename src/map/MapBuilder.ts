@@ -5,7 +5,9 @@ import { CollisionWorld } from '../core/CollisionWorld';
 import { currentQuality } from '../render/quality';
 import { barrierCollision, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, rampDetail, relief, stairSteps } from './details';
 import { Sky } from '../render/Sky';
-import type { BoxDef, LampDef, MapDef, MaterialId, SkyDef } from './MapTypes';
+import type { BoxDef, LampDef, MapDef, MaterialId, PropDef, SkyDef, TerrainDef } from './MapTypes';
+import { propFoliage, propGeometry, propRadius, propSolids } from './nature';
+import { fbm, smoothstep, terrainRangeUnder } from './terrain';
 
 export interface BuiltMap {
   def: MapDef;
@@ -19,6 +21,8 @@ export interface BuiltMap {
 
 /** Size of the lighting "tiles" baked onto surfaces (meters). Smaller = finer, slower to load. */
 const BAKE_CELL = 1.0;
+/** Big plain surfaces (rock walls, water) get coarser lighting tiles: far fewer vertices. */
+const COARSE_BAKE: Partial<Record<MaterialId, number>> = { rock: 4, water: 3 };
 /** Rays per tile corner used to measure how enclosed it is (ambient occlusion). */
 const AO_RAYS = 12;
 const AO_DISTANCE = 1.5;
@@ -34,9 +38,11 @@ const LAMP_STRENGTH = 0.75;
  */
 const bakeCache = new Map<string, { geos: { mat: SurfaceId; geo: THREE.BufferGeometry }[]; bounds: THREE.Box3 }>();
 
-/** Detail surfaces with lots of vertices are merged per area (CELL m), so areas out of view are skipped. */
-const CHUNKED = new Set<SurfaceId>(['brick', 'panel']);
-const CELL = 14;
+/**
+ * Surfaces with lots of vertices are merged per area (this many meters
+ * square), so areas out of view are skipped when drawing.
+ */
+const CHUNKED = new Map<SurfaceId, number>([['brick', 14], ['panel', 14], ['needles', 45], ['foliage', 45], ['bark', 45], ['rock', 45]]);
 
 /** Detail parts that are too small/thin to be worth drawing into the shadow map. */
 const NO_SHADOW = new Set<SurfaceId>(['brick', 'panel', 'crateFrame', 'glass']);
@@ -78,14 +84,37 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   // The arena's footprint: faces looking out of it can never be seen.
   const foot = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
   for (const b of def.boxes) {
+    if (b.hidden) continue;
     foot.x0 = Math.min(foot.x0, b.x - b.w / 2);
     foot.x1 = Math.max(foot.x1, b.x + b.w / 2);
     foot.z0 = Math.min(foot.z0, b.z - b.d / 2);
     foot.z1 = Math.max(foot.z1, b.z + b.d / 2);
   }
+  const terrain = def.terrain;
+  if (terrain) {
+    world.setTerrain(terrain);
+    foot.x0 = Math.min(foot.x0, terrain.x0);
+    foot.x1 = Math.max(foot.x1, terrain.x0 + terrain.cols * terrain.cell);
+    foot.z0 = Math.min(foot.z0, terrain.z0);
+    foot.z1 = Math.max(foot.z1, terrain.z0 + terrain.rows * terrain.cell);
+  }
+  // Trees, rocks, logs: standing on the terrain (on its lowest point under them, so they never float).
+  const placed: { p: PropDef; y: number }[] = (def.props ?? []).map((p) => {
+    if (p.y !== undefined || !terrain) return { p, y: p.y ?? 0 };
+    const r = p.kind === 'log' ? 1.2 * (p.size ?? 1) : Math.min(0.8, propRadius(p) * 0.4);
+    return { p, y: terrainRangeUnder(terrain, p.x, p.z, r)[0] - 0.04 };
+  });
+  for (const { p, y } of placed) {
+    for (const b of propSolids(p, y)) world.addBox(b);
+    for (const [x, fy, z, r] of propFoliage(p, y)) world.addFoliage(x, fy, z, r);
+  }
 
   // ---- Collect every surface as a 4-cornered face ---------------------------
   for (const b of def.boxes) {
+    if (b.hidden) {
+      world.addBox(b, true);
+      continue;
+    }
     if (b.material === 'trim') {
       // Yellow barriers are jersey barriers: their own shape and collision.
       for (const part of barrierCollision(b)) world.addBox(part);
@@ -120,7 +149,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   if (!baked) {
     const byMaterial = new Map<SurfaceId, THREE.BufferGeometry[]>();
     const put = (mat: SurfaceId, geo: THREE.BufferGeometry) => {
-      applyWorldUVs(geo, getTileSize(mat));
+      if (!geo.getAttribute('uv')) applyWorldUVs(geo, getTileSize(mat));
       if (!byMaterial.has(mat)) byMaterial.set(mat, []);
       byMaterial.get(mat)!.push(geo);
       geo.computeBoundingBox();
@@ -133,7 +162,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       const n = faceNormal(q.corners);
       if (!n) continue; // zero-area face (e.g. the thin end of a ramp)
       if (facesOutside(q.corners, n, foot)) continue; // back of the outer walls
-      const geo = tessellate(q.corners);
+      const geo = tessellate(q.corners, COARSE_BAKE[q.material] ?? BAKE_CELL);
       bake(geo, world, aoDirs, lamps, lampPos, false, indoor);
       let mat: SurfaceId = q.material;
       const wall = Math.abs(n.y) < 0.1;
@@ -158,6 +187,14 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       bake(p.geo, world, aoDirs, lamps, lampPos, true, indoor);
       put(p.material, p.geo);
     }
+    if (terrain) for (const [mat, geo] of buildTerrain(terrain, placed, world, aoDirs, lamps, lampPos)) put(mat, geo);
+    for (const { p, y } of placed) {
+      for (const part of propGeometry(p, y)) {
+        if (part.prebaked) part.geo.setAttribute('aLight', new THREE.BufferAttribute(new Float32Array(part.geo.getAttribute('position').count * 3), 3));
+        else bake(part.geo, world, aoDirs, lamps, lampPos, true, indoor);
+        put(part.material, part.geo);
+      }
+    }
     // One mesh per material keeps draw calls low (good for frame rate).
     const geos: { mat: SurfaceId; geo: THREE.BufferGeometry }[] = [];
     for (const [mat, pieces] of byMaterial) {
@@ -165,7 +202,8 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       const groups = new Map<string, THREE.BufferGeometry[]>();
       for (const g of pieces) {
         const c = g.boundingBox!.getCenter(new THREE.Vector3());
-        const key = CHUNKED.has(mat) ? `${Math.floor(c.x / CELL)},${Math.floor(c.z / CELL)}` : 'all';
+        const cell = CHUNKED.get(mat);
+        const key = cell ? `${Math.floor(c.x / cell)},${Math.floor(c.z / cell)}` : 'all';
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key)!.push(g);
       }
@@ -227,6 +265,110 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
 }
 
 /**
+ * The terrain's surface, split by material: rock where it's steep, dirt on
+ * paths, the ground material elsewhere. Lighting is baked once on the whole
+ * grid; then the ground gets darker under tree crowns and a little color
+ * variation, so it doesn't look uniform.
+ */
+function buildTerrain(
+  t: TerrainDef, placed: { p: PropDef; y: number }[], world: CollisionWorld, dirs: THREE.Vector3[], lamps: LampDef[], lampPos: V3[],
+): [SurfaceId, THREE.BufferGeometry][] {
+  const W = t.cols + 1, n = W * (t.rows + 1), C = t.cell, H = t.heights;
+  const pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3);
+  const at = (i: number, j: number) => H[Math.min(t.rows, Math.max(0, j)) * W + Math.min(t.cols, Math.max(0, i))];
+  for (let j = 0; j <= t.rows; j++) {
+    for (let i = 0; i <= t.cols; i++) {
+      const k = j * W + i;
+      pos.set([t.x0 + i * C, H[k], t.z0 + j * C], k * 3);
+      // Smooth normal from the slope around this point.
+      const sx = (at(i + 1, j) - at(i - 1, j)) / (2 * C), sz = (at(i, j + 1) - at(i, j - 1)) / (2 * C);
+      const l = Math.hypot(sx, 1, sz);
+      nrm.set([-sx / l, 1 / l, -sz / l], k * 3);
+    }
+  }
+  const grid = new THREE.BufferGeometry();
+  grid.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  grid.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  bake(grid, world, dirs, lamps, lampPos, false, 0);
+  const col = grid.getAttribute('color') as THREE.BufferAttribute;
+  const light = grid.getAttribute('aLight') as THREE.BufferAttribute;
+
+  // Shade under tree crowns, and vary the color a little in patches.
+  const shade = new Float32Array(n).fill(1);
+  for (const { p } of placed) {
+    if (p.kind !== 'pine' && p.kind !== 'tree') continue;
+    const R = propRadius(p) * 1.25;
+    for (let j = Math.max(0, Math.floor((p.z - R - t.z0) / C)); j <= Math.min(t.rows, Math.ceil((p.z + R - t.z0) / C)); j++) {
+      for (let i = Math.max(0, Math.floor((p.x - R - t.x0) / C)); i <= Math.min(t.cols, Math.ceil((p.x + R - t.x0) / C)); i++) {
+        const d = Math.hypot(t.x0 + i * C - p.x, t.z0 + j * C - p.z);
+        shade[j * W + i] *= 1 - 0.28 * smoothstep(R, R * 0.3, d);
+      }
+    }
+  }
+  for (let k = 0; k < n; k++) {
+    const x = pos[k * 3], z = pos[k * 3 + 2];
+    const v = fbm(x / 9, z / 9, 7, 2);
+    const m = shade[k];
+    col.setXYZ(k, col.getX(k) * m * (1 + v * 0.1), col.getY(k) * m * (1 + v * 0.06), col.getZ(k) * m * (1 - v * 0.05));
+  }
+
+  // Pick a material per grid cell.
+  const ground = t.material ?? 'forest', pathMat = t.pathMaterial ?? 'dirt';
+  const segs: [number, number, number, number, number][] = [];
+  for (const path of t.paths ?? []) {
+    for (let i = 0; i + 1 < path.points.length; i++) segs.push([...path.points[i], ...path.points[i + 1], path.width / 2]);
+  }
+  const onPath = (x: number, z: number) => segs.some(([ax, az, bx, bz, hw]) => {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    const u = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
+    return Math.hypot(ax + dx * u - x, az + dz * u - z) < hw;
+  });
+  const byMat = new Map<SurfaceId, number[]>();
+  for (let j = 0; j < t.rows; j++) {
+    for (let i = 0; i < t.cols; i++) {
+      const a = j * W + i, b = a + 1, c = a + W + 1, d = a + W;
+      const cx = t.x0 + (i + 0.5) * C, cz = t.z0 + (j + 0.5) * C;
+      const slope = Math.max(Math.abs(H[b] - H[a]), Math.abs(H[c] - H[d]), Math.abs(H[d] - H[a]), Math.abs(H[c] - H[b])) / C;
+      const mat: SurfaceId = slope > 0.85 ? 'rock' : onPath(cx, cz) ? pathMat : ground;
+      if (!byMat.has(mat)) byMat.set(mat, []);
+      // Same split as the collision: along the (i, j) → (i+1, j+1) diagonal.
+      byMat.get(mat)!.push(a, c, b, a, d, c);
+    }
+  }
+  const out: [SurfaceId, THREE.BufferGeometry][] = [];
+  for (const [mat, idx] of byMat) {
+    // Only the corners this material uses.
+    const remap = new Map<number, number>();
+    const P: number[] = [], N: number[] = [], Co: number[] = [], L: number[] = [], UV: number[] = [];
+    const tile = getTileSize(mat);
+    const index = idx.map((k) => {
+      let r = remap.get(k);
+      if (r === undefined) {
+        remap.set(k, (r = remap.size));
+        P.push(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2]);
+        N.push(nrm[k * 3], nrm[k * 3 + 1], nrm[k * 3 + 2]);
+        Co.push(col.getX(k), col.getY(k), col.getZ(k));
+        L.push(light.getX(k), light.getY(k), light.getZ(k));
+        // Rock (cliffs) is mapped around the sides (x + z along, height up), other ground from above.
+        if (mat === 'rock') UV.push((pos[k * 3] + pos[k * 3 + 2]) / tile, pos[k * 3 + 1] / tile);
+        else UV.push(pos[k * 3] / tile, pos[k * 3 + 2] / tile);
+      }
+      return r;
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(Co, 3));
+    g.setAttribute('aLight', new THREE.Float32BufferAttribute(L, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2));
+    g.setIndex(index);
+    out.push([mat, g]);
+  }
+  grid.dispose();
+  return out;
+}
+
+/**
  * The 6 faces of a box (or a ramp, whose top corners have different heights).
  * Bottom faces resting on the ground are skipped (nobody can see them).
  */
@@ -264,10 +406,10 @@ function facesOutside(c: [V3, V3, V3, V3], n: THREE.Vector3, foot: { x0: number;
 }
 
 /** Split a face into a grid of roughly BAKE_CELL-sized tiles. */
-function tessellate([a, b, c, d]: [V3, V3, V3, V3]): THREE.BufferGeometry {
+function tessellate([a, b, c, d]: [V3, V3, V3, V3], cell = BAKE_CELL): THREE.BufferGeometry {
   const len = (p: V3, q: V3) => Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
-  const nu = Math.min(64, Math.max(1, Math.round(Math.max(len(a, d), len(b, c)) / BAKE_CELL)));
-  const nv = Math.min(64, Math.max(1, Math.round(Math.max(len(a, b), len(d, c)) / BAKE_CELL)));
+  const nu = Math.min(64, Math.max(1, Math.round(Math.max(len(a, d), len(b, c)) / cell)));
+  const nv = Math.min(64, Math.max(1, Math.round(Math.max(len(a, b), len(d, c)) / cell)));
   const pos: number[] = [];
   for (let i = 0; i <= nu; i++) {
     const s = i / nu;

@@ -12,7 +12,9 @@ export type MaterialId =
   // Outdoors in town:
   | 'asphalt' | 'paint' | 'carpaint'
   // Museum and gardens:
-  | 'marble' | 'stone' | 'grass' | 'hedge' | 'water' | 'art' | 'gold' | 'velvet';
+  | 'marble' | 'stone' | 'grass' | 'hedge' | 'water' | 'art' | 'gold' | 'velvet'
+  // Forest and mountains:
+  | 'forest' | 'rock' | 'bark' | 'needles' | 'foliage' | 'timber' | 'canvas' | 'ruin';
 
 /** The six sides of a box, for giving one side a different material. */
 export type BoxFace = 'top' | 'bottom' | '-x' | '+x' | '-z' | '+z';
@@ -35,6 +37,8 @@ export interface BoxDef {
    * Glass ('glass') blocks walking but bullets and eyesight pass through it.
    */
   faces?: Partial<Record<BoxFace, MaterialId>>;
+  /** An invisible wall at the edge of the map: blocks walking only (not drawn, bullets pass). */
+  hidden?: boolean;
 }
 
 /** Which way the ramp goes UP. */
@@ -132,6 +136,46 @@ export interface SkyDef {
   litWindows?: boolean;
 }
 
+/**
+ * Hilly ground: a grid of heights (meters), `cols` x `rows` cells of `cell`
+ * meters each, starting at corner (x0, z0). heights[j * (cols + 1) + i] is
+ * the height at x = x0 + i * cell, z = z0 + j * cell. Make one with
+ * `makeTerrain` in `src/map/terrain.ts`.
+ * Steep slopes (over about 40 degrees) can't be walked up and show as rock.
+ */
+export interface TerrainDef {
+  x0: number;
+  z0: number;
+  cell: number;
+  cols: number;
+  rows: number;
+  heights: Float32Array;
+  /** Ground material (default 'forest'), and for paths and stream beds (default 'dirt'). */
+  material?: MaterialId;
+  pathMaterial?: MaterialId;
+  /** Spots shown as dirt paths: a list of [x, z] points per path, and its width. */
+  paths?: { points: [number, number][]; width: number }[];
+}
+
+/** Natural things placed on the ground. */
+export type PropKind = 'pine' | 'tree' | 'bush' | 'rock' | 'log' | 'stump';
+
+/**
+ * A tree, bush, rock, log... x/z is the center; y is where it stands
+ * (default: on the terrain). `size` scales it (1 = normal), `rot` turns it
+ * (degrees; logs lie along X at 0). Trunks, rocks and logs are solid;
+ * leaves aren't (bullets go through), but bushes and low branches hide you
+ * from bots.
+ */
+export interface PropDef {
+  kind: PropKind;
+  x: number;
+  z: number;
+  y?: number;
+  size?: number;
+  rot?: number;
+}
+
 export interface MapDef {
   id: string;
   name: string;
@@ -152,6 +196,10 @@ export interface MapDef {
   navSpacing?: number;
   boxes: BoxDef[];
   ramps: RampDef[];
+  /** Hilly ground (optional). */
+  terrain?: TerrainDef;
+  /** Trees, bushes, rocks and logs (optional). */
+  props?: PropDef[];
   playerSpawns: SpawnPoint[];
   botSpawns: SpawnPoint[];
   pickups?: PickupDef[];

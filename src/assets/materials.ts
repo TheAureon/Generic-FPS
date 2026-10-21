@@ -19,7 +19,7 @@ interface MaterialStyle {
   line: string;
   /** Texture tiles every N meters. */
   tileSize: number;
-  pattern: 'marble' | 'blocks' | 'grass' | 'leaves' | 'water' | 'art' | 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
+  pattern: 'forestFloor' | 'rock' | 'oldBlocks' | 'bark' | 'logs' | 'marble' | 'blocks' | 'grass' | 'leaves' | 'water' | 'art' | 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
   /** Texture resolution (pixels); bigger for textures covering a large area. */
   pixels?: number;
   roughness: number;
@@ -62,6 +62,18 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   art: { base: '#d8cfb8', line: '#2b2b2b', tileSize: 6.4, pattern: 'art', roughness: 0.7, metalness: 0, pixels: 1024 },
   gold: { base: '#b8903a', line: '#8c6b26', tileSize: 1, pattern: 'plain', roughness: 0.3, metalness: 0.85 },
   velvet: { base: '#7a1f27', line: '#5c151c', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
+  // ---- Forest and mountains ----
+  // Forest floor: grass, moss, fallen needles and leaves.
+  forest: { base: '#566b36', line: '#3e4f26', tileSize: 6, pattern: 'forestFloor', roughness: 1, metalness: 0, pixels: 512 },
+  rock: { base: '#7d7b74', line: '#4f4d48', tileSize: 4, pattern: 'rock', roughness: 0.92, metalness: 0, pixels: 512 },
+  bark: { base: '#5a4433', line: '#2f231a', tileSize: 1.5, pattern: 'bark', roughness: 1, metalness: 0 },
+  needles: { base: '#2c4a30', line: '#1c3020', tileSize: 2, pattern: 'leaves', roughness: 1, metalness: 0 },
+  foliage: { base: '#4c6d2c', line: '#34501c', tileSize: 2, pattern: 'leaves', roughness: 1, metalness: 0 },
+  // Log cabin walls: stacked round logs.
+  timber: { base: '#8a6440', line: '#4a331d', tileSize: 1.2, pattern: 'logs', roughness: 0.9, metalness: 0 },
+  canvas: { base: '#a88a5c', line: '#86704a', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
+  // Old weathered stone blocks with moss.
+  ruin: { base: '#8f8a7c', line: '#5d594f', tileSize: 3, pattern: 'oldBlocks', roughness: 0.95, metalness: 0, pixels: 512 },
   // Outdoor ground: packed dirt and gravel.
   dirt: { base: '#857a66', line: '#5e5546', tileSize: 6, pattern: 'dirt', roughness: 1, metalness: 0, pixels: 512 },
   // Shipping containers: corrugated, painted steel.
@@ -145,6 +157,7 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
       g.globalAlpha = 1;
       break;
     }
+    case 'oldBlocks':
     case 'blocks': {
       // Sandstone blocks in courses (0.6 m tall, 1.5 m long), each a bit different.
       const rows = 5, rh = size / rows;
@@ -157,6 +170,26 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
         g.fillStyle = style.line;
         g.fillRect(0, r * rh, size, 3);
         for (let x = off; x <= size; x += size / 2) g.fillRect(x, r * rh, 3, rh);
+      }
+      if (style.pattern === 'oldBlocks') {
+        // Moss in the joints and spreading up from the bottom, a few dark stains.
+        for (let i = 0; i < 1400; i++) {
+          const y = size * (1 - Math.pow(Math.random(), 1.8));
+          g.fillStyle = `rgba(${Math.floor(rnd(60, 95))},${Math.floor(rnd(85, 115))},${Math.floor(rnd(35, 55))},${rnd(0.12, 0.35)})`;
+          g.beginPath();
+          g.ellipse(rnd(0, size), y, rnd(1, 4), rnd(0.8, 2.5), rnd(0, 3), 0, Math.PI * 2);
+          g.fill();
+        }
+        g.strokeStyle = 'rgba(30,28,24,0.18)';
+        for (let i = 0; i < 12; i++) {
+          // Streaks running down from the tops of blocks.
+          const x = rnd(0, size), y = rnd(0, size);
+          g.lineWidth = rnd(2, 6);
+          g.beginPath();
+          g.moveTo(x, y);
+          g.lineTo(x + rnd(-3, 3), y + rnd(15, 45));
+          g.stroke();
+        }
       }
       break;
     }
@@ -291,6 +324,122 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
       for (let i = 0; i < 2; i++) {
         g.fillRect((i * size) / 2, 0, 4, size);
         g.fillRect(0, (i * size) / 2, size, 4);
+      }
+      break;
+    }
+    case 'forestFloor': {
+      // Patches of brown litter and lighter moss, then grass blades, needles, leaves and twigs.
+      for (let i = 0; i < 30; i++) {
+        const x = rnd(0, size), y = rnd(0, size), r = rnd(size * 0.05, size * 0.18);
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, Math.random() < 0.55 ? 'rgba(95,70,40,0.32)' : 'rgba(150,170,80,0.18)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      for (let i = 0; i < 2600; i++) {
+        const x = rnd(0, size), y = rnd(0, size);
+        g.strokeStyle = `rgba(${Math.floor(rnd(50, 110))},${Math.floor(rnd(85, 140))},${Math.floor(rnd(25, 55))},${rnd(0.3, 0.6)})`;
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + rnd(-2, 2), y - rnd(2, 6));
+        g.stroke();
+      }
+      for (let i = 0; i < 700; i++) {
+        // Fallen pine needles.
+        const x = rnd(0, size), y = rnd(0, size), a = rnd(0, Math.PI), l = rnd(2, 5);
+        g.strokeStyle = `rgba(${Math.floor(rnd(110, 150))},${Math.floor(rnd(80, 105))},${Math.floor(rnd(45, 65))},${rnd(0.4, 0.8)})`;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+        g.stroke();
+      }
+      for (let i = 0; i < 140; i++) {
+        // Dead leaves.
+        g.fillStyle = `rgba(${Math.floor(rnd(120, 170))},${Math.floor(rnd(80, 115))},${Math.floor(rnd(30, 50))},${rnd(0.5, 0.85)})`;
+        g.beginPath();
+        g.ellipse(rnd(0, size), rnd(0, size), rnd(2, 4), rnd(1, 2.2), rnd(0, 3), 0, Math.PI * 2);
+        g.fill();
+      }
+      g.strokeStyle = 'rgba(60,45,30,0.6)';
+      g.lineWidth = 1.5;
+      for (let i = 0; i < 25; i++) {
+        // Twigs.
+        const x = rnd(0, size), y = rnd(0, size), a = rnd(0, Math.PI);
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + Math.cos(a) * rnd(6, 16), y + Math.sin(a) * rnd(6, 16));
+        g.stroke();
+      }
+      break;
+    }
+    case 'rock': {
+      // Light and dark patches, cracks, a few spots of lichen.
+      for (let i = 0; i < 40; i++) {
+        const x = rnd(0, size), y = rnd(0, size), r = rnd(size * 0.04, size * 0.16);
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, Math.random() < 0.5 ? 'rgba(40,38,34,0.22)' : 'rgba(210,205,195,0.16)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      g.strokeStyle = 'rgba(40,38,34,0.55)';
+      for (let k = 0; k < 18; k++) {
+        g.lineWidth = rnd(0.8, 2);
+        g.beginPath();
+        let x = rnd(0, size), y = rnd(0, size);
+        g.moveTo(x, y);
+        for (let i = 0; i < 5; i++) {
+          x += rnd(-size * 0.08, size * 0.08);
+          y += rnd(-size * 0.08, size * 0.08);
+          g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+      for (let i = 0; i < 60; i++) {
+        g.fillStyle = Math.random() < 0.5 ? `rgba(150,160,90,${rnd(0.25, 0.5)})` : `rgba(190,185,150,${rnd(0.2, 0.4)})`;
+        g.beginPath();
+        g.ellipse(rnd(0, size), rnd(0, size), rnd(2, 7), rnd(2, 5), rnd(0, 3), 0, Math.PI * 2);
+        g.fill();
+      }
+      break;
+    }
+    case 'bark': {
+      // Deep vertical furrows.
+      for (let k = 0; k < 22; k++) {
+        const x = rnd(0, size);
+        g.strokeStyle = Math.random() < 0.7 ? `rgba(25,18,12,${rnd(0.4, 0.8)})` : `rgba(150,125,100,${rnd(0.2, 0.4)})`;
+        g.lineWidth = rnd(1.5, 5);
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.bezierCurveTo(x + rnd(-10, 10), size * 0.33, x + rnd(-10, 10), size * 0.66, x, size);
+        g.stroke();
+      }
+      break;
+    }
+    case 'logs': {
+      // Four round logs stacked: shaded like cylinders, dark gaps between, grain along them.
+      const n = 4, lh = size / n;
+      for (let r = 0; r < n; r++) {
+        const grad = g.createLinearGradient(0, r * lh, 0, (r + 1) * lh);
+        grad.addColorStop(0, 'rgba(0,0,0,0.35)');
+        grad.addColorStop(0.3, 'rgba(255,230,190,0.12)');
+        grad.addColorStop(0.75, 'rgba(0,0,0,0.05)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.45)');
+        g.fillStyle = grad;
+        g.fillRect(0, r * lh, size, lh);
+        g.strokeStyle = 'rgba(60,40,20,0.35)';
+        g.lineWidth = 1;
+        for (let k = 0; k < 6; k++) {
+          const y = r * lh + rnd(4, lh - 4);
+          g.beginPath();
+          g.moveTo(0, y);
+          g.bezierCurveTo(size * 0.33, y + rnd(-3, 3), size * 0.66, y + rnd(-3, 3), size, y);
+          g.stroke();
+        }
+        g.fillStyle = style.line;
+        g.fillRect(0, r * lh, size, 3);
       }
       break;
     }

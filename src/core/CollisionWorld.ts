@@ -1,4 +1,5 @@
-import type { BoxDef, RampDef } from '../map/MapTypes';
+import type { BoxDef, RampDef, TerrainDef } from '../map/MapTypes';
+import { terrainHeightAt, terrainRangeUnder } from '../map/terrain';
 
 /** Axis-aligned box in world space. */
 export interface AABB {
@@ -52,11 +53,22 @@ export interface Body {
   radius: number;
 }
 
+/** Leaves that hide what's behind them from bots (bushes, low branches). */
+interface Foliage {
+  x: number;
+  y: number;
+  z: number;
+  r: number;
+}
+
 /**
- * The static geometry of a map, used for walking and (later) line of sight
- * and bullets. Kept simple: just boxes and ramps.
+ * The static geometry of a map, used for walking, line of sight and
+ * bullets: boxes, ramps, and (optionally) hilly terrain.
  */
 export class CollisionWorld {
+  /** What findBlocker returns for ground that's too steep to walk up (not a box: don't slide along it). */
+  static readonly STEEP: AABB = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 };
+
   readonly boxes: AABB[] = [];
   readonly ramps: Ramp[] = [];
   /** Every box and ramp as a convex shape, used for ray tests. */
@@ -73,6 +85,56 @@ export class CollisionWorld {
   private queryId = 0;
   private nearBoxes: AABB[] = [];
   private nearRamps: Ramp[] = [];
+  private terrain: TerrainDef | null = null;
+  /** Highest corner of each terrain cell, to skip cells a ray passes above. */
+  private terrainCellMax = new Float32Array(0);
+  private terrainMax = -Infinity;
+  private foliage: Foliage[] = [];
+
+  setTerrain(t: TerrainDef): void {
+    this.terrain = t;
+    const W = t.cols + 1;
+    this.terrainCellMax = new Float32Array(t.cols * t.rows);
+    for (let j = 0; j < t.rows; j++) {
+      for (let i = 0; i < t.cols; i++) {
+        const h = t.heights;
+        const m = Math.max(h[j * W + i], h[j * W + i + 1], h[(j + 1) * W + i], h[(j + 1) * W + i + 1]);
+        this.terrainCellMax[j * t.cols + i] = m;
+        if (m > this.terrainMax) this.terrainMax = m;
+      }
+    }
+  }
+
+  /** Height of the terrain at (x, z) (-Infinity if there's no terrain there). */
+  terrainHeight(x: number, z: number): number {
+    return this.terrain ? terrainHeightAt(this.terrain, x, z) : -Infinity;
+  }
+
+  /** A ball of leaves that bots can't see through. */
+  addFoliage(x: number, y: number, z: number, r: number): void {
+    this.foliage.push({ x, y, z, r });
+  }
+
+  /** Line of sight that also counts leaves (bushes) as blocking. Leaves don't hide things up close. */
+  hasClearView(ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {
+    return !this.foliageBetween(ax, ay, az, bx, by, bz) && this.hasLineOfSight(ax, ay, az, bx, by, bz);
+  }
+
+  private foliageBetween(ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {
+    const dx = bx - ax, dy = by - ay, dz = bz - az;
+    const len2 = dx * dx + dy * dy + dz * dz;
+    if (len2 < 16) return false;
+    const minX = Math.min(ax, bx), maxX = Math.max(ax, bx), minZ = Math.min(az, bz), maxZ = Math.max(az, bz);
+    for (const f of this.foliage) {
+      if (f.x + f.r < minX || f.x - f.r > maxX || f.z + f.r < minZ || f.z - f.r > maxZ) continue;
+      // Leaves around the viewer's own eyes don't count.
+      if ((f.x - ax) ** 2 + (f.y - ay) ** 2 + (f.z - az) ** 2 < f.r * f.r) continue;
+      const t = Math.max(0, Math.min(1, ((f.x - ax) * dx + (f.y - ay) * dy + (f.z - az) * dz) / len2));
+      const px = ax + dx * t - f.x, py = ay + dy * t - f.y, pz = az + dz * t - f.z;
+      if (px * px + py * py + pz * pz < f.r * f.r * 0.7) return true;
+    }
+    return false;
+  }
 
   /** @param rayTransparent glass: blocks walking, but bullets and eyesight pass through */
   addBox(b: BoxDef, rayTransparent = false): void {
@@ -191,6 +253,7 @@ export class CollisionWorld {
     const tDeltaX = adx > 1e-12 ? C / adx : Infinity;
     const tDeltaZ = adz > 1e-12 ? C / adz : Infinity;
     const hit: { best: RayHit | null; dist: number } = { best: null, dist: maxDist };
+    if (this.terrain) this.rayVsTerrain(ox, oy, oz, dx, dy, dz, hit);
     for (let guard = 0; guard < 4096; guard++) {
       const list = this.solidGrid.get(CollisionWorld.key(ix, iz));
       if (list) {
@@ -213,11 +276,82 @@ export class CollisionWorld {
     return hit.best;
   }
 
-  /** Is this point inside any solid box or ramp? */
+  /**
+   * Ray vs the terrain: walks the grid cells under the ray (nearest first)
+   * and tests the two triangles of each cell the ray dips low enough to touch.
+   */
+  private rayVsTerrain(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, hit: { best: RayHit | null; dist: number }): void {
+    const t = this.terrain!;
+    const C = t.cell, x1 = t.x0 + t.cols * C, z1 = t.z0 + t.rows * C;
+    // Part of the ray over the terrain's area.
+    let t0 = 0, t1 = hit.dist;
+    for (const [o, d, lo, hi] of [[ox, dx, t.x0, x1], [oz, dz, t.z0, z1]]) {
+      if (Math.abs(d) < 1e-12) {
+        if (o < lo || o > hi) return;
+        continue;
+      }
+      let a = (lo - o) / d, b = (hi - o) / d;
+      if (a > b) [a, b] = [b, a];
+      if (a > t0) t0 = a;
+      if (b < t1) t1 = b;
+    }
+    if (t0 > t1 || Math.min(oy + dy * t0, oy + dy * t1) > this.terrainMax) return;
+    const sx = ox + dx * t0, sz = oz + dz * t0;
+    let i = Math.min(t.cols - 1, Math.max(0, Math.floor((sx - t.x0) / C)));
+    let j = Math.min(t.rows - 1, Math.max(0, Math.floor((sz - t.z0) / C)));
+    const stepX = dx > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+    let tMaxX = Math.abs(dx) > 1e-12 ? (t.x0 + (i + (dx > 0 ? 1 : 0)) * C - ox) / dx : Infinity;
+    let tMaxZ = Math.abs(dz) > 1e-12 ? (t.z0 + (j + (dz > 0 ? 1 : 0)) * C - oz) / dz : Infinity;
+    const tDX = Math.abs(dx) > 1e-12 ? C / Math.abs(dx) : Infinity;
+    const tDZ = Math.abs(dz) > 1e-12 ? C / Math.abs(dz) : Infinity;
+    const W = t.cols + 1, H = t.heights;
+    let tc = t0;
+    for (let guard = 0; guard < 8192; guard++) {
+      const tEnd = Math.min(tMaxX, tMaxZ, t1);
+      if (Math.min(oy + dy * tc, oy + dy * tEnd) <= this.terrainCellMax[j * t.cols + i]) {
+        const xi = t.x0 + i * C, zj = t.z0 + j * C;
+        const h00 = H[j * W + i], h10 = H[j * W + i + 1], h01 = H[(j + 1) * W + i], h11 = H[(j + 1) * W + i + 1];
+        let best = Infinity, bnx = 0, bnz = 0;
+        // Two triangles: y = base + a * (x - xi) + b * (z - zj).
+        for (let tri = 0; tri < 2; tri++) {
+          const a = tri === 0 ? (h10 - h00) / C : (h11 - h01) / C;
+          const b = tri === 0 ? (h11 - h10) / C : (h01 - h00) / C;
+          const denom = dy - a * dx - b * dz;
+          if (denom >= 0) continue; // ray not heading into this slope
+          const th = (h00 + a * (ox - xi) + b * (oz - zj) - oy) / denom;
+          if (th < tc - 1e-6 || th > tEnd + 1e-6 || th < 0 || th >= best) continue;
+          const fx = (ox + dx * th - xi) / C, fz = (oz + dz * th - zj) / C;
+          if (tri === 0 ? fx < fz - 1e-6 : fx > fz + 1e-6) continue;
+          best = th;
+          bnx = -a;
+          bnz = -b;
+        }
+        if (best < hit.dist) {
+          const l = Math.hypot(bnx, 1, bnz);
+          hit.dist = best;
+          hit.best = { distance: best, nx: bnx / l, ny: 1 / l, nz: bnz / l };
+          return;
+        }
+      }
+      if (tEnd >= t1) return;
+      tc = tEnd;
+      if (tMaxX < tMaxZ) {
+        i += stepX;
+        tMaxX += tDX;
+      } else {
+        j += stepZ;
+        tMaxZ += tDZ;
+      }
+      if (i < 0 || j < 0 || i >= t.cols || j >= t.rows) return;
+    }
+  }
+
+  /** Is this point inside any solid box or ramp (or under the terrain)? */
   isInsideSolid(x: number, y: number, z: number, margin = 0.001): boolean {
     if (this.gridDirty) this.rebuildGrid();
     const C = CollisionWorld.CELL;
     const m = Math.max(0, margin);
+    if (this.terrain && y < terrainHeightAt(this.terrain, x, z) - margin) return true;
     const q = ++this.queryId;
     for (let ix = Math.floor((x - m) / C); ix <= Math.floor((x + m) / C); ix++) {
       for (let iz = Math.floor((z - m) / C); iz <= Math.floor((z + m) / C); iz++) {
@@ -285,6 +419,10 @@ export class CollisionWorld {
         if (this.rampMaxUnder(r, body.x, body.z, body.radius) > stepTop) return r;
       }
     }
+    if (this.terrain) {
+      const [, hi] = terrainRangeUnder(this.terrain, body.x, body.z, body.radius);
+      if (hi > stepTop) return CollisionWorld.STEEP;
+    }
     return null;
   }
 
@@ -301,6 +439,10 @@ export class CollisionWorld {
     for (const r of this.nearRamps) {
       if (!CollisionWorld.overlapsXZ(r, x, z, radius)) continue;
       const h = this.rampHeightAt(r, x, z);
+      if (h <= maxY && h > best) best = h;
+    }
+    if (this.terrain) {
+      const h = terrainHeightAt(this.terrain, x, z);
       if (h <= maxY && h > best) best = h;
     }
     return best;

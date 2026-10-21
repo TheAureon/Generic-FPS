@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Body, CollisionWorld } from './CollisionWorld';
+import { CollisionWorld, type Body } from './CollisionWorld';
 
 /**
  * Walking physics shared by the player and bots: gravity, landing on floors
@@ -99,6 +99,12 @@ export class CharacterBody {
     this.position[axis] += delta;
     const blocker = this.world.findBlocker(this.bodyShape(), this.stepHeight);
     if (!blocker) return false;
+    if (blocker === CollisionWorld.STEEP) {
+      // Too steep to walk up: just don't move this way.
+      this.position[axis] -= delta;
+      if (stopVelocity) this.velocity[axis] = 0;
+      return true;
+    }
     // Push back out to the face of whatever we hit.
     const eps = 0.001;
     if (axis === 'x') {

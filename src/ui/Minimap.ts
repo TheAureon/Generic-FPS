@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import type { BoxDef, MapDef, PickupType, RampDef } from '../map/MapTypes';
+import { terrainHeightAt } from '../map/terrain';
 
 /** Pixels per meter on the radar, and how far it shows (meters). */
 const SCALE = 3.2;
@@ -24,6 +25,7 @@ export class Minimap {
   private levelLayouts: { y: number; canvas: HTMLCanvasElement }[] = [];
   private originX = 0;
   private originZ = 0;
+  private def: MapDef | null = null;
   private dpr = Math.min(2, window.devicePixelRatio || 1);
 
   constructor(parent: HTMLElement) {
@@ -41,6 +43,7 @@ export class Minimap {
   setMap(def: MapDef, bounds: THREE.Box3): void {
     this.originX = bounds.min.x;
     this.originZ = bounds.min.z;
+    this.def = def;
     this.levelLayouts = [];
     if (def.levels && def.levels.length > 1) {
       // One picture per floor: that floor's slabs and the walls standing on it.
@@ -70,16 +73,21 @@ export class Minimap {
     g.fillRect(0, 0, w, h);
     const px = (x: number) => (x - this.originX) * SCALE;
     const pz = (z: number) => (z - this.originZ) * SCALE;
+    const terrain = this.def?.terrain;
+    if (terrain && levelY <= 0) this.drawTerrain(g, w, h);
+    // Height of the ground under a box (on hilly maps, so a crate on a hill still reads as a crate).
+    const groundUnder = (b: BoxDef) => (terrain ? Math.max(levelY, terrainHeightAt(terrain, b.x, b.z)) : levelY);
     // Upper floors: where there's floor to stand on.
     g.fillStyle = 'rgba(40, 48, 58, 0.95)';
     for (const b of floors) g.fillRect(px(b.x - b.w / 2), pz(b.z - b.d / 2), b.w * SCALE, b.d * SCALE);
 
     // Draw lower things first so tall things end up on top.
-    const sorted = [...boxes].filter((b) => b.y + b.h > levelY + 0.05).sort((a, b) => a.y + a.h - (b.y + b.h));
+    const sorted = [...boxes].filter((b) => !b.hidden && b.y + b.h > levelY + 0.05).sort((a, b) => a.y + a.h - (b.y + b.h));
     for (const b of sorted) {
-      const top = b.y + b.h - levelY;
+      const top = b.y + b.h - groundUnder(b);
       const area = b.w * b.d;
       if (b.material === 'glass') g.fillStyle = '#7fb2cc'; // windows and glass railings
+      else if (b.material === 'water') g.fillStyle = '#3f7896';
       else if (top < 1.5) g.fillStyle = '#6d7480'; // low cover, furniture
       else if (area > 20 && b.h < 3.1) g.fillStyle = '#5a6472'; // raised floors (decks, roof)
       else g.fillStyle = '#b9c0c8'; // walls, pillars
@@ -87,7 +95,51 @@ export class Minimap {
     }
     g.fillStyle = '#4e5866';
     for (const r of ramps) g.fillRect(px(r.x - r.w / 2), pz(r.z - r.d / 2), r.w * SCALE, r.d * SCALE);
+    // Trees and rocks: small dots.
+    for (const p of this.def?.props ?? []) {
+      if (p.kind === 'bush') continue;
+      g.fillStyle = p.kind === 'rock' ? '#8a8d90' : p.kind === 'log' || p.kind === 'stump' ? '#6b5a44' : '#1d2b1c';
+      const r = (p.kind === 'rock' ? 1.0 : p.kind === 'log' ? 0.6 : 0.9) * (p.size ?? 1) * SCALE;
+      g.beginPath();
+      g.arc(px(p.x), pz(p.z), Math.max(1.5, r), 0, Math.PI * 2);
+      g.fill();
+    }
     return c;
+  }
+
+  /** Hilly ground: greener low, lighter high, gray where steep, with contour lines every 2 m and dirt paths. */
+  private drawTerrain(g: CanvasRenderingContext2D, w: number, h: number): void {
+    const t = this.def!.terrain!;
+    let lo = Infinity, hi = -Infinity;
+    for (const v of t.heights) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    const heightAt = (px: number, pz: number) => terrainHeightAt(t, this.originX + px / SCALE, this.originZ + pz / SCALE);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const hv = heightAt(x, y);
+        if (!Number.isFinite(hv)) continue;
+        const hr = heightAt(x + 1, y), hd = heightAt(x, y + 1);
+        const slope = (Math.max(Math.abs(hr - hv), Math.abs(hd - hv)) || 0) * SCALE;
+        const k = (hv - lo) / Math.max(1, hi - lo);
+        let r = 44 + k * 46, gg = 58 + k * 44, b = 40 + k * 30;
+        if (slope > 0.85) { r = gg = b = 96 + k * 30; }
+        // Contour line where the 2 m band changes.
+        if (Math.floor(hv / 2) !== Math.floor(hr / 2) || Math.floor(hv / 2) !== Math.floor(hd / 2)) { r *= 0.72; gg *= 0.72; b *= 0.72; }
+        const i = (y * w + x) * 4;
+        d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 240;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    g.strokeStyle = 'rgba(150, 128, 92, 0.85)';
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    for (const path of t.paths ?? []) {
+      g.lineWidth = path.width * SCALE;
+      g.beginPath();
+      path.points.forEach(([x, z], i) => (i ? g.lineTo : g.moveTo).call(g, (x - this.originX) * SCALE, (z - this.originZ) * SCALE));
+      g.stroke();
+    }
   }
 
   /** Redraw centered on the player (x, z), turned by `yaw`. */

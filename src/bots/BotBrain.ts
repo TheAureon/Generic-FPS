@@ -227,17 +227,21 @@ export class BotBrain {
       const h = this.ctx.findHealth?.(this.bot.position);
       if (h && this.flatDist(h) < 30) this.dest.copy(h);
     }
-    if (!nav.hasGoal || nav.arrived || nav.failed) {
-      // Pause and look around a moment, then pick another spot.
+    if (nav.hasGoal && (nav.arrived || nav.failed)) {
+      // Got there (or can't): pause and look around a moment, then pick another spot.
       if (this.pauseTimer <= 0) {
         this.pauseTimer = rand(0.6, 1.8);
         this.lookBaseYaw = this.bot.aim.yaw;
       }
       this.pauseTimer -= dt;
       this.lookAround(dt);
-      if (this.pauseTimer <= 0) this.pickPatrolGoal();
+      if (this.pauseTimer <= 0) {
+        this.pickPatrolGoal();
+        nav.clear();
+      }
       return;
     }
+    // (Also starts the walk to a newly picked spot.)
     this.moveAlongPath(this.dest, BOTS.walkSpeed * 0.75);
   }
 

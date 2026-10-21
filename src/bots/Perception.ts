@@ -71,7 +71,7 @@ export class Perception {
     if (this.hasNoise && this.timeSinceNoise > BOTS.memoryTime) this.hasNoise = false;
   }
 
-  /** Field of view + range + line of sight (walls block vision). */
+  /** Field of view + range + line of sight (walls and bushes block vision). */
   checkVision(eye: THREE.Vector3, yaw: number, target: Trackable, world: CollisionWorld): boolean {
     const p = target.position;
     const dx = p.x - eye.x, dz = p.z - eye.z;
@@ -89,8 +89,8 @@ export class Perception {
     const headY = p.y + target.height - 0.15;
     const chestY = p.y + target.height * 0.6;
     return (
-      world.hasLineOfSight(eye.x, eye.y, eye.z, p.x, headY, p.z) ||
-      world.hasLineOfSight(eye.x, eye.y, eye.z, p.x, chestY, p.z)
+      world.hasClearView(eye.x, eye.y, eye.z, p.x, headY, p.z) ||
+      world.hasClearView(eye.x, eye.y, eye.z, p.x, chestY, p.z)
     );
   }
 
