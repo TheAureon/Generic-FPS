@@ -1,4 +1,4 @@
-import { MATCH } from '../config';
+import { DIFFICULTIES, MATCH } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
@@ -82,7 +82,11 @@ export class Menus {
     };
     try {
       const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) ?? 'null');
-      return saved ? { ...def, ...saved } : def;
+      if (!saved) return def;
+      // Older saves used 'normal' for what's now 'medium'.
+      if (saved.difficulty === 'normal') saved.difficulty = 'medium';
+      if (!DIFFICULTIES.some((d) => d.id === saved.difficulty)) delete saved.difficulty;
+      return { ...def, ...saved };
     } catch {
       return def;
     }
@@ -193,9 +197,15 @@ export class Menus {
     div('menu-note', p).textContent = MODE_INFO[c.mode];
 
     segmented(field(p, 'Map'), MAPS.map((m) => [m.id, m.name] as [string, string]), c.map, (v) => (c.map = v));
-    segmented(field(p, 'Difficulty'), [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard']], c.difficulty, (v) => {
+    const diffRow = field(p, 'Difficulty');
+    diffRow.classList.add('wrap');
+    const diffInfo = () => DIFFICULTIES.find((d) => d.id === c.difficulty)?.info ?? '';
+    segmented(diffRow, DIFFICULTIES.map((d) => [d.id, d.name] as [string, string]), c.difficulty, (v) => {
       c.difficulty = v as MatchConfig['difficulty'];
+      diffNote.textContent = diffInfo();
     });
+    const diffNote = div('menu-note', p);
+    diffNote.textContent = diffInfo();
     slider(field(p, c.mode === 'survival' ? 'Bots in wave 1' : 'Bots'), MATCH.minBots, MATCH.maxBots, 1, c.botCount, (v) => String(v), (v) => {
       c.botCount = v;
     });

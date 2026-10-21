@@ -90,7 +90,7 @@ The game opens on the title screen. Click or press any key to reach the main men
 
 - **Mode**: Deathmatch or Survival (below)
 - **Map**: Foundry (the main arena) or Test Room (small)
-- **Difficulty**: Easy, Normal, or Hard. This changes how fast bots react, how accurately they aim, how fast they turn, how long their bursts are, and how aggressive they are.
+- **Difficulty**: seven levels, easiest first: Novice, Beginner, Easy, Medium, Advanced, Hard, Insane. This changes how fast bots react, how accurately they aim, how fast they turn, how long their bursts are, how aggressive they are, and how much their bullets hurt (from about a third of yours on Novice up to the same as yours on Hard and Insane). Bots never get more health, speed or ammo than you on any level.
 - **Bots**: 1–10
 - **Kill limit** (Deathmatch): 10, 20, or 30
 
@@ -190,14 +190,14 @@ Each bot runs a state machine (`src/bots/BotBrain.ts`). Press **B** to see each 
 | `WEAPONS`        | Each gun's damage, headshot bonus, fire rate, magazine, reload time, spread, recoil, zoom, range |
 | `COMBAT`         | Aiming slowdown, crouch accuracy bonus |
 | `BOTS`           | Bot speed, health, vision range and angle, memory, preferred fighting distance, names |
-| `BOT_DIFFICULTY` | Easy / Normal / Hard: reaction time, aim error, turn speed, bursts, aggression, damage |
+| `BOT_DIFFICULTY` | Novice … Insane: reaction time, aim error, turn speed, bursts, aggression, damage (`DIFFICULTIES` holds the names and menu descriptions) |
 | `MATCH`          | Menu defaults, kill limits, Deathmatch time limit |
 | `SURVIVAL`       | Wave growth, break between waves, health on wave clear |
 | `PICKUPS`        | How much pickups give and how long they take to come back |
 | `CONFIG.quality` | What Low / Medium / High graphics mean |
 
 Examples:
-- To make bots slower to react on Normal, raise `BOT_DIFFICULTY.normal.reactionTime`, for example to `0.7`.
+- To make bots slower to react on Medium, raise `BOT_DIFFICULTY.medium.reactionTime`, for example to `0.7`.
 - To make the shotgun stronger, raise `WEAPONS.shotgun.damage`.
 - For longer matches, raise `MATCH.timeLimitMinutes`.
 

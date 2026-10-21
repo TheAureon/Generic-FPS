@@ -2,7 +2,7 @@ import { BOT_DIFFICULTY, SURVIVAL } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { formatTime, scoreRows, type GameMode, type MatchResult, type ModeContext, type ScoreRow } from './GameMode';
 
-type Skill = (typeof BOT_DIFFICULTY)['normal'];
+type Skill = (typeof BOT_DIFFICULTY)['medium'];
 
 /**
  * Survival: waves of bots, each bigger and tougher than the last. All bots
@@ -88,12 +88,25 @@ export class Survival implements GameMode {
 
   /**
    * Bot skill for a wave: starts at the chosen difficulty and moves toward
-   * "harder than Hard" over the first few waves.
+   * "harder than Hard" over the first few waves (never easier than the
+   * chosen difficulty, e.g. on Insane).
    */
   private waveSkill(n: number): Skill {
     const base = BOT_DIFFICULTY[this.ctx.config.difficulty];
     const hard = BOT_DIFFICULTY.hard;
-    const top: Skill = { ...hard, aimError: hard.aimError * 0.85, reactionTime: hard.reactionTime * 0.85, damageMultiplier: 1.1 };
+    const peak: Skill = { ...hard, aimError: hard.aimError * 0.85, reactionTime: hard.reactionTime * 0.85, damageMultiplier: 1.1 };
+    const lo = Math.min, hi = Math.max;
+    const top: Skill = {
+      reactionTime: lo(base.reactionTime, peak.reactionTime),
+      aimError: lo(base.aimError, peak.aimError),
+      turnSpeed: hi(base.turnSpeed, peak.turnSpeed),
+      movingTargetPenalty: lo(base.movingTargetPenalty, peak.movingTargetPenalty),
+      selfMovingPenalty: lo(base.selfMovingPenalty, peak.selfMovingPenalty),
+      burstSize: [hi(base.burstSize[0], peak.burstSize[0]), hi(base.burstSize[1], peak.burstSize[1])],
+      burstPause: [lo(base.burstPause[0], peak.burstPause[0]), lo(base.burstPause[1], peak.burstPause[1])],
+      aggression: hi(base.aggression, peak.aggression),
+      damageMultiplier: hi(base.damageMultiplier, peak.damageMultiplier),
+    };
     const f = Math.min(1, (n - 1) / Math.max(1, SURVIVAL.wavesToFullStrength - 1));
     const lerp = (a: number, b: number) => a + (b - a) * f;
     return {

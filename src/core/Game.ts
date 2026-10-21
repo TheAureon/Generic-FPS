@@ -268,7 +268,7 @@ export class Game {
     this.forcePlay = true;
     if (!this.match || cfg) {
       this.startMatch({
-        mode: 'deathmatch', map: MATCH.defaultMap, difficulty: 'normal', botCount: 4, killLimit: 20,
+        mode: 'deathmatch', map: MATCH.defaultMap, difficulty: 'medium', botCount: 4, killLimit: 20,
         ...this.lastConfig, ...cfg,
       });
     }

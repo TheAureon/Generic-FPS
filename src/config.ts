@@ -278,11 +278,25 @@ export const BOTS = {
   names: ['Viper', 'Ghost', 'Hammer', 'Rook', 'Blaze', 'Echo', 'Nova', 'Tank', 'Jinx', 'Raven', 'Moss', 'Flint'],
 };
 
-export type Difficulty = 'easy' | 'normal' | 'hard';
+export type Difficulty = 'novice' | 'beginner' | 'easy' | 'medium' | 'advanced' | 'hard' | 'insane';
+
+/** The difficulty levels in order (easiest first), with their names and a short description for the menu. */
+export const DIFFICULTIES: { id: Difficulty; name: string; info: string }[] = [
+  { id: 'novice', name: 'Novice', info: 'Bots are very slow to react, miss a lot, rarely push, and hit softly.' },
+  { id: 'beginner', name: 'Beginner', info: 'Bots react slowly, miss often, and hold back.' },
+  { id: 'easy', name: 'Easy', info: 'Bots are a little slow and inaccurate, and fairly cautious.' },
+  { id: 'medium', name: 'Medium', info: 'A fair fight: decent aim and reactions, and they will push you.' },
+  { id: 'advanced', name: 'Advanced', info: 'Quick reactions and good aim; bots play aggressively.' },
+  { id: 'hard', name: 'Hard', info: 'Fast, accurate and aggressive. Keep moving and use cover.' },
+  { id: 'insane', name: 'Insane', info: 'Near-instant reactions, tight aim, relentless. Same damage as you.' },
+];
 
 /**
  * Difficulty levels. Aim error is in degrees: the bigger it is, the more
  * they miss. It grows with distance and when you or the bot is moving.
+ * Bots never get more health, speed or ammo than you on any level; only
+ * their reactions, aim, firing rhythm, aggression and damage change (damage
+ * tops out at the same as yours).
  */
 export const BOT_DIFFICULTY: Record<Difficulty, {
   /** Seconds between first seeing you and starting to shoot. */
@@ -303,23 +317,47 @@ export const BOT_DIFFICULTY: Record<Difficulty, {
   /** Multiplies the damage of bot bullets. */
   damageMultiplier: number;
 }> = {
+  novice: {
+    reactionTime: 1.4, aimError: 8, turnSpeed: 90,
+    movingTargetPenalty: 1.5, selfMovingPenalty: 1.0,
+    burstSize: [1, 3], burstPause: [1.2, 2.2],
+    aggression: 0.1, damageMultiplier: 0.35,
+  },
+  beginner: {
+    reactionTime: 1.1, aimError: 6, turnSpeed: 115,
+    movingTargetPenalty: 1.35, selfMovingPenalty: 0.9,
+    burstSize: [2, 3], burstPause: [1.0, 1.8],
+    aggression: 0.2, damageMultiplier: 0.45,
+  },
   easy: {
     reactionTime: 0.8, aimError: 4.5, turnSpeed: 150,
     movingTargetPenalty: 1.2, selfMovingPenalty: 0.8,
     burstSize: [2, 4], burstPause: [0.7, 1.4],
     aggression: 0.3, damageMultiplier: 0.6,
   },
-  normal: {
+  medium: {
     reactionTime: 0.45, aimError: 2.6, turnSpeed: 240,
     movingTargetPenalty: 1.0, selfMovingPenalty: 0.6,
     burstSize: [3, 6], burstPause: [0.4, 0.9],
     aggression: 0.6, damageMultiplier: 0.85,
+  },
+  advanced: {
+    reactionTime: 0.33, aimError: 2.2, turnSpeed: 320,
+    movingTargetPenalty: 1.05, selfMovingPenalty: 0.5,
+    burstSize: [3, 7], burstPause: [0.3, 0.7],
+    aggression: 0.75, damageMultiplier: 0.95,
   },
   hard: {
     reactionTime: 0.25, aimError: 1.9, turnSpeed: 400,
     movingTargetPenalty: 1.1, selfMovingPenalty: 0.4,
     burstSize: [4, 8], burstPause: [0.25, 0.55],
     aggression: 0.9, damageMultiplier: 1,
+  },
+  insane: {
+    reactionTime: 0.15, aimError: 1.3, turnSpeed: 560,
+    movingTargetPenalty: 0.9, selfMovingPenalty: 0.3,
+    burstSize: [5, 10], burstPause: [0.15, 0.4],
+    aggression: 1, damageMultiplier: 1,
   },
 };
 
@@ -330,7 +368,7 @@ export const MATCH = {
   /** What the match menu starts with (your last choices are remembered after that). */
   defaultMode: 'deathmatch' as 'deathmatch' | 'survival',
   defaultMap: 'foundry',
-  defaultDifficulty: 'normal' as Difficulty,
+  defaultDifficulty: 'medium' as Difficulty,
   defaultBotCount: 4,
   /** Bot count choices in the menu. */
   minBots: 1,

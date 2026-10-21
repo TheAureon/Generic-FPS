@@ -156,6 +156,13 @@ body {
   flex: 1;
   gap: 4px;
 }
+/* Many options (e.g. 7 difficulty levels): wrap onto two rows. */
+.wrap .segmented {
+  flex-wrap: wrap;
+}
+.wrap .seg {
+  flex: 1 0 22%;
+}
 .seg {
   flex: 1;
   padding: 7px 6px;
