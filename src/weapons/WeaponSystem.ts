@@ -191,16 +191,18 @@ export class WeaponSystem {
       const n = this.weapons.length;
       this.requestSwitch((from + (wheel > 0 ? 1 : -1) + n) % n);
     }
-    const aimWithQ = settings.get().aimKey === 'q';
-    if (!aimWithQ && input.wasPressed('KeyQ')) this.requestSwitch(this.lastIndex);
+    // E: back to the last weapon.
+    if (input.wasPressed('KeyE')) this.requestSwitch(this.lastIndex);
 
     const busy = this.switchTo >= 0 || this.raiseTimer > 0;
     const w = this.current;
 
-    // Aim down sights (hold right mouse).
+    // Aim down sights: hold right mouse and/or Q (Settings → Aim / scope).
     // (The sniper also comes off the scope while its bolt is being worked.)
+    const aimKey = settings.get().aimKey;
+    const aimHeld = (aimKey !== 'q' && input.isMouseDown(2)) || (aimKey !== 'mouse' && input.isDown('KeyQ'));
     const wantAds =
-      (aimWithQ ? input.isDown('KeyQ') : input.isMouseDown(2)) && !busy && !(w.reloading && w.stats.reloadStyle === 'magazine') && !this.viewmodel.cyclingBolt;
+      aimHeld && !busy && !(w.reloading && w.stats.reloadStyle === 'magazine') && !this.viewmodel.cyclingBolt;
     const aimRate = COMBAT.aimSpeed * dt;
     this.ads = wantAds ? Math.min(1, this.ads + aimRate) : Math.max(0, this.ads - aimRate);
 

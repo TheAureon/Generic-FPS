@@ -70,11 +70,11 @@ Chrome is recommended. Safari and Firefox also work.
 | Shift (hold)        | Sprint (while moving forward)                 |
 | C (hold)            | Crouch                                        |
 | Left click          | Shoot                                         |
-| Right click (hold)  | Aim down sights (scope on the sniper rifle); can be switched to Q in Settings |
+| Right click or Q (hold) | Aim down sights (scope on the sniper rifle). Both work by default; Settings can limit it to one |
 | R                   | Reload                                        |
 | 1 2 3 4             | Pistol, assault rifle, shotgun, sniper rifle  |
 | Mouse wheel         | Next / previous weapon                        |
-| Q                   | Switch back to the last weapon (or aim/scope, if chosen in Settings) |
+| E                   | Switch back to the last weapon                |
 | Tab (hold)          | Scoreboard                                    |
 | Esc                 | Pause menu (resume, restart, settings, quit)  |
 | ` (or F3)           | Show/hide the info readout (frame rate, bot states) |
@@ -89,7 +89,10 @@ Chrome is recommended. Safari and Firefox also work.
 The game opens on the title screen. Click or press any key to reach the main menu, where you can **Play**, read **How to play**, or open **Settings**. Click **Play**, choose your match, and click **Start**. Your choices are remembered for next time.
 
 - **Mode**: Deathmatch or Survival (below)
-- **Map**: Foundry (the main arena) or Test Room (small)
+- **Map**:
+  - **Foundry**: the main arena: two yards with raised decks around a two-story building
+  - **Flatlands**: a huge (200 × 200 m), flat dusty plain with scattered cover, eight outposts (shipping containers, crates, low walls) and four corner towers with ramps. Long sightlines: good for the sniper rifle.
+  - **Test Room**: a small room for trying out movement
 - **Difficulty**: seven levels, easiest first: Novice, Beginner, Easy, Medium, Advanced, Hard, Insane. This changes how fast bots react, how accurately they aim, how fast they turn, how long their bursts are, how aggressive they are, and how much their bullets hurt (from about a third of yours on Novice up to the same as yours on Hard and Insane). Bots never get more health, speed or ammo than you on any level.
 - **Bots**: 1–10
 - **Kill limit** (Deathmatch): 10, 20, or 30
@@ -129,7 +132,7 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
 - **Mouse sensitivity**, **Field of view**, **Volume**
 - **Screen shake**: on or off
 - **HUD size**: shrink the on-screen panels (health, ammo, minimap, kill feed, status bar) down to 60%. The crosshair always stays the same size.
-- **Aim / scope**: hold the right mouse button (default) or the Q key to aim down sights and scope. With Q, the "last weapon" shortcut is off (the number keys and mouse wheel still switch weapons).
+- **Aim / scope**: which button aims down sights and scopes: **Both** right mouse and Q (default), only the right mouse button, or only Q.
 - **Graphics**: Low, Medium, or High. If the game feels choppy, try Medium or Low. Some changes take full effect from the next match.
   - **Low**: no shadows, simpler (cheaper) surface shading, lower resolution, and flat painted textures instead of 3D bricks and concrete panels. Helps most on Retina screens.
   - **Medium**: shadows, faint reflections on metal and armor, and real 3D bricks and concrete panels on the walls.
@@ -209,7 +212,8 @@ Examples:
 Maps are plain data in [`src/map/maps/`](src/map/maps/). Each map is a list of boxes (walls, floors, crates) and ramps, with positions and sizes in meters, plus spawn points and pickup spots.
 
 1. Copy `foundry.ts` (the arena) or `testRoom.ts` (a small room) to a new file and give it a new `id` and `name`.
-2. Change the boxes, ramps, spawns, and pickups.
+2. Change the boxes, ramps, spawns, and pickups. Materials: `floor`, `wall` (brick), `concrete`, `crate`, `metal`, `trim` (jersey barrier), `dirt` (outdoor ground), `container` (shipping container).
+   For a very big map, set `navSpacing: 2` so the bots' navigation grid is coarser and the map loads quickly (see `flatlands.ts`, which also shows how to place cover with a fixed random seed).
 3. Add it to the list in `src/map/maps/index.ts`.
 
 It appears in the match menu automatically, and bots can navigate it without any extra work.

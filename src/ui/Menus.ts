@@ -161,16 +161,16 @@ export class Menus {
     item('Play', 'Deathmatch or Survival against bots', () => this.show('setup'), true);
     item('How to play', 'Controls and tips', () => this.show('controls'));
     item('Settings', 'Mouse, field of view, sound, graphics', () => this.openSettings('main'));
-    const aim = settings.get().aimKey === 'q' ? 'Q' : 'right click';
+    const aim = { both: 'right click or Q', mouse: 'right click', q: 'Q' }[settings.get().aimKey] ?? 'right click';
     div('main-foot', left).textContent = `Tip: hold ${aim} to aim down sights — bots miss more when you keep moving.`;
   }
 
   private buildControls(p: HTMLElement): void {
     head(p, 'Field manual', 'How to play');
-    const aimQ = settings.get().aimKey === 'q';
+    const aimKeys = { both: 'Right click / Q', mouse: 'Right click', q: 'Q' }[settings.get().aimKey] ?? 'Right click';
     const groups: [string, [string, string][]][] = [
       ['Movement', [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Space', 'Jump'], ['Shift', 'Sprint'], ['C', 'Crouch']]],
-      ['Combat', [['Left click', 'Shoot'], [aimQ ? 'Q' : 'Right click', 'Aim / scope'], ['R', 'Reload'], ['1 – 4 / Wheel', 'Switch weapon'], ...(aimQ ? [] : [['Q', 'Last weapon'] as [string, string]])]],
+      ['Combat', [['Left click', 'Shoot'], [aimKeys, 'Aim / scope'], ['R', 'Reload'], ['1 – 4 / Wheel', 'Switch weapon'], ['E', 'Last weapon']]],
       ['Other', [['Tab', 'Scoreboard'], ['Esc', 'Pause']]],
     ];
     const cols = div('controls-cols', p);
@@ -278,8 +278,8 @@ export class Menus {
     div('section-title', p).textContent = 'Controls';
     slider(field(p, 'Mouse sensitivity'), 0.1, 3, 0.05, s.mouseSensitivity, (v) => v.toFixed(2), (v) => settings.set({ mouseSensitivity: v }));
     slider(field(p, 'Field of view', 'How wide you see'), 60, 110, 1, s.fov, (v) => `${v}°`, (v) => settings.set({ fov: v }));
-    segmented(field(p, 'Aim / scope', 'Hold to aim down sights'), [['mouse', 'Right mouse'], ['q', 'Q key']], s.aimKey, (v) =>
-      settings.set({ aimKey: v as 'mouse' | 'q' }),
+    segmented(field(p, 'Aim / scope', 'Hold to aim down sights'), [['both', 'Both'], ['mouse', 'Right mouse'], ['q', 'Q key']], s.aimKey, (v) =>
+      settings.set({ aimKey: v as 'both' | 'mouse' | 'q' }),
     );
 
     div('section-title', p).textContent = 'Display';

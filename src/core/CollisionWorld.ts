@@ -30,6 +30,8 @@ interface Solid {
   planes: Plane[];
   /** Bounding box, for a quick reject before the exact test. */
   bounds: AABB;
+  /** Internal: used to avoid testing the same solid twice in one ray. */
+  _q?: number;
 }
 
 export interface RayHit {
@@ -65,6 +67,8 @@ export class CollisionWorld {
   private static CELL = 4;
   private boxGrid = new Map<number, AABB[]>();
   private rampGrid = new Map<number, Ramp[]>();
+  /** Every solid by grid cell, so rays only test what's along their path. */
+  private solidGrid = new Map<number, Solid[]>();
   private gridDirty = true;
   private queryId = 0;
   private nearBoxes: AABB[] = [];
@@ -120,6 +124,7 @@ export class CollisionWorld {
     const C = CollisionWorld.CELL;
     this.boxGrid.clear();
     this.rampGrid.clear();
+    this.solidGrid.clear();
     const insert = <T extends AABB>(grid: Map<number, T[]>, a: T) => {
       for (let ix = Math.floor(a.minX / C); ix <= Math.floor(a.maxX / C); ix++) {
         for (let iz = Math.floor(a.minZ / C); iz <= Math.floor(a.maxZ / C); iz++) {
@@ -132,6 +137,17 @@ export class CollisionWorld {
     };
     for (const b of this.boxes) insert(this.boxGrid, b);
     for (const r of this.ramps) insert(this.rampGrid, r);
+    for (const sol of this.solids) {
+      const a = sol.bounds;
+      for (let ix = Math.floor(a.minX / C); ix <= Math.floor(a.maxX / C); ix++) {
+        for (let iz = Math.floor(a.minZ / C); iz <= Math.floor(a.maxZ / C); iz++) {
+          const k = CollisionWorld.key(ix, iz);
+          let list = this.solidGrid.get(k);
+          if (!list) this.solidGrid.set(k, (list = []));
+          list.push(sol);
+        }
+      }
+    }
     this.gridDirty = false;
   }
 
@@ -160,49 +176,56 @@ export class CollisionWorld {
    * or null. `dir` must be normalized.
    */
   raycast(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): RayHit | null {
-    let best: RayHit | null = null;
-    let bestDist = maxDist;
-    for (const s of this.solids) {
-      if (!rayHitsBox(s.bounds, ox, oy, oz, dx, dy, dz, bestDist)) continue;
-      let tEnter = 0, tExit = bestDist;
-      let hitPlane: Plane | null = null;
-      let missed = false;
-      for (const p of s.planes) {
-        const denom = p.nx * dx + p.ny * dy + p.nz * dz;
-        const dist = p.d - (p.nx * ox + p.ny * oy + p.nz * oz);
-        if (Math.abs(denom) < 1e-9) {
-          if (dist < 0) { missed = true; break; }
-          continue;
+    if (this.gridDirty) this.rebuildGrid();
+    // Walk the grid cells the ray passes over (seen from above), nearest
+    // first, testing only the solids in them. Stop once the next cell starts
+    // farther away than the best hit so far.
+    const C = CollisionWorld.CELL;
+    const q = ++this.queryId;
+    let ix = Math.floor(ox / C), iz = Math.floor(oz / C);
+    const stepX = dx > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+    const adx = Math.abs(dx), adz = Math.abs(dz);
+    let tMaxX = adx > 1e-12 ? ((ix + (dx > 0 ? 1 : 0)) * C - ox) / dx : Infinity;
+    let tMaxZ = adz > 1e-12 ? ((iz + (dz > 0 ? 1 : 0)) * C - oz) / dz : Infinity;
+    const tDeltaX = adx > 1e-12 ? C / adx : Infinity;
+    const tDeltaZ = adz > 1e-12 ? C / adz : Infinity;
+    const hit: { best: RayHit | null; dist: number } = { best: null, dist: maxDist };
+    for (let guard = 0; guard < 4096; guard++) {
+      const list = this.solidGrid.get(CollisionWorld.key(ix, iz));
+      if (list) {
+        for (const sol of list) {
+          if (sol._q === q) continue;
+          sol._q = q;
+          rayVsSolid(sol, ox, oy, oz, dx, dy, dz, hit);
         }
-        const t = dist / denom;
-        if (denom < 0) {
-          if (t > tEnter) { tEnter = t; hitPlane = p; }
-        } else if (t < tExit) {
-          tExit = t;
-        }
-        if (tEnter > tExit) { missed = true; break; }
       }
-      // hitPlane null means the ray started inside the solid: ignore it.
-      if (missed || !hitPlane || tEnter >= bestDist) continue;
-      bestDist = tEnter;
-      best = { distance: tEnter, nx: hitPlane.nx, ny: hitPlane.ny, nz: hitPlane.nz };
+      const tNext = Math.min(tMaxX, tMaxZ);
+      if (tNext > hit.dist) break;
+      if (tMaxX < tMaxZ) {
+        ix += stepX;
+        tMaxX += tDeltaX;
+      } else {
+        iz += stepZ;
+        tMaxZ += tDeltaZ;
+      }
     }
-    return best;
+    return hit.best;
   }
 
   /** Is this point inside any solid box or ramp? */
   isInsideSolid(x: number, y: number, z: number, margin = 0.001): boolean {
-    for (const s of this.solids) {
-      const b = s.bounds;
-      if (x < b.minX - margin || x > b.maxX + margin || y < b.minY - margin || y > b.maxY + margin || z < b.minZ - margin || z > b.maxZ + margin) continue;
-      let inside = true;
-      for (const p of s.planes) {
-        if (p.nx * x + p.ny * y + p.nz * z > p.d - margin) {
-          inside = false;
-          break;
+    if (this.gridDirty) this.rebuildGrid();
+    const C = CollisionWorld.CELL;
+    const m = Math.max(0, margin);
+    const q = ++this.queryId;
+    for (let ix = Math.floor((x - m) / C); ix <= Math.floor((x + m) / C); ix++) {
+      for (let iz = Math.floor((z - m) / C); iz <= Math.floor((z + m) / C); iz++) {
+        for (const s of this.solidGrid.get(CollisionWorld.key(ix, iz)) ?? EMPTY) {
+          if ((s as Solid)._q === q) continue;
+          (s as Solid)._q = q;
+          if (pointInSolid(s as Solid, x, y, z, margin)) return true;
         }
       }
-      if (inside) return true;
     }
     return false;
   }
@@ -294,6 +317,39 @@ export class CollisionWorld {
 }
 
 const EMPTY: never[] = [];
+
+/** Exact ray test against one convex solid; updates `hit` if it's closer. */
+function rayVsSolid(s: Solid, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, hit: { best: RayHit | null; dist: number }): void {
+  if (!rayHitsBox(s.bounds, ox, oy, oz, dx, dy, dz, hit.dist)) return;
+  let tEnter = 0, tExit = hit.dist;
+  let hitPlane: Plane | null = null;
+  for (const p of s.planes) {
+    const denom = p.nx * dx + p.ny * dy + p.nz * dz;
+    const dist = p.d - (p.nx * ox + p.ny * oy + p.nz * oz);
+    if (Math.abs(denom) < 1e-9) {
+      if (dist < 0) return;
+      continue;
+    }
+    const t = dist / denom;
+    if (denom < 0) {
+      if (t > tEnter) { tEnter = t; hitPlane = p; }
+    } else if (t < tExit) {
+      tExit = t;
+    }
+    if (tEnter > tExit) return;
+  }
+  // hitPlane null means the ray started inside the solid: ignore it.
+  if (!hitPlane || tEnter >= hit.dist) return;
+  hit.dist = tEnter;
+  hit.best = { distance: tEnter, nx: hitPlane.nx, ny: hitPlane.ny, nz: hitPlane.nz };
+}
+
+function pointInSolid(s: Solid, x: number, y: number, z: number, margin: number): boolean {
+  const b = s.bounds;
+  if (x < b.minX - margin || x > b.maxX + margin || y < b.minY - margin || y > b.maxY + margin || z < b.minZ - margin || z > b.maxZ + margin) return false;
+  for (const p of s.planes) if (p.nx * x + p.ny * y + p.nz * z > p.d - margin) return false;
+  return true;
+}
 
 function norm(nx: number, ny: number, nz: number, d: number): Plane {
   const l = Math.hypot(nx, ny, nz);

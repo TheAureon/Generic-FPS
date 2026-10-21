@@ -66,8 +66,8 @@ export const CONFIG = {
     fov: 80,
     masterVolume: 0.8,
     screenShake: true,
-    /** Aim / scope with the right mouse button ('mouse') or the Q key ('q'). */
-    aimKey: 'mouse' as 'mouse' | 'q',
+    /** Aim / scope with both the right mouse button and Q ('both'), or only one ('mouse' / 'q'). */
+    aimKey: 'both' as 'both' | 'mouse' | 'q',
     /** HUD size: 1 = full size, down to 0.6. The crosshair always stays the same. */
     hudScale: 1,
     quality: 'high' as 'low' | 'medium' | 'high',

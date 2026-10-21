@@ -19,7 +19,7 @@ interface MaterialStyle {
   line: string;
   /** Texture tiles every N meters. */
   tileSize: number;
-  pattern: 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
+  pattern: 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
   /** Texture resolution (pixels); bigger for textures covering a large area. */
   pixels?: number;
   roughness: number;
@@ -40,6 +40,10 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   panel: { base: '#8f9296', line: '#76797d', tileSize: 4, pattern: 'concrete', roughness: 0.9, metalness: 0 },
   crate: { base: '#9a7446', line: '#5e4326', tileSize: 1.5, pattern: 'planks', roughness: 0.8, metalness: 0 },
   crateFrame: { base: '#7d5a33', line: '#5a3f22', tileSize: 1, pattern: 'grain', roughness: 0.8, metalness: 0 },
+  // Outdoor ground: packed dirt and gravel.
+  dirt: { base: '#857a66', line: '#5e5546', tileSize: 6, pattern: 'dirt', roughness: 1, metalness: 0, pixels: 512 },
+  // Shipping containers: corrugated, painted steel.
+  container: { base: '#8a3b2c', line: '#5e271d', tileSize: 1, pattern: 'ribs', roughness: 0.6, metalness: 0.3 },
   metal: { base: '#5f6e7a', line: '#4a5661', tileSize: 2, pattern: 'plates', roughness: 0.5, metalness: 0.4 },
   // Diamond-plate steel on top of ramps and metal floors.
   tread: { base: '#6f777e', line: '#4c5359', tileSize: 1, pattern: 'diamond', roughness: 0.42, metalness: 0.6, pixels: 256 },
@@ -94,6 +98,51 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
   g.strokeStyle = style.line;
   g.fillStyle = style.line;
   switch (style.pattern) {
+    case 'dirt': {
+      // Pebbles (light and dark), patches of darker earth, a few tire ruts.
+      for (let i = 0; i < 26; i++) {
+        const x = rnd(0, size), y = rnd(0, size), r = rnd(size * 0.04, size * 0.14);
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, Math.random() < 0.5 ? 'rgba(60,48,32,0.18)' : 'rgba(200,190,170,0.12)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      for (let i = 0; i < 900; i++) {
+        const r = rnd(0.6, 2.4);
+        g.fillStyle = Math.random() < 0.5 ? `rgba(40,34,26,${rnd(0.25, 0.6)})` : `rgba(220,212,195,${rnd(0.2, 0.5)})`;
+        g.beginPath();
+        g.ellipse(rnd(0, size), rnd(0, size), r, r * rnd(0.6, 1), rnd(0, 3), 0, Math.PI * 2);
+        g.fill();
+      }
+      g.strokeStyle = 'rgba(50,42,30,0.12)';
+      g.lineWidth = size * 0.035;
+      for (const x of [rnd(0, size), rnd(0, size)]) {
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.bezierCurveTo(x + rnd(-40, 40), size * 0.33, x + rnd(-40, 40), size * 0.66, x, size);
+        g.stroke();
+      }
+      break;
+    }
+    case 'ribs': {
+      // Vertical corrugation: alternating light and dark stripes, with rust streaks.
+      const n = 8, w = size / n;
+      for (let i = 0; i < n; i++) {
+        const grad = g.createLinearGradient(i * w, 0, (i + 1) * w, 0);
+        grad.addColorStop(0, 'rgba(0,0,0,0.28)');
+        grad.addColorStop(0.35, 'rgba(255,255,255,0.12)');
+        grad.addColorStop(0.65, 'rgba(255,255,255,0.05)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.28)');
+        g.fillStyle = grad;
+        g.fillRect(i * w, 0, w, size);
+      }
+      for (let i = 0; i < 10; i++) {
+        g.fillStyle = `rgba(90,45,20,${rnd(0.1, 0.25)})`;
+        g.fillRect(rnd(0, size), rnd(0, size * 0.5), rnd(2, 5), rnd(30, 120));
+      }
+      break;
+    }
     case 'slabs': {
       // 4 x 4 slabs, each a slightly different shade, some with stains or cracks.
       const n = 4, s = size / n;

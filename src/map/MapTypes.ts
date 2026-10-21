@@ -5,7 +5,7 @@
  * Coordinates: X = east/west, Z = north/south, Y = up. One unit = one meter.
  */
 
-export type MaterialId = 'floor' | 'wall' | 'concrete' | 'crate' | 'metal' | 'trim';
+export type MaterialId = 'floor' | 'wall' | 'concrete' | 'crate' | 'metal' | 'trim' | 'dirt' | 'container';
 
 /** A solid box. x/z are the CENTER of the box, y is the BOTTOM of the box. */
 export interface BoxDef {
@@ -125,6 +125,8 @@ export interface MapDef {
   sky?: SkyDef;
   fogNear: number;
   fogFar: number;
+  /** Spacing of the bots' navigation grid (meters, default 1.25). Bigger = faster loading on huge maps. */
+  navSpacing?: number;
   boxes: BoxDef[];
   ramps: RampDef[];
   playerSpawns: SpawnPoint[];

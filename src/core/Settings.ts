@@ -7,8 +7,8 @@ export interface SettingsData {
   masterVolume: number;
   /** Camera shake when shooting and getting hit. */
   screenShake: boolean;
-  /** Hold right mouse or Q to aim down sights / scope. With Q, the "last weapon" key is off. */
-  aimKey: 'mouse' | 'q';
+  /** Which button aims down sights / scopes: both right mouse and Q, or just one. */
+  aimKey: 'both' | 'mouse' | 'q';
   /** Size of the HUD panels (health, ammo, minimap, kill feed...), 0.6 to 1. */
   hudScale: number;
   /** low = fastest, high = best looking. */
@@ -16,6 +16,8 @@ export interface SettingsData {
 }
 
 const STORAGE_KEY = 'generic-fps-settings';
+/** Bumped when a default changes in a way old saved settings should pick up. */
+const VERSION = 2;
 
 type Listener = (s: SettingsData) => void;
 
@@ -26,7 +28,13 @@ class SettingsStore {
   constructor() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) this.data = { ...this.data, ...JSON.parse(raw) };
+      if (raw) {
+        const saved = JSON.parse(raw);
+        // Version 2: aiming works with both right mouse and Q by default (Q no
+        // longer switches weapons), so older saves get the new default.
+        if ((saved.version ?? 1) < 2) saved.aimKey = 'both';
+        this.data = { ...this.data, ...saved };
+      }
     } catch {
       // Storage unavailable or corrupt: fall back to defaults.
     }
@@ -39,7 +47,7 @@ class SettingsStore {
   set(patch: Partial<SettingsData>): void {
     this.data = { ...this.data, ...patch };
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...this.data, version: VERSION }));
     } catch {
       // Ignore: settings just won't persist.
     }
