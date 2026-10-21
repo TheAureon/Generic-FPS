@@ -239,7 +239,7 @@ function buildSkyline(center: THREE.Vector3, arenaRadius: number, def: SkyDef, s
     const lit = Math.max(0, n.dot(sunDir));
     c.copy(base).multiplyScalar(0.7 + 0.5 * lit).lerp(sunTint, 0.12 * lit);
     const dist = Math.hypot(pos.getX(i) - center.x, pos.getZ(i) - center.z);
-    const k = THREE.MathUtils.clamp((dist - arenaRadius) / 180, 0.15, 0.55);
+    const k = THREE.MathUtils.clamp((dist - arenaRadius) / 120, 0.5, 0.85);
     c.lerp(haze, k);
     col.set([c.r, c.g, c.b], i * 3);
   }

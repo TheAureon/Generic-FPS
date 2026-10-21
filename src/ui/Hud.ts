@@ -13,22 +13,43 @@ export interface AmmoInfo {
   reloadProgress: number; // 0 when not reloading
 }
 
-/** In-game heads-up display. Grows with each milestone. */
+/** Small inline icons (drawn with SVG so they stay crisp at any size). */
+const ICON = {
+  health: '<svg viewBox="0 0 24 24"><path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7z"/></svg>',
+  armor: '<svg viewBox="0 0 24 24"><path d="M12 1 3 4.5v6.2c0 5.6 3.8 10.4 9 12.3 5.2-1.9 9-6.7 9-12.3V4.5z"/></svg>',
+  head: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="3"/></svg>',
+  ammo: '<svg viewBox="0 0 24 24"><path d="M7 22V9l2.5-6L12 9v13zm6 0V9l2.5-6L18 9v13z"/></svg>',
+};
+
+/** Short weapon names for the slot chips. */
+const SHORT: Record<WeaponId, string> = { pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper' };
+
+/**
+ * In-game heads-up display: crosshair, hit markers, health/armor, weapon and
+ * ammo, kill feed, match status bar, minimap, damage direction, death screen,
+ * scoreboard. Built from plain page elements styled in style.css.
+ */
 export class Hud {
   private root: HTMLDivElement;
   private debugEl: HTMLDivElement;
   private crosshair: HTMLDivElement;
   private hitmarker: HTMLDivElement;
+  private weaponPanel: HTMLDivElement;
   private ammoName: HTMLDivElement;
-  private ammoCount: HTMLDivElement;
+  private ammoNumber: HTMLSpanElement;
   private ammoReserve: HTMLSpanElement;
+  private pips: HTMLDivElement;
+  private pipEls: HTMLDivElement[] = [];
+  private pipWeapon: WeaponId | null = null;
   private reloadBar: HTMLDivElement;
   private reloadFill: HTMLDivElement;
   private slots = new Map<WeaponId, HTMLDivElement>();
   private scope: HTMLDivElement;
   private notice: HTMLDivElement;
   private healthFill: HTMLDivElement;
+  private healthTrail: HTMLDivElement;
   private healthText: HTMLDivElement;
+  private healthRow: HTMLDivElement;
   private armorFill: HTMLDivElement;
   private armorText: HTMLDivElement;
   private armorRow: HTMLDivElement;
@@ -39,11 +60,13 @@ export class Hud {
   private deathScreen: HTMLDivElement;
   private deathText: HTMLDivElement;
   private deathTimer: HTMLDivElement;
+  private deathRing: SVGCircleElement;
+  private deathCount: HTMLDivElement;
   private hurtFlash = 0;
-  private ammoNumber = document.createTextNode('');
   private lastAmmo = '';
   private lastVitals = '';
   private lastGap = '';
+  private lastStatus = '';
   private statusEl: HTMLDivElement;
   private announceEl: HTMLDivElement;
   private announceTitle: HTMLDivElement;
@@ -76,18 +99,26 @@ export class Hud {
 
     this.notice = el('div', 'notice', this.root);
 
-    const weaponPanel = el('div', 'weapon-panel', this.root);
-    const slotList = el('div', 'slots', weaponPanel);
+    // ---- Weapon + ammo, bottom right ----
+    this.weaponPanel = el('div', 'weapon-panel glass', this.root);
+    const slotList = el('div', 'slots', this.weaponPanel);
     for (const id of Object.keys(WEAPONS) as WeaponId[]) {
       const s = el('div', 'slot', slotList);
-      s.innerHTML = `<span class="key">${WEAPONS[id].slot}</span>${WEAPONS[id].name}`;
+      s.innerHTML = `<span class="key">${WEAPONS[id].slot}</span><span class="slot-name">${SHORT[id]}</span>`;
       this.slots.set(id, s);
     }
-    this.ammoName = el('div', 'ammo-name', weaponPanel);
-    this.ammoCount = el('div', 'ammo-count', weaponPanel);
+    this.ammoName = el('div', 'ammo-name', this.weaponPanel);
+    const count = el('div', 'ammo-count', this.weaponPanel);
+    this.ammoNumber = document.createElement('span');
+    this.ammoNumber.className = 'ammo-mag';
     this.ammoReserve = document.createElement('span');
-    this.ammoCount.append(this.ammoNumber, this.ammoReserve);
-    this.reloadBar = el('div', 'reload-bar', weaponPanel);
+    this.ammoReserve.className = 'ammo-reserve';
+    const icon = document.createElement('span');
+    icon.className = 'ammo-icon';
+    icon.innerHTML = ICON.ammo;
+    count.append(this.ammoNumber, icon, this.ammoReserve);
+    this.pips = el('div', 'pips', this.weaponPanel);
+    this.reloadBar = el('div', 'reload-bar', this.weaponPanel);
     this.reloadFill = el('div', 'reload-fill', this.reloadBar);
 
     // Damage direction indicators: arcs around the crosshair.
@@ -97,23 +128,30 @@ export class Hud {
       this.indicators.push({ el: ind, x: 0, z: 0, life: 0 });
     }
 
-    // Health + armor, bottom left.
-    const vitals = el('div', 'vitals', this.root);
-    const hRow = el('div', 'vital-row', vitals);
-    el('div', 'vital-icon health-icon', hRow).textContent = '+';
-    this.healthText = el('div', 'vital-num', hRow);
-    const hBar = el('div', 'vital-bar', hRow);
+    // ---- Health + armor, bottom left ----
+    const vitals = el('div', 'vitals glass', this.root);
+    this.healthRow = el('div', 'vital-row health-row', vitals);
+    el('div', 'vital-icon health-icon', this.healthRow).innerHTML = ICON.health;
+    this.healthText = el('div', 'vital-num', this.healthRow);
+    const hBar = el('div', 'vital-bar', this.healthRow);
+    this.healthTrail = el('div', 'vital-trail', hBar);
     this.healthFill = el('div', 'vital-fill health-fill', hBar);
     this.armorRow = el('div', 'vital-row armor-row', vitals);
-    el('div', 'vital-icon armor-icon', this.armorRow).textContent = '◆';
+    el('div', 'vital-icon armor-icon', this.armorRow).innerHTML = ICON.armor;
     this.armorText = el('div', 'vital-num', this.armorRow);
     const aBar = el('div', 'vital-bar', this.armorRow);
     this.armorFill = el('div', 'vital-fill armor-fill', aBar);
 
     this.killFeed = el('div', 'kill-feed', this.root);
 
+    // ---- Death screen with a countdown ring ----
     this.deathScreen = el('div', 'death-screen', this.root);
+    el('div', 'death-label', this.deathScreen).textContent = 'Eliminated';
     this.deathText = el('div', 'death-title', this.deathScreen);
+    const timer = el('div', 'death-countdown', this.deathScreen);
+    timer.innerHTML = '<svg viewBox="0 0 100 100"><circle class="ring-bg" cx="50" cy="50" r="44"/><circle class="ring-fg" cx="50" cy="50" r="44"/></svg>';
+    this.deathRing = timer.querySelector('.ring-fg') as SVGCircleElement;
+    this.deathCount = el('div', 'death-count', timer);
     this.deathTimer = el('div', 'death-timer', this.deathScreen);
 
     this.statusEl = el('div', 'match-status', this.root);
@@ -135,13 +173,21 @@ export class Hud {
     this.pickupTimer = 0;
     this.pickupEl.style.opacity = '0';
     this.hurtFlash = 0;
+    this.lastVitals = '';
+    this.lastAmmo = '';
     for (const ind of this.indicators) ind.life = 0;
     this.setDeath(null);
     this.showScoreboard(null);
   }
 
+  /** The match status bar: "A  ·  B  ·  C" becomes separate segments; a time like 9:59 gets its own style. */
   setStatus(text: string): void {
-    if (this.statusEl.textContent !== text) this.statusEl.textContent = text;
+    if (text === this.lastStatus) return;
+    this.lastStatus = text;
+    const parts = text.split(/\s+·\s+/).filter(Boolean);
+    this.statusEl.innerHTML = parts
+      .map((t) => `<span class="seg-part${/^\d+:\d\d$/.test(t) ? ' time' : ''}">${esc(t)}</span>`)
+      .join('<span class="seg-sep">  ·  </span>');
   }
 
   /** Big message in the middle-top of the screen for a few seconds. */
@@ -149,11 +195,18 @@ export class Hud {
     this.announceTitle.textContent = title;
     this.announceSub.textContent = subtitle;
     this.announceTimer = seconds;
+    // Restart the entrance animation.
+    this.announceEl.classList.remove('in');
+    void this.announceEl.offsetWidth;
+    this.announceEl.classList.add('in');
   }
 
   pickupMessage(text: string, type: PickupType): void {
-    this.pickupEl.textContent = text;
+    const icon = type === 'health' ? ICON.health : type === 'armor' ? ICON.armor : ICON.ammo;
+    this.pickupEl.innerHTML = `<span class="pk-icon">${icon}</span><span>${esc(text)}</span>`;
     this.pickupEl.className = `pickup-msg ${type}`;
+    void this.pickupEl.offsetWidth;
+    this.pickupEl.classList.add('in');
     this.pickupTimer = 1.6;
   }
 
@@ -172,10 +225,13 @@ export class Hud {
     const key = `${Math.ceil(health)}|${Math.ceil(armor)}`;
     if (key !== this.lastVitals) {
       this.lastVitals = key;
-      this.healthText.textContent = String(Math.ceil(health));
-      this.healthFill.style.width = `${(health / P.maxHealth) * 100}%`;
-      this.healthFill.classList.toggle('low', health <= 30);
-      this.armorRow.style.opacity = armor > 0 ? '1' : '0.35';
+      const hp = Math.max(0, health) / P.maxHealth;
+      this.healthText.textContent = String(Math.max(0, Math.ceil(health)));
+      this.healthFill.style.width = `${hp * 100}%`;
+      // The trail lags behind (CSS delay), showing how much was just lost.
+      this.healthTrail.style.width = `${hp * 100}%`;
+      this.healthRow.classList.toggle('low', health <= 30);
+      this.armorRow.classList.toggle('empty', armor <= 0);
       this.armorText.textContent = String(Math.ceil(armor));
       this.armorFill.style.width = `${(armor / P.maxArmor) * 100}%`;
     }
@@ -211,25 +267,37 @@ export class Hud {
 
   addKill(killer: string, victim: string, weapon: WeaponId, headshot: boolean): void {
     const row = document.createElement('div');
-    row.className = 'kf-row';
+    const mine = killer === 'You' ? ' mine' : victim === 'You' ? ' died' : '';
+    row.className = `kf-row${mine}`;
     const you = (n: string) => (n === 'You' ? ' you' : '');
-    row.innerHTML = `<span class="kf-name${you(killer)}"></span><span class="kf-weapon"></span><span class="kf-name${you(victim)}"></span>`;
-    const spans = row.querySelectorAll('span');
-    spans[0].textContent = killer;
-    spans[1].textContent = `[${WEAPONS[weapon].name}]${headshot ? ' ✛' : ''}`;
-    spans[2].textContent = victim;
+    row.innerHTML =
+      `<span class="kf-name${you(killer)}">${esc(killer)}</span>` +
+      `<span class="kf-weapon">${esc(SHORT[weapon])}${headshot ? `<span class="kf-head">${ICON.head}</span>` : ''}</span>` +
+      `<span class="kf-name${you(victim)}">${esc(victim)}</span>`;
     this.killFeed.prepend(row);
     while (this.killFeed.children.length > 5) this.killFeed.lastElementChild!.remove();
     setTimeout(() => row.classList.add('fade'), 5000);
     setTimeout(() => row.remove(), 6000);
   }
 
-  /** Death screen; pass null to hide. */
+  /** Death screen; pass null to hide. `seconds` < 0 means no respawn. */
   setDeath(info: { killer: string; seconds: number } | null): void {
     this.deathScreen.style.display = info ? 'flex' : 'none';
+    this.root.classList.toggle('dead', !!info);
     if (!info) return;
     this.deathText.textContent = `Killed by ${info.killer}`;
-    this.deathTimer.textContent = info.seconds < 0 ? 'No respawns in Survival' : `Respawning in ${Math.max(0, Math.ceil(info.seconds))}`;
+    const noRespawn = info.seconds < 0;
+    this.deathScreen.classList.toggle('final', noRespawn);
+    if (noRespawn) {
+      this.deathTimer.textContent = 'No respawns in Survival';
+      return;
+    }
+    const total = CONFIG.player.respawnDelay;
+    const left = Math.max(0, info.seconds);
+    this.deathCount.textContent = String(Math.ceil(left));
+    // Ring empties as the countdown runs (circumference 2π·44 ≈ 276.5).
+    this.deathRing.style.strokeDashoffset = String(276.5 * (1 - left / total));
+    this.deathTimer.textContent = 'Respawning';
   }
 
   setVisible(v: boolean): void {
@@ -253,32 +321,49 @@ export class Hud {
 
   updateAmmo(a: AmmoInfo): void {
     // Only touch the page when something changed (keeps the frame rate smooth).
+    if (a.weapon !== this.pipWeapon) this.buildPips(a.weapon, a.magazine);
     const key = `${a.weapon}|${a.ammo}|${a.reserve}`;
     if (key !== this.lastAmmo) {
       this.lastAmmo = key;
       this.ammoName.textContent = WEAPONS[a.weapon].name;
-      this.ammoNumber.data = String(a.ammo);
-      this.ammoCount.classList.toggle('low', a.ammo <= Math.ceil(a.magazine * 0.25));
-      this.ammoReserve.textContent = ` / ${a.reserve}`;
+      this.ammoNumber.textContent = String(a.ammo);
+      const low = a.ammo <= Math.ceil(a.magazine * 0.25);
+      this.weaponPanel.classList.toggle('low', low);
+      this.ammoReserve.textContent = String(a.reserve);
+      this.pipEls.forEach((p, i) => p.classList.toggle('spent', i >= a.ammo));
       for (const [id, s] of this.slots) s.classList.toggle('active', id === a.weapon);
     }
     setStyle(this.reloadBar, 'visibility', a.reloadProgress > 0 ? 'visible' : 'hidden');
     if (a.reloadProgress > 0) setStyle(this.reloadFill, 'width', `${(a.reloadProgress * 100).toFixed(0)}%`);
 
-    if (a.reloadProgress > 0) this.setNotice('Reloading');
-    else if (a.ammo === 0 && a.reserve === 0) this.setNotice('Out of ammo');
-    else if (a.ammo === 0) this.setNotice('Press R to reload');
-    else if (a.ammo <= Math.ceil(a.magazine * 0.25)) this.setNotice('Low ammo');
-    else this.setNotice('');
+    if (a.reloadProgress > 0) this.setNotice('Reloading', 'info');
+    else if (a.ammo === 0 && a.reserve === 0) this.setNotice('Out of ammo', 'alert');
+    else if (a.ammo === 0) this.setNotice('Press R to reload', 'alert');
+    else if (a.ammo <= Math.ceil(a.magazine * 0.25)) this.setNotice('Low ammo', 'warn');
+    else this.setNotice('', '');
   }
 
-  private setNotice(text: string): void {
-    if (this.notice.textContent !== text) this.notice.textContent = text;
+  /** One small mark per round in the magazine. */
+  private buildPips(weapon: WeaponId, magazine: number): void {
+    this.pipWeapon = weapon;
+    this.pips.innerHTML = '';
+    this.pips.className = `pips ${weapon}`;
+    this.pipEls = [];
+    for (let i = 0; i < magazine; i++) this.pipEls.push(el('div', 'pip', this.pips));
+  }
+
+  private setNotice(text: string, kind: string): void {
+    if (this.notice.textContent !== text) {
+      this.notice.textContent = text;
+      this.notice.className = `notice ${kind}`;
+    }
   }
 
   showHitmarker(kind: HitmarkerKind): void {
+    this.hitmarker.className = 'hitmarker';
+    void this.hitmarker.offsetWidth; // restart the pop animation
     this.hitmarker.className = `hitmarker show ${kind}`;
-    this.hitTimer = kind === 'kill' ? 0.35 : 0.18;
+    this.hitTimer = kind === 'kill' ? 0.4 : 0.2;
   }
 
   /** @param px,pz,yaw the player's position and facing, for damage indicators */
@@ -316,16 +401,20 @@ function el(tag: string, className: string, parent: HTMLElement): HTMLDivElement
   return e;
 }
 
+function esc(t: string): string {
+  return t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
 /** HTML table of scores (used by the Tab scoreboard and the end screen). */
 export function scoreTableHtml(rows: ScoreRow[], title: string): string {
-  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
   const body = rows
-    .map(
-      (r, i) =>
-        `<tr class="${r.isPlayer ? 'me' : ''}"><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.kills}</td><td>${r.deaths}</td></tr>`,
-    )
+    .map((r, i) => {
+      const kd = r.deaths === 0 ? r.kills.toFixed(1) : (r.kills / r.deaths).toFixed(2);
+      const cls = [r.isPlayer ? 'me' : '', i === 0 ? 'first' : ''].filter(Boolean).join(' ');
+      return `<tr class="${cls}"><td class="rank">${i + 1}</td><td>${esc(r.name)}</td><td>${r.kills}</td><td>${r.deaths}</td><td class="kd">${kd}</td></tr>`;
+    })
     .join('');
-  return `${title ? `<div class="sb-title">${esc(title)}</div>` : ''}<table class="score-table"><thead><tr><th>#</th><th>Name</th><th>Kills</th><th>Deaths</th></tr></thead><tbody>${body}</tbody></table>`;
+  return `${title ? `<div class="sb-title">${esc(title)}</div>` : ''}<table class="score-table"><thead><tr><th>#</th><th>Name</th><th>Kills</th><th>Deaths</th><th>K/D</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
 /** Set an inline style only if it changed (avoids needless page work). */

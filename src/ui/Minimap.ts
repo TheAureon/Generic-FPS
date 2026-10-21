@@ -76,7 +76,10 @@ export class Minimap {
     g.beginPath();
     g.arc(r, r, r - 1, 0, Math.PI * 2);
     g.clip();
-    g.fillStyle = 'rgba(20, 24, 30, 0.75)';
+    const bg = g.createRadialGradient(r, r, 0, r, r, r);
+    bg.addColorStop(0, 'rgba(26, 31, 40, 0.82)');
+    bg.addColorStop(1, 'rgba(12, 15, 20, 0.88)');
+    g.fillStyle = bg;
     g.fillRect(0, 0, SIZE, SIZE);
 
     // World → radar: move the player to the center, then turn so "forward" is up.
@@ -110,8 +113,26 @@ export class Minimap {
     }
     g.restore();
 
+    // Range rings (every 10 m) and your view cone.
+    g.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+    g.lineWidth = 1;
+    for (let m = 10; m * SCALE < r; m += 10) {
+      g.beginPath();
+      g.arc(r, r, m * SCALE, 0, Math.PI * 2);
+      g.stroke();
+    }
+    const cone = g.createRadialGradient(r, r, 4, r, r, r * 0.85);
+    cone.addColorStop(0, 'rgba(232, 185, 58, 0.28)');
+    cone.addColorStop(1, 'rgba(232, 185, 58, 0)');
+    g.fillStyle = cone;
+    g.beginPath();
+    g.moveTo(r, r);
+    g.arc(r, r, r * 0.85, -Math.PI / 2 - 0.62, -Math.PI / 2 + 0.62);
+    g.closePath();
+    g.fill();
+
     // You: an arrow in the middle, pointing up.
-    g.fillStyle = '#ffd23a';
+    g.fillStyle = '#e8b93a';
     g.strokeStyle = '#000';
     g.lineWidth = 1;
     g.beginPath();
@@ -122,11 +143,27 @@ export class Minimap {
     g.closePath();
     g.fill();
     g.stroke();
-    // Border.
-    g.strokeStyle = 'rgba(255,255,255,0.35)';
-    g.lineWidth = 2;
+    // Rim: a dark ring with a thin gold line, plus a marker showing north.
+    g.strokeStyle = 'rgba(8, 10, 14, 0.9)';
+    g.lineWidth = 4;
     g.beginPath();
-    g.arc(r, r, r - 1, 0, Math.PI * 2);
+    g.arc(r, r, r - 2, 0, Math.PI * 2);
     g.stroke();
+    g.strokeStyle = 'rgba(232, 185, 58, 0.55)';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.arc(r, r, r - 4.5, 0, Math.PI * 2);
+    g.stroke();
+    // North (-Z in the world) turns with you, like the map.
+    const nx = r + Math.sin(yaw) * (r - 14), ny = r - Math.cos(yaw) * (r - 14);
+    g.fillStyle = 'rgba(8, 10, 14, 0.85)';
+    g.beginPath();
+    g.arc(nx, ny, 8, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#e8b93a';
+    g.font = '700 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('N', nx, ny + 0.5);
   }
 }

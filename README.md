@@ -103,12 +103,14 @@ When a match ends, the scoreboard shows the result, your kills, deaths, and accu
 
 ### On screen
 
-- **Bottom left**: health (turns red when low) and armor
-- **Bottom right**: your weapons and ammo
-- **Top left**: the minimap. It turns with you (up is the way you're facing) and shows walls, pickups, and enemies you can see or that just fired. A triangle means the enemy is above or below you.
+- **Bottom left**: health and armor bars (in 10 segments). When you're hit, a pale strip shows how much you just lost; health turns red when low.
+- **Bottom right**: your four weapons (the one in hand highlighted), the weapon name, rounds in the magazine and spare rounds, a row of marks (one per round in the magazine), and a reload bar
+- **Top left**: the minimap. It turns with you (up is the way you're facing; the **N** marker shows north) and shows walls, pickups, your view cone, and enemies you can see or that just fired. A triangle means the enemy is above or below you.
 - **Top center**: score, leader, and time left (or wave and enemies left)
-- **Top right**: kill feed
-- **Middle**: crosshair (spreads out when your shots are less accurate), hit markers (white = hit, yellow = headshot, red = kill), and a red arc pointing toward whoever is shooting you
+- **Top right**: kill feed (your kills in gold, your deaths in red, a target icon for headshots)
+- **Middle**: crosshair (spreads out when your shots are less accurate), hit markers (white = hit, gold = headshot, red = kill), short notices (reloading, low ammo), and a red arc pointing toward whoever is shooting you
+- **When you die**: who killed you and a countdown ring until you respawn
+- **Hold Tab**: the scoreboard, with kills, deaths and K/D
 
 ### Pickups
 
