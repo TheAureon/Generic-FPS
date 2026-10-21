@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { getMaterial, getTileSize, type SurfaceId } from '../assets/materials';
 import { CollisionWorld } from '../core/CollisionWorld';
 import { currentQuality } from '../render/quality';
-import { barrierCollision, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, relief } from './details';
+import { barrierCollision, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, rampDetail, relief } from './details';
 import type { LampDef, MapDef, MaterialId } from './MapTypes';
 
 export interface BuiltMap {
@@ -87,6 +87,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene): BuiltMap {
     const h = (x: number, z: number) => world.rampHeightAt(ramp, x, z);
     const { minX: x0, maxX: x1, minZ: z0, maxZ: z1, minY: y0 } = ramp;
     pushBoxQuads(quads, x0, x1, y0, 0, z0, z1, () => [h(x0, z0), h(x0, z1), h(x1, z1), h(x1, z0)], r.material ?? 'metal', y0 <= 0.01);
+    if ((r.material ?? 'metal') === 'metal') for (const g of rampDetail(r)) props.push({ geo: g, material: 'steel' });
   }
 
   // ---- Tessellate, bake, and group by material (or reuse an earlier bake) -----
@@ -113,6 +114,8 @@ export function buildMap(def: MapDef, scene: THREE.Scene): BuiltMap {
       bake(geo, world, aoDirs, lamps, lampPos);
       let mat: SurfaceId = q.material;
       const wall = Math.abs(n.y) < 0.1;
+      // Metal floors and ramps get diamond-plate tread on top.
+      if (q.material === 'metal' && n.y > 0.5) mat = 'tread';
       if (detail && q.material === 'wall') {
         // Real bricks on the sides, a concrete cap on top.
         if (wall) {

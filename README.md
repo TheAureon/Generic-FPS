@@ -131,7 +131,7 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
   - **Medium**: shadows, faint reflections on metal and armor, and real 3D bricks and concrete panels on the walls.
   - **High**: full resolution, sharper soft-edged shadows, and a glow ("bloom") around lamps, visors, and muzzle flashes.
 
-  The map is detailed on every setting: wooden crates have frames, braces and planks, and the yellow barriers are sloped jersey barriers in sections. On Medium and High the brick walls are built from individual 3D bricks (with mortar between them) and the concrete walls from cast panels with seams and form-tie holes.
+  The map is detailed on every setting: the floor is industrial concrete slabs (each a little different, with joints, stains and hairline cracks), the steel ramps have diamond-plate tread, anti-slip cleats, edge rails, side beams and support posts, wooden crates have frames, braces and planks, and the yellow barriers are sloped jersey barriers in sections. On Medium and High the brick walls are built from individual 3D bricks (with mortar between them) and the concrete walls from cast panels with seams and form-tie holes.
 
   On every setting the map has **baked lighting**: when a map loads, the game works out once how dark each corner is and how much light each wall lamp throws, and paints that onto the surfaces. That looks like many lights but costs almost nothing while playing. Soldiers pick up the color of lamps they walk past the same way, and so does the gun in your hands.
 

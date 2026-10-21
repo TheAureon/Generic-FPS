@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getFlashTexture, getHoleTexture } from '../assets/textures';
+import { currentQuality } from '../render/quality';
 
 /**
  * Short-lived visual effects in the world: bullet tracers, sparks/blood
@@ -203,7 +204,10 @@ export class Effects {
     // Random spin so holes don't all look the same.
     this._q.multiply(this._spin.setFromAxisAngle(BACKWARD, Math.random() * Math.PI * 2));
     const s = 0.7 + Math.random() * 0.5;
-    this._m.compose(this._v.copy(point).addScaledVector(normal, 0.004), this._q, this._s.set(s, s, s));
+    // Walls with 3D bricks/panels (Medium and High) stick out a little past
+    // the surface the bullet hits: sit the hole on top of them.
+    const lift = Math.abs(normal.y) < 0.5 && currentQuality().mapDetail ? 0.027 : 0.004;
+    this._m.compose(this._v.copy(point).addScaledVector(normal, lift), this._q, this._s.set(s, s, s));
     this.decals.setMatrixAt(this.decalNext, this._m);
     this.decalNext = (this.decalNext + 1) % MAX_DECALS;
     this.decalCount = Math.min(MAX_DECALS, this.decalCount + 1);

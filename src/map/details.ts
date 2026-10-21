@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { BoxDef } from './MapTypes';
+import type { BoxDef, RampDef } from './MapTypes';
 
 /**
  * Extra 3D detail added on top of the map's plain boxes (looks only: what
@@ -335,6 +335,51 @@ export function jerseyBarrier(b: BoxDef): THREE.BufferGeometry[] {
     g.translate(b.x, b.y, b.z);
     g.computeVertexNormals();
     out.push(g);
+  }
+  return out;
+}
+
+// ---- Steel ramps ---------------------------------------------------------------------
+
+/**
+ * Steel ramp parts: anti-slip cleats across the walking surface, kick rails
+ * along both edges, and a side beam with support posts on each side. (The
+ * ramp you walk on is still the plain slope; these are only looks.)
+ */
+export function rampDetail(r: RampDef): THREE.BufferGeometry[] {
+  const alongX = r.dir === '+x' || r.dir === '-x';
+  const L = alongX ? r.w : r.d; // length (direction of rise)
+  const W = alongX ? r.d : r.w; // width
+  const H = r.high - r.low;
+  const slope = Math.atan2(H, L);
+  const S = Math.hypot(L, H);
+  const base = r.base ?? 0;
+  // Built with u along +X (uphill) and v along +Z, centered; then turned to face `dir`.
+  const turn = { '+x': 0, '-x': Math.PI, '+z': -Math.PI / 2, '-z': Math.PI / 2 }[r.dir];
+  const surface = (u: number) => r.low + ((u + L / 2) / L) * H;
+  const out: THREE.BufferGeometry[] = [];
+  const piece = (w: number, h: number, d: number, u: number, y: number, v: number, pitch: number) => {
+    const g = new THREE.BoxGeometry(w, h, d);
+    g.rotateZ(pitch);
+    g.translate(u, y, v);
+    g.rotateY(turn);
+    g.translate(r.x, 0, r.z);
+    out.push(g.toNonIndexed());
+  };
+
+  // Cleats every 45 cm (each sits on the slope, tilted with it).
+  for (let u = -L / 2 + 0.35; u < L / 2 - 0.2; u += 0.45) piece(0.045, 0.014, W - 0.32, u, surface(u) + 0.006, 0, slope);
+  // Kick rails along both edges of the walking surface.
+  for (const side of [-1, 1]) piece(S, 0.07, 0.06, 0, (r.low + r.high) / 2 + 0.035, side * (W / 2 - 0.03), slope);
+  // Side beams just below the edge, and posts down to the base.
+  for (const side of [-1, 1]) {
+    const v = side * (W / 2 + 0.02);
+    piece(S, 0.16, 0.04, 0, (r.low + r.high) / 2 - 0.08, v, slope);
+    for (let u = -L / 2 + 1.2; u < L / 2 - 0.1; u += 1.3) {
+      const top = surface(u) - 0.14;
+      if (top - base < 0.25) continue;
+      piece(0.08, top - base, 0.03, u, (top + base) / 2, side * (W / 2 + 0.015), 0);
+    }
   }
   return out;
 }
