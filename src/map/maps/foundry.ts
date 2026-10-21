@@ -124,8 +124,21 @@ export const foundry: MapDef = {
   name: 'Foundry',
   description: 'Two yards with raised decks, split from a central two-story building by walls with doorways.',
   skyColor: 0xa9c6de,
-  fogNear: 70,
-  fogFar: 180,
+  // Late afternoon: a warm, fairly low sun from the south-west (long shadows), scattered clouds.
+  sky: {
+    zenith: 0x3d74c2,
+    horizon: 0xc2d4e2,
+    ground: 0x5a544c,
+    sunColor: 0xffd9a8,
+    sunElevation: 34,
+    sunAzimuth: 228,
+    sunIntensity: 2.6,
+    skyLight: 0.95,
+    clouds: 0.42,
+    skylineColor: 0x3e4651,
+  },
+  fogNear: 60,
+  fogFar: 190,
   boxes: [...perimeter, ...dividers, ...building, ...center, ...west, ...east],
   ramps: [
     // Up to the building roof from the west (rises toward +x, reaching the roof edge).

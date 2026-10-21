@@ -88,11 +88,41 @@ export interface LampDef {
   facing: '+x' | '-x' | '+z' | '-z' | 'down';
 }
 
+/**
+ * The sky and sunlight. Colors are hex (0xRRGGBB). The sun's position sets
+ * where shadows fall: elevation 0 = on the horizon, 90 = straight up;
+ * azimuth 0 = north (-Z), 90 = east (+X), 180 = south, 270 = west.
+ */
+export interface SkyDef {
+  /** Sky color straight up, and at the horizon (also the color of the haze). */
+  zenith: number;
+  horizon: number;
+  /** Optional color halfway up (e.g. for dusk: orange horizon, purple-blue middle, dark top). */
+  mid?: number;
+  /** Below the horizon (rarely seen). */
+  ground?: number;
+  sunColor: number;
+  sunElevation: number;
+  sunAzimuth: number;
+  /** Strength of direct sunlight (default 2.4) and of light from the sky (default 1). */
+  sunIntensity?: number;
+  skyLight?: number;
+  /** Cloud cover, 0 (clear) to 1 (overcast). */
+  clouds?: number;
+  cloudColor?: number;
+  /** Distant buildings around the arena (default on), their color, and lit windows (for dusk). */
+  skyline?: boolean;
+  skylineColor?: number;
+  litWindows?: boolean;
+}
+
 export interface MapDef {
   id: string;
   name: string;
   description: string;
+  /** Plain sky color (used if `sky` isn't given). */
   skyColor: number;
+  sky?: SkyDef;
   fogNear: number;
   fogFar: number;
   boxes: BoxDef[];

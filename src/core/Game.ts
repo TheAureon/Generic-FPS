@@ -109,6 +109,7 @@ export class Game {
       hud: this.hud,
       viewmodel: this.viewmodel,
     });
+    this.viewmodel.matchLighting(this.match.map.sky.def);
     this.accumulator = 0;
     this.hud.reset();
     this.hud.minimap.setMap(this.match.map.def, this.match.map.bounds);

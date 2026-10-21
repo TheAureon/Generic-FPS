@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WEAPONS, type WeaponId } from '../config';
+import type { SkyDef } from '../map/MapTypes';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { getFlashTexture } from '../assets/textures';
 import { createWeaponModel, markerPosition } from '../assets/weaponModels';
@@ -65,6 +66,8 @@ export class Viewmodel {
   private casings: Casing[] = [];
   private nextCasing = 0;
   visible = true;
+  private hemi = new THREE.HemisphereLight(0xdde8ff, 0x4a4036, 1.4);
+  private sun = new THREE.DirectionalLight(0xfff1dd, 1.6);
   /** Extra light matching nearby lamps (starts dark). */
   private lampAmbient = new THREE.AmbientLight(0x000000, 1);
 
@@ -72,8 +75,8 @@ export class Viewmodel {
     this.scene.add(this.lampAmbient);
     this.scene.add(this.camera);
     this.camera.add(this.rig);
-    this.scene.add(new THREE.HemisphereLight(0xdde8ff, 0x4a4036, 1.4));
-    const sun = new THREE.DirectionalLight(0xfff1dd, 1.6);
+    this.scene.add(this.hemi);
+    const sun = this.sun;
     sun.position.set(0.5, 1, 0.3);
     this.scene.add(sun);
 
@@ -159,6 +162,13 @@ export class Viewmodel {
     this.boltT = 99;
     this.models.get(id)!.visible = true;
     this.arms.setWeapon(id, this.models.get(id)!);
+  }
+
+  /** Light the gun like the map: the sun's color and the sky's tint. */
+  matchLighting(sky: SkyDef): void {
+    this.sun.color.set(sky.sunColor);
+    this.hemi.color.set(sky.zenith).lerp(new THREE.Color(0xffffff), 0.6);
+    this.hemi.groundColor.set(sky.ground ?? 0x4a4036);
   }
 
   /** Blend the gun's extra light toward the lamp light around the player. */

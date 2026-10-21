@@ -66,6 +66,8 @@ export const CONFIG = {
     fov: 80,
     masterVolume: 0.8,
     screenShake: true,
+    /** Aim / scope with the right mouse button ('mouse') or the Q key ('q'). */
+    aimKey: 'mouse' as 'mouse' | 'q',
     quality: 'high' as 'low' | 'medium' | 'high',
   },
 

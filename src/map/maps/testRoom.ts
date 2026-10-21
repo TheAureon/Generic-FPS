@@ -13,6 +13,7 @@ export const testRoom: MapDef = {
   name: 'Test Room',
   description: 'An empty room for trying out movement.',
   skyColor: 0x9cc4e4,
+  sky: { zenith: 0x3b78c8, horizon: 0xbcd6ea, sunColor: 0xfff1dd, sunElevation: 55, sunAzimuth: 140, clouds: 0.3, skyline: false },
   fogNear: 60,
   fogFar: 160,
   boxes: [

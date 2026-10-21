@@ -4,13 +4,15 @@ import { getMaterial, getTileSize, type SurfaceId } from '../assets/materials';
 import { CollisionWorld } from '../core/CollisionWorld';
 import { currentQuality } from '../render/quality';
 import { barrierCollision, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, rampDetail, relief } from './details';
-import type { LampDef, MapDef, MaterialId } from './MapTypes';
+import { Sky } from '../render/Sky';
+import type { LampDef, MapDef, MaterialId, SkyDef } from './MapTypes';
 
 export interface BuiltMap {
   def: MapDef;
   group: THREE.Group;
   world: CollisionWorld;
   bounds: THREE.Box3;
+  sky: Sky;
   /** How much lamp light reaches a point (for lighting characters). */
   sampleLampLight(p: THREE.Vector3, out: THREE.Color): THREE.Color;
 }
@@ -47,7 +49,20 @@ interface Quad {
  * Turns a MapDef (plain data) into 3D meshes + collision data, with the
  * lighting (corner shading and lamp light) baked into the surfaces.
  */
-export function buildMap(def: MapDef, scene: THREE.Scene): BuiltMap {
+/** A plain sky made from a map's skyColor (for maps without a `sky`). */
+function defaultSky(def: MapDef): SkyDef {
+  const horizon = new THREE.Color(def.skyColor);
+  const zenith = horizon.clone().lerp(new THREE.Color(0x2d5fa8), 0.55);
+  return { zenith: zenith.getHex(), horizon: def.skyColor, sunColor: 0xfff1dd, sunElevation: 55, sunAzimuth: 120, clouds: 0.3 };
+}
+
+export interface BuildOptions {
+  /** Use this sky instead of the map's own (the menu background uses a dusk sky). */
+  sky?: SkyDef;
+  fog?: [number, number];
+}
+
+export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {}): BuiltMap {
   const quality = currentQuality();
   const group = new THREE.Group();
   group.name = `map:${def.id}`;
@@ -173,9 +188,16 @@ export function buildMap(def: MapDef, scene: THREE.Scene): BuiltMap {
   }
 
   if (lamps.length) group.add(buildLampFixtures(lamps));
-  addSunAndSky(group, bounds, quality.shadowMapSize);
-  scene.background = new THREE.Color(def.skyColor);
-  scene.fog = new THREE.Fog(def.skyColor, def.fogNear, def.fogFar);
+  const skyDef = opts.sky ?? def.sky ?? defaultSky(def);
+  const center = bounds.getCenter(new THREE.Vector3());
+  const size = bounds.getSize(new THREE.Vector3());
+  const sky = new Sky(skyDef, center, Math.max(size.x, size.z) * 0.6);
+  group.add(sky.group);
+  addSunAndSky(group, bounds, quality.shadowMapSize, skyDef, sky.sunDir);
+  scene.background = new THREE.Color(skyDef.horizon);
+  const [fogNear, fogFar] = opts.fog ?? [def.fogNear, def.fogFar];
+  scene.fog = new THREE.Fog(skyDef.horizon, fogNear, fogFar);
+  scene.userData.sky = sky;
   scene.add(group);
 
   const sampleLampLight = (p: THREE.Vector3, out: THREE.Color): THREE.Color => {
@@ -192,7 +214,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene): BuiltMap {
     return out;
   };
 
-  return { def, group, world, bounds, sampleLampLight };
+  return { def, group, world, bounds, sky, sampleLampLight };
 }
 
 /**
@@ -403,14 +425,18 @@ function buildLampFixtures(lamps: LampDef[]): THREE.Group {
 }
 
 /** Sky light + the sun (with shadows sized for the graphics setting). */
-function addSunAndSky(group: THREE.Group, bounds: THREE.Box3, shadowMapSize: number): void {
-  group.add(new THREE.HemisphereLight(0xdde8ff, 0x4a4036, 1.0));
+function addSunAndSky(group: THREE.Group, bounds: THREE.Box3, shadowMapSize: number, sky: SkyDef, sunDir: THREE.Vector3): void {
+  // Light from the whole sky: tinted like the sky above, and like the ground below.
+  const skyTint = new THREE.Color(sky.zenith).lerp(new THREE.Color(0xffffff), 0.55);
+  const groundTint = new THREE.Color(sky.ground ?? 0x4a4036).lerp(new THREE.Color(sky.sunColor), 0.2);
+  group.add(new THREE.HemisphereLight(skyTint, groundTint, sky.skyLight ?? 1.0));
 
-  const sun = new THREE.DirectionalLight(0xfff1dd, 2.0);
+  // The sun: from where it is in the sky.
+  const sun = new THREE.DirectionalLight(sky.sunColor, sky.sunIntensity ?? 2.4);
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
   const radius = Math.max(size.x, size.z) * 0.62;
-  sun.position.set(center.x + radius * 0.5, center.y + radius, center.z + radius * 0.35);
+  sun.position.copy(center).addScaledVector(sunDir, radius * 2);
   sun.target.position.copy(center);
   sun.castShadow = true;
   sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);

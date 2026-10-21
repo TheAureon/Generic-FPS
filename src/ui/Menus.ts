@@ -155,15 +155,16 @@ export class Menus {
     item('Play', 'Deathmatch or Survival against bots', () => this.show('setup'), true);
     item('How to play', 'Controls and tips', () => this.show('controls'));
     item('Settings', 'Mouse, field of view, sound, graphics', () => this.openSettings('main'));
-    div('main-foot', left).textContent = 'Tip: hold right click to aim down sights — bots miss more when you keep moving.';
+    const aim = settings.get().aimKey === 'q' ? 'Q' : 'right click';
+    div('main-foot', left).textContent = `Tip: hold ${aim} to aim down sights — bots miss more when you keep moving.`;
   }
 
   private buildControls(p: HTMLElement): void {
     div('menu-title small', p).textContent = 'How to play';
     const rows: [string, string][] = [
       ['W A S D', 'Move'], ['Mouse', 'Look'], ['Space', 'Jump'], ['Shift', 'Sprint'], ['C', 'Crouch'],
-      ['Left click', 'Shoot'], ['Right click', 'Aim / scope'], ['R', 'Reload'], ['1 – 4 / Wheel', 'Switch weapon'],
-      ['Q', 'Last weapon'], ['Tab', 'Scoreboard'], ['Esc', 'Pause'],
+      ['Left click', 'Shoot'], [settings.get().aimKey === 'q' ? 'Q' : 'Right click', 'Aim / scope'], ['R', 'Reload'], ['1 – 4 / Wheel', 'Switch weapon'],
+      ...(settings.get().aimKey === 'q' ? [] : [['Q', 'Last weapon'] as [string, string]]), ['Tab', 'Scoreboard'], ['Esc', 'Pause'],
     ];
     const grid = div('controls-grid', p);
     for (const [k, v] of rows) {
@@ -237,6 +238,9 @@ export class Menus {
     );
     segmented(field(p, 'Screen shake'), [['on', 'On'], ['off', 'Off']], s.screenShake ? 'on' : 'off', (v) =>
       settings.set({ screenShake: v === 'on' }),
+    );
+    segmented(field(p, 'Aim / scope'), [['mouse', 'Right mouse'], ['q', 'Q key']], s.aimKey, (v) =>
+      settings.set({ aimKey: v as 'mouse' | 'q' }),
     );
     segmented(field(p, 'Graphics'), [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality, (v) =>
       settings.set({ quality: v as 'low' | 'medium' | 'high' }),

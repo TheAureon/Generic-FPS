@@ -20,38 +20,27 @@ export class MenuBackdrop {
   private readonly bounds: THREE.Box3;
 
   constructor(map: MapDef) {
-    const built = buildMap(map, this.scene);
-    this.bounds = built.bounds;
-
-    // Dusk sky: deep blue at the top fading to a warm haze at the horizon.
-    const sky = document.createElement('canvas');
-    sky.width = 2;
-    sky.height = 256;
-    const g = sky.getContext('2d')!;
-    const grad = g.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, '#0f1a2e');
-    grad.addColorStop(0.45, '#33405c');
-    grad.addColorStop(0.75, '#a86f52');
-    grad.addColorStop(1, '#e0a36b');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, 2, 256);
-    const skyTex = new THREE.CanvasTexture(sky);
-    skyTex.colorSpace = THREE.SRGBColorSpace;
-    this.scene.background = skyTex;
-    this.scene.fog = new THREE.Fog(0x8a6a5a, 30, 110);
-
-    // Warm low sun + cool fill, to match the sky.
-    this.scene.traverse((o) => {
-      if (o instanceof THREE.DirectionalLight) {
-        o.color.set(0xffc58f);
-        o.intensity = 2.6;
-        o.position.set(-40, 18, 25);
-      } else if (o instanceof THREE.HemisphereLight) {
-        o.color.set(0x8fa6d6);
-        o.groundColor.set(0x3a2a24);
-        o.intensity = 0.9;
-      }
+    // Dusk: deep blue above, warm haze at the horizon, a low orange sun,
+    // pink-lit clouds, and lit windows in the distant buildings.
+    const built = buildMap(map, this.scene, {
+      sky: {
+        zenith: 0x0c1428,
+        mid: 0x2e3a5c,
+        horizon: 0xd88e5c,
+        ground: 0x2a2220,
+        sunColor: 0xffa860,
+        sunElevation: 9,
+        sunAzimuth: 245,
+        sunIntensity: 2.3,
+        skyLight: 0.75,
+        clouds: 0.32,
+        cloudColor: 0x6e5a6c,
+        skylineColor: 0x2c303c,
+        litWindows: true,
+      },
+      fog: [30, 140],
     });
+    this.bounds = built.bounds;
 
     // Dust motes drifting through the air.
     const N = 700;

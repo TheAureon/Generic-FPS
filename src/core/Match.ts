@@ -290,6 +290,7 @@ export class Match {
   /** Free GPU memory and stop listening to events. */
   dispose(): void {
     for (const u of this.unsubscribers) u();
+    (this.scene.userData.skyEnv as THREE.Texture | undefined)?.dispose();
     this.scene.traverse((o) => {
       if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments || o instanceof THREE.Line || o instanceof THREE.Points) {
         if (!o.geometry.userData.cached) o.geometry.dispose();

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { settings } from '../core/Settings';
 import { COMBAT, CONFIG, WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
@@ -190,7 +191,8 @@ export class WeaponSystem {
       const n = this.weapons.length;
       this.requestSwitch((from + (wheel > 0 ? 1 : -1) + n) % n);
     }
-    if (input.wasPressed('KeyQ')) this.requestSwitch(this.lastIndex);
+    const aimWithQ = settings.get().aimKey === 'q';
+    if (!aimWithQ && input.wasPressed('KeyQ')) this.requestSwitch(this.lastIndex);
 
     const busy = this.switchTo >= 0 || this.raiseTimer > 0;
     const w = this.current;
@@ -198,7 +200,7 @@ export class WeaponSystem {
     // Aim down sights (hold right mouse).
     // (The sniper also comes off the scope while its bolt is being worked.)
     const wantAds =
-      input.isMouseDown(2) && !busy && !(w.reloading && w.stats.reloadStyle === 'magazine') && !this.viewmodel.cyclingBolt;
+      (aimWithQ ? input.isDown('KeyQ') : input.isMouseDown(2)) && !busy && !(w.reloading && w.stats.reloadStyle === 'magazine') && !this.viewmodel.cyclingBolt;
     const aimRate = COMBAT.aimSpeed * dt;
     this.ads = wantAds ? Math.min(1, this.ads + aimRate) : Math.max(0, this.ads - aimRate);
 

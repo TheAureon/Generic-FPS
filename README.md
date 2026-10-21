@@ -70,11 +70,11 @@ Chrome is recommended. Safari and Firefox also work.
 | Shift (hold)        | Sprint (while moving forward)                 |
 | C (hold)            | Crouch                                        |
 | Left click          | Shoot                                         |
-| Right click (hold)  | Aim down sights (scope on the sniper rifle)   |
+| Right click (hold)  | Aim down sights (scope on the sniper rifle); can be switched to Q in Settings |
 | R                   | Reload                                        |
 | 1 2 3 4             | Pistol, assault rifle, shotgun, sniper rifle  |
 | Mouse wheel         | Next / previous weapon                        |
-| Q                   | Switch back to the last weapon                |
+| Q                   | Switch back to the last weapon (or aim/scope, if chosen in Settings) |
 | Tab (hold)          | Scoreboard                                    |
 | Esc                 | Pause menu (resume, restart, settings, quit)  |
 | ` (or F3)           | Show/hide the info readout (frame rate, bot states) |
@@ -126,12 +126,15 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
 
 - **Mouse sensitivity**, **Field of view**, **Volume**
 - **Screen shake**: on or off
+- **Aim / scope**: hold the right mouse button (default) or the Q key to aim down sights and scope. With Q, the "last weapon" shortcut is off (the number keys and mouse wheel still switch weapons).
 - **Graphics**: Low, Medium, or High. If the game feels choppy, try Medium or Low. Some changes take full effect from the next match.
   - **Low**: no shadows, simpler (cheaper) surface shading, lower resolution, and flat painted textures instead of 3D bricks and concrete panels. Helps most on Retina screens.
   - **Medium**: shadows, faint reflections on metal and armor, and real 3D bricks and concrete panels on the walls.
   - **High**: full resolution, sharper soft-edged shadows, and a glow ("bloom") around lamps, visors, and muzzle flashes.
 
   The map is detailed on every setting: the floor is industrial concrete slabs (each a little different, with joints, stains and hairline cracks), the steel ramps have diamond-plate tread, anti-slip cleats, edge rails, side beams and support posts, wooden crates have frames, braces and planks, and the yellow barriers are sloped jersey barriers in sections. On Medium and High the brick walls are built from individual 3D bricks (with mortar between them) and the concrete walls from cast panels with seams and form-tie holes.
+
+  The sky is drawn by a small shader: a gradient from the horizon up, the sun with a soft glow, and slowly drifting clouds, with distant factory buildings and smokestacks fading into the haze beyond the walls. The sun in the sky is where the sunlight (and shadows) come from, the light from the sky is tinted like the sky, and on Medium and High metal and armor reflect the sky. Foundry is set in the late afternoon (warm, low sun, long shadows); the menu background is at dusk, with lit windows in the distance. Each map's sky is set in its map file (`sky:` with colors, sun position, cloud cover).
 
   On every setting the map has **baked lighting**: when a map loads, the game works out once how dark each corner is and how much light each wall lamp throws, and paints that onto the surfaces. That looks like many lights but costs almost nothing while playing. Soldiers pick up the color of lamps they walk past the same way, and so does the gun in your hands.
 
@@ -148,7 +151,7 @@ Bots are low-poly soldiers (helmet with a glowing visor, armored vest, backpack,
 
 The model is in `src/assets/characterModel.ts` and the animation in `src/bots/CharacterAnimator.ts`.
 
-In first person you see your own arms (simple box sleeves and gloves) holding each gun. They follow every bob, sway and recoil. When reloading, the gun tilts and your left hand pulls the magazine out, drops out of view for a fresh one, pushes it in and slaps it home (the shotgun instead loads shells one at a time). The pistol finishes its reload by turning side-on while your left hand racks the slide back and lets it snap forward. After each shotgun blast your left hand racks the pump back, the spent shell flies out, and the pump slides forward again. After each sniper shot your right hand works the bolt (up, back, the case flies out, forward, down); the scope comes off while you do, and goes back on by itself if you're still holding right-click. This is in `src/weapons/ViewmodelArms.ts`.
+In first person you see your own arms (simple box sleeves and gloves) holding each gun. They follow every bob, sway and recoil. When reloading, the gun tilts and your left hand pulls the magazine out, drops out of view for a fresh one, pushes it in and slaps it home (the shotgun instead loads shells one at a time). The pistol finishes its reload by turning side-on while your left hand racks the slide back and lets it snap forward. After each shotgun blast your left hand racks the pump back, the spent shell flies out, and the pump slides forward again. After each sniper shot your right hand works the bolt (up, back, the case flies out, forward, down); the scope comes off while you do, and goes back on by itself if you're still holding the aim button. This is in `src/weapons/ViewmodelArms.ts`.
 
 ---
 

@@ -7,6 +7,8 @@ export interface SettingsData {
   masterVolume: number;
   /** Camera shake when shooting and getting hit. */
   screenShake: boolean;
+  /** Hold right mouse or Q to aim down sights / scope. With Q, the "last weapon" key is off. */
+  aimKey: 'mouse' | 'q';
   /** low = fastest, high = best looking. */
   quality: 'low' | 'medium' | 'high';
 }

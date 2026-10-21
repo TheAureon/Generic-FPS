@@ -6,6 +6,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { CONFIG } from '../config';
 import { currentQuality } from './quality';
+import type { Sky } from './Sky';
 
 /**
  * How the world gets drawn, depending on the Graphics setting:
@@ -16,6 +17,7 @@ import { currentQuality } from './quality';
  */
 export class RenderPipeline {
   private env: THREE.Texture;
+  private pmrem: THREE.PMREMGenerator;
   private composer: EffectComposer | null = null;
   private renderPass: RenderPass | null = null;
   private size = new THREE.Vector2();
@@ -23,9 +25,8 @@ export class RenderPipeline {
   private dirty = false;
 
   constructor(private renderer: THREE.WebGLRenderer) {
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    this.env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmrem.dispose();
+    this.pmrem = new THREE.PMREMGenerator(renderer);
+    this.env = this.pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   }
 
   /** Graphics setting changed: shadows and materials need new shaders. */
@@ -40,12 +41,18 @@ export class RenderPipeline {
   render(scene: THREE.Scene, camera: THREE.Camera, extraScenes: THREE.Scene[] = []): void {
     const q = currentQuality();
     const r = this.renderer;
-    // Reflections: a soft studio-like environment, kept faint so the baked
+    // Reflections: of the scene's own sky if it has one (made once per
+    // scene), otherwise a soft studio-like light. Kept faint so the baked
     // lighting stays in charge.
-    const env = q.envMap ? this.env : null;
+    let env: THREE.Texture | null = null;
+    if (q.envMap) {
+      const sky = scene.userData.sky as Sky | undefined;
+      if (sky) env = scene.userData.skyEnv ??= this.pmrem.fromScene(sky.reflectionScene(), 0, 0.1, 500).texture;
+      else env = this.env;
+    }
     if (scene.environment !== env) {
       scene.environment = env;
-      scene.environmentIntensity = 0.2;
+      scene.environmentIntensity = scene.userData.sky ? 0.35 : 0.2;
     }
     if (this.dirty) {
       this.dirty = false;
