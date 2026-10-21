@@ -116,9 +116,9 @@ Walk over a pickup to grab it. Each one comes back 20–30 seconds after it's ta
 
 - **Health** (white case, red cross): +35 health
 - **Armor** (blue vest, on the Foundry roof): +50 armor. Armor soaks up 60% of each hit until it runs out.
-- **Ammo** (crate with bullets): two spare magazines for every gun
+- **Ammo** (ammo can): two spare magazines for every gun
 
-Hurt bots go for health pickups too.
+Bots use pickups too: hurt bots go for health, and bots have the same ammo as you (a full magazine plus the same spare rounds, refilled by ammo pickups), so they have to fetch ammo when they run low. Bots don't wear armor.
 
 ### Settings
 
@@ -168,11 +168,12 @@ Each bot runs a state machine (`src/bots/BotBrain.ts`). Press **B** to see each 
 
 | State       | What the bot does |
 | ----------- | ----------------- |
-| patrol      | Walks between random spots, pausing to look around (and grabs health if hurt) |
+| patrol      | Walks between random spots, pausing to look around (and grabs health if hurt, or ammo if low) |
 | investigate | Heard a gunshot or was shot by someone it can't see: turns and goes to check |
 | attack      | Sees an enemy: aims, fires in bursts, strafes, keeps its distance |
 | cover       | Under fire: runs to a nearby spot the enemy can't see, reloads, then peeks out |
 | retreat     | Low on health: runs to health or to a hidden spot, firing back if cornered |
+| resupply    | Out of ammo (or low, with ammo nearby): goes to an ammo pickup, shooting back with what's left; if it's been taken, waits for it to come back |
 | chase       | Lost sight of the enemy: goes to where it was last seen |
 | search      | Found nothing there: checks a few places nearby, then patrols again |
 

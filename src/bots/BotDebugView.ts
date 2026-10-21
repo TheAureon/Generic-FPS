@@ -7,6 +7,7 @@ const STATE_COLORS: Record<string, string> = {
   attack: '#ff5a4e',
   cover: '#6ab8ff',
   retreat: '#c78bff',
+  resupply: '#e0b33a',
   chase: '#ff9f43',
   search: '#ffd23a',
   dead: '#888888',

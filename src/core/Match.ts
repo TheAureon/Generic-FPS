@@ -96,6 +96,7 @@ export class Match {
       freeForAll: this.mode.freeForAll,
       autoRespawn: this.mode.botsRespawn,
       findHealth: (from) => this.pickups.nearest('health', from, 40),
+      findAmmo: (from, maxDist, includeTaken) => this.pickups.nearest('ammo', from, maxDist, includeTaken),
     });
     this.bots.spawnBots(this.mode.initialBots, config.difficulty);
     this.botDebug = new BotDebugView(this.bots, this.scene);
@@ -159,8 +160,9 @@ export class Match {
       name: bot.name,
       position: bot.position,
       isAlive: () => bot.isAlive(),
-      // Bots only use health (they have endless ammo and no armor).
+      // Bots use health and ammo pickups (same amounts as the player). They don't wear armor.
       tryCollect: (type) => {
+        if (type === 'ammo') return bot.addAmmo(PICKUPS.ammo.magazines);
         if (type !== 'health' || bot.health >= 100) return false;
         bot.heal(PICKUPS.health.amount);
         return true;

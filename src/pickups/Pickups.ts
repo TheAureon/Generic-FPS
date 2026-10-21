@@ -69,13 +69,17 @@ export class Pickups {
     }
   }
 
-  /** Closest available pickup of a type within `maxDist` (flat distance), or null. */
-  nearest(type: PickupType, from: THREE.Vector3, maxDist = Infinity): THREE.Vector3 | null {
+  /**
+   * Closest available pickup of a type within `maxDist` (flat distance), or
+   * null. With `includeTaken`, also spots whose pickup hasn't come back yet.
+   */
+  nearest(type: PickupType, from: THREE.Vector3, maxDist = Infinity, includeTaken = false): THREE.Vector3 | null {
     let best: Item | null = null;
     let bestD = maxDist;
     for (const it of this.items) {
-      if (!it.active || it.def.type !== type) continue;
-      const d = Math.hypot(it.def.x - from.x, it.def.z - from.z) + Math.abs(it.def.y - from.y) * 2;
+      if ((!it.active && !includeTaken) || it.def.type !== type) continue;
+      // Taken pickups count as a bit farther away (prefer one that's there now).
+      const d = Math.hypot(it.def.x - from.x, it.def.z - from.z) + Math.abs(it.def.y - from.y) * 2 + (it.active ? 0 : 25);
       if (d < bestD) {
         bestD = d;
         best = it;

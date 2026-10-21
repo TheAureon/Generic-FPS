@@ -14,6 +14,8 @@ export interface BrainContext {
   getEnemies: () => readonly Trackable[];
   /** Optional: where to find health when hurt (used once pickups exist). */
   findHealth?: (from: THREE.Vector3) => THREE.Vector3 | null;
+  /** Optional: where to find ammo (`includeTaken`: also spots where it will come back). */
+  findAmmo?: (from: THREE.Vector3, maxDist?: number, includeTaken?: boolean) => THREE.Vector3 | null;
 }
 
 /**
@@ -23,10 +25,11 @@ export interface BrainContext {
  *   attack      → can see an enemy: aim, shoot in bursts, strafe, keep distance
  *   cover       → under fire: run to a spot the enemy can't see, reload, then peek
  *   retreat     → low health: run away to a hidden spot (or to health)
+ *   resupply    → out of (or low on) ammo: go get an ammo pickup, wait there if it's been taken
  *   chase       → lost sight of the enemy: go to where it was last seen
  *   search      → reached the last known position: look around nearby spots
  */
-export type BotState = 'patrol' | 'investigate' | 'attack' | 'cover' | 'retreat' | 'chase' | 'search' | 'dead';
+export type BotState = 'patrol' | 'investigate' | 'attack' | 'cover' | 'retreat' | 'resupply' | 'chase' | 'search' | 'dead';
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 const randInt = (min: number, max: number) => Math.floor(rand(min, max + 1));
@@ -53,6 +56,7 @@ export class BotBrain {
   private lookBaseYaw = 0;
   private coverCooldown = 0;
   private retreatCooldown = 0;
+  private resupplyGiveUp = 0;
   private coverDecisionTimer = 0;
   private searchPoints: THREE.Vector3[] = [];
   private searchIndex = 0;
@@ -133,6 +137,21 @@ export class BotBrain {
         }
         break;
       }
+      case 'resupply': {
+        // Out of ammo: the nearest ammo, even if it's been taken (wait for it).
+        // Just low: only if one is available and not too far.
+        const out = this.bot.outOfAmmo;
+        const a = this.ctx.findAmmo?.(this.bot.position, out ? Infinity : 35, out);
+        if (!a) {
+          this.state = 'patrol';
+          this.bot.state = 'patrol';
+          this.pickPatrolGoal();
+        } else {
+          this.dest.copy(a);
+          this.resupplyGiveUp = this.now + 45;
+        }
+        break;
+      }
       case 'chase':
         // Head to where the enemy was last seen, a little ahead in the direction it was moving.
         this.dest.copy(p.lastSeenPos).addScaledVector(p.lastSeenVelocity, 0.6);
@@ -170,7 +189,10 @@ export class BotBrain {
       (p.canSee || underFire) && !(p.canSee && dist < 5)
     ) {
       this.enter('retreat');
-    } else if (p.canSee && (this.state === 'patrol' || this.state === 'investigate' || this.state === 'chase' || this.state === 'search')) {
+    } else if (bot.outOfAmmo && this.state !== 'resupply' && this.state !== 'retreat' && this.ctx.findAmmo?.(bot.position, Infinity, true)) {
+      // Nothing left to shoot: go get ammo (like the player has to).
+      this.enter('resupply');
+    } else if (p.canSee && !bot.outOfAmmo && (this.state === 'patrol' || this.state === 'investigate' || this.state === 'chase' || this.state === 'search')) {
       this.enter('attack');
     }
 
@@ -183,6 +205,7 @@ export class BotBrain {
       case 'attack': this.attack(dt); break;
       case 'cover': this.cover(dt); break;
       case 'retreat': this.retreat(dt); break;
+      case 'resupply': this.resupply(dt); break;
       case 'chase': this.chase(); break;
       case 'search': this.search(dt); break;
     }
@@ -197,6 +220,8 @@ export class BotBrain {
     const p = this.bot.perception;
     if (p.hasNoise) return this.enter('investigate');
     const nav = this.navigator;
+    // Low on spare ammo and there's some nearby? Go get it.
+    if (this.bot.lowOnAmmo && this.stateTime < 0.1 && this.ctx.findAmmo?.(this.bot.position, 35)) return this.enter('resupply');
     // Hurt and there's health nearby? Go get it.
     if (this.bot.health < BOTS.maxHealth * 0.7 && this.stateTime < 0.1) {
       const h = this.ctx.findHealth?.(this.bot.position);
@@ -337,6 +362,43 @@ export class BotBrain {
     if (p.canSee) return this.enter('attack');
     this.holdTimer -= dt;
     if (this.holdTimer <= 0) this.enter('patrol');
+  }
+
+  private resupply(dt: number): void {
+    const bot = this.bot;
+    const p = bot.perception;
+    const nav = this.navigator;
+    // Got what we came for (picked up on arrival, or along the way).
+    if (!bot.lowOnAmmo || this.now > this.resupplyGiveUp) {
+      if (bot.weapon.ammo < bot.weapon.stats.magazineSize) bot.weapon.startReload();
+      return this.enter(p.hasLastSeen ? 'search' : 'patrol');
+    }
+    if (this.holdTimer < 0) {
+      this.moveAlongPath(this.dest, bot.outOfAmmo ? BOTS.runSpeed : BOTS.walkSpeed * 1.2);
+      // Shoot back with whatever is left in the gun; with nothing left, just keep running.
+      if (p.canSee && !bot.outOfAmmo) {
+        this.engage(dt, true);
+        this.look = { kind: 'none' };
+      }
+      if (nav.failed) return this.enter('patrol');
+      if (nav.arrived) {
+        this.holdTimer = 0;
+        this.lookBaseYaw = bot.aim.yaw;
+      }
+      return;
+    }
+    // At the spot but the ammo has been taken: wait for it to come back, keeping watch.
+    this.holdTimer += dt;
+    this.lookAround(dt);
+    if (!bot.outOfAmmo && p.canSee) return this.enter('attack');
+    // If another ammo spot has its pickup ready, go there instead.
+    if (this.holdTimer > 3) {
+      const a = this.ctx.findAmmo?.(bot.position, Infinity, false);
+      if (a && this.flatDist(a) > 1.5) {
+        this.dest.copy(a);
+        this.holdTimer = -1;
+      } else this.holdTimer = 0.01;
+    }
   }
 
   private chase(): void {

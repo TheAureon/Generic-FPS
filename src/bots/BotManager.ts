@@ -21,6 +21,8 @@ export interface BotManagerDeps {
   freeForAll: boolean;
   /** Optional: where health can be found (for retreating bots). */
   findHealth?: (from: THREE.Vector3) => THREE.Vector3 | null;
+  /** Optional: where ammo can be found (bots must pick up spare ammo like the player). */
+  findAmmo?: (from: THREE.Vector3, maxDist?: number, includeTaken?: boolean) => THREE.Vector3 | null;
   /** Bring dead bots back automatically (deathmatch). Default true. */
   autoRespawn?: boolean;
 }
@@ -91,7 +93,7 @@ export class BotManager {
         listener: this.d.player,
         sampleLight: this.d.map.sampleLampLight,
       });
-      const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth });
+      const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth, findAmmo: this.d.findAmmo });
       this.bots.push(bot);
       this.brains.push(brain);
       this.combatants.push(bot);

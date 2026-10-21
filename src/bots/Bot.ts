@@ -122,6 +122,25 @@ export class Bot implements Damageable, Trackable {
     return this.health > 0;
   }
 
+  /** No rounds left at all: not in the gun, not spare. */
+  get outOfAmmo(): boolean {
+    const w = this.weapon;
+    return w.ammo === 0 && w.reserve === 0 && !w.reloading;
+  }
+
+  /** Running low: less than one spare magazine. */
+  get lowOnAmmo(): boolean {
+    return this.weapon.reserve < this.weapon.stats.magazineSize;
+  }
+
+  /** Grab an ammo pickup, exactly like the player: false if already full. */
+  addAmmo(magazines: number): boolean {
+    const w = this.weapon;
+    if (w.reserve >= w.stats.maxReserve) return false;
+    w.addReserve(w.stats.magazineSize * magazines);
+    return true;
+  }
+
   heal(amount: number): void {
     this.health = Math.min(BOTS.maxHealth, this.health + amount);
   }
@@ -138,7 +157,9 @@ export class Bot implements Damageable, Trackable {
     this.body.velocity.set(0, 0, 0);
     this.aim.yaw = sp.yaw * DEG;
     this.aim.pitch = 0;
+    // Same ammo as the player gets: a full magazine and the starting spare rounds.
     this.weapon.ammo = this.weapon.stats.magazineSize;
+    this.weapon.reserve = this.weapon.stats.startingReserve;
     this.weapon.cancelReload();
     this.perception.reset();
     this.lastAttacker = null;
@@ -186,8 +207,7 @@ export class Bot implements Damageable, Trackable {
   tryFire(): boolean {
     const w = this.weapon;
     if (w.ammo <= 0 && !w.reloading) {
-      w.reserve = 999; // bots never run out of spare ammo
-      w.startReload();
+      w.startReload(); // (only if there are spare rounds left)
       return false;
     }
     if (!w.canFire()) return false;
