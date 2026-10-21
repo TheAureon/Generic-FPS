@@ -186,6 +186,347 @@ body {
   overflow-y: auto;
 }
 
+/* ---------- Menu screens (setup, how to play, settings, pause, end) ---------- */
+.menu-root {
+  --gold: #e8b93a;
+  --gold-hi: #f5cc5a;
+  --gold-soft: rgba(232, 185, 58, 0.16);
+  --edge: rgba(255, 255, 255, 0.09);
+}
+/* The dusk arena stays visible behind, darkened toward the edges. */
+.menu-root.backdrop {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(5, 6, 10, 0.45) 30%, rgba(5, 6, 10, 0.85) 100%);
+}
+/* Over a match: blur and darken the game. */
+.menu-root.over-game {
+  background: rgba(6, 8, 12, 0.55);
+  backdrop-filter: blur(6px) saturate(0.8);
+  -webkit-backdrop-filter: blur(6px) saturate(0.8);
+}
+.menu-panel {
+  position: relative;
+  gap: 10px;
+  width: min(640px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 30px 34px 28px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(24, 28, 37, 0.92), rgba(13, 16, 22, 0.94));
+  border: 1px solid var(--edge);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: panelIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.menu-panel.pause { width: min(460px, 100%); }
+.menu-panel.controls { width: min(720px, 100%); }
+/* Gold accent at the top edge. */
+.menu-panel::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 34px;
+  width: 64px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--gold);
+}
+@keyframes panelIn {
+  from { transform: translateY(14px) scale(0.985); }
+  to { transform: none; }
+}
+.panel-head {
+  margin-bottom: 6px;
+}
+.panel-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.panel-title {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+.panel-head.win .panel-title { color: var(--gold-hi); }
+.panel-head.lose .panel-title { color: #ff7a6e; }
+.menu-panel .menu-sub { text-align: left; margin-top: -4px; }
+.section-title {
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--edge);
+}
+.menu-panel .menu-note {
+  text-align: left;
+  font-size: 12px;
+  opacity: 0.55;
+  margin-top: 4px;
+}
+.menu-note.hint {
+  opacity: 0.9;
+  color: #ffd98a;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(232, 185, 58, 0.1);
+}
+
+/* Settings rows: label (with a small hint) on the left, control on the right. */
+.menu-panel .menu-field {
+  grid-template-columns: 190px 1fr;
+  gap: 16px;
+  padding: 6px 0;
+}
+.menu-label {
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+.menu-hint {
+  font-size: 11.5px;
+  font-weight: 400;
+  opacity: 0.5;
+  margin-top: 2px;
+}
+
+/* Segmented control: one dark track, the chosen option lit up in gold. */
+.segmented {
+  padding: 3px;
+  gap: 3px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--edge);
+}
+.seg {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  padding: 7px 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+.seg:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.seg.active {
+  background: linear-gradient(180deg, rgba(232, 185, 58, 0.32), rgba(232, 185, 58, 0.18));
+  border-color: rgba(232, 185, 58, 0.7);
+  color: var(--gold-hi);
+  box-shadow: 0 0 14px rgba(232, 185, 58, 0.15);
+}
+
+/* Sliders: gold track and a round handle. */
+.menu-control input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+  cursor: pointer;
+}
+.menu-control input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 3px solid #15171b;
+  box-shadow: 0 0 0 1px var(--gold), 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.menu-control input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 3px solid #15171b;
+}
+.slider-value {
+  min-width: 54px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--edge);
+  text-align: center;
+  font-size: 13px;
+}
+
+/* Buttons. */
+.menu-panel .menu-btn {
+  padding: 12px 18px;
+  border-radius: 9px;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+.menu-panel .menu-btn:active { transform: translateY(1px); }
+.menu-btn.primary {
+  background: linear-gradient(180deg, var(--gold-hi), #d9a42a);
+  border-color: transparent;
+  color: #16130b;
+  box-shadow: 0 6px 18px rgba(232, 185, 58, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.menu-btn.primary:hover { background: linear-gradient(180deg, #ffd96e, #e8b33a); }
+.menu-btn.start::after { content: '  ›'; font-weight: 800; }
+.menu-panel .menu-buttons { margin-top: 14px; }
+
+/* Choice cards (mode, map). */
+.choice-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.choice-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  text-align: left;
+  font: inherit;
+  color: #f2f2f2;
+  cursor: pointer;
+  border-radius: 10px;
+  border: 1px solid var(--edge);
+  background: rgba(255, 255, 255, 0.035);
+  transition: transform 0.12s;
+}
+.choice-card:hover { background: rgba(255, 255, 255, 0.07); transform: translateY(-1px); }
+.choice-card.active {
+  border-color: rgba(232, 185, 58, 0.75);
+  background: linear-gradient(180deg, rgba(232, 185, 58, 0.16), rgba(232, 185, 58, 0.05));
+  box-shadow: 0 0 0 1px rgba(232, 185, 58, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.choice-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+}
+.choice-card.active .choice-icon { background: var(--gold); color: #16130b; }
+.choice-icon svg, .tip-icon svg { width: 100%; height: 100%; display: block; }
+.choice-text { display: flex; flex-direction: column; gap: 3px; }
+.choice-name { font-size: 16px; font-weight: 700; }
+.choice-card.active .choice-name { color: var(--gold-hi); }
+.choice-info { font-size: 12px; line-height: 1.4; opacity: 0.6; }
+.choice-cards.small .choice-card { padding: 10px 12px; align-items: center; }
+.choice-cards.small .choice-icon { width: 28px; height: 28px; padding: 6px; }
+
+/* Difficulty: the 7 options, a level meter and a description. */
+.difficulty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.difficulty .segmented { flex-wrap: wrap; }
+.difficulty .seg { flex: 1 0 auto; padding: 7px 10px; font-size: 13px; }
+.diff-meter {
+  display: flex;
+  gap: 4px;
+  height: 6px;
+}
+.diff-bar {
+  flex: 1;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background 0.2s;
+}
+.diff-bar.on { background: linear-gradient(90deg, #6cc070, var(--gold)); }
+.diff-meter[data-level='5'] .diff-bar.on,
+.diff-meter[data-level='6'] .diff-bar.on { background: linear-gradient(90deg, var(--gold), #ff5a45); }
+.diff-info { font-size: 12.5px; opacity: 0.7; min-height: 18px; }
+
+/* Bots + kill limit side by side. */
+.field-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.pair-item { display: flex; flex-direction: column; gap: 8px; }
+
+/* How to play. */
+.controls-cols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.controls-group { display: flex; flex-direction: column; gap: 8px; }
+.controls-group .section-title { margin-top: 2px; margin-bottom: 2px; }
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+.controls-key { display: flex; gap: 4px; }
+.controls-key kbd,
+.overlay kbd {
+  min-width: 26px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fff;
+}
+.controls-action { opacity: 0.85; }
+.tip-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.tip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--edge);
+  background: rgba(255, 255, 255, 0.035);
+}
+.tip-icon { width: 22px; height: 22px; }
+.tip-title { font-size: 14px; font-weight: 700; color: #fff; }
+.tip-text { font-size: 12px; line-height: 1.5; opacity: 0.65; }
+
+/* Pause: the main menu's big list style, in a compact card. */
+.pause-nav { margin-top: 6px; }
+.pause-nav .nav-label { font-size: 24px; }
+
+/* End screen. */
+.end-stats { justify-content: flex-start; gap: 8px; margin-top: 4px; }
+.end-stat {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--edge);
+}
+.end-table { margin-top: 6px; }
+
+@media (max-width: 640px) {
+  .choice-cards, .field-pair, .tip-cards, .controls-cols { grid-template-columns: 1fr; }
+  .menu-panel .menu-field { grid-template-columns: 1fr; gap: 6px; }
+}
+
 /* ---------- Title screen & main menu ---------- */
 .menu-root.cinematic {
   padding: 0;
@@ -775,6 +1116,19 @@ body {
 .health-row.low .vital-num { color: var(--red); }
 .armor-fill { background: linear-gradient(90deg, #3d8fe0, #7cc6ff); }
 
+/* ---------- HUD size setting ---------- */
+/* Each panel shrinks toward its own corner/edge (the crosshair never changes). */
+.vitals { scale: var(--hud-scale, 1); transform-origin: bottom left; }
+.weapon-panel { scale: var(--hud-scale, 1); transform-origin: bottom right; }
+.minimap { scale: var(--hud-scale, 1); transform-origin: top left; }
+.kill-feed { scale: var(--hud-scale, 1); transform-origin: top right; }
+.match-status { scale: var(--hud-scale, 1); transform-origin: top center; }
+.pickup-msg,
+.notice,
+.announce { scale: var(--hud-scale, 1); }
+.announce { transform-origin: top center; }
+.debug { top: calc(16px + 206px * var(--hud-scale, 1)); }
+
 /* ---------- Damage feedback ---------- */
 .hurt-vignette,
 .low-health {
@@ -1087,7 +1441,6 @@ body {
 
 .debug {
   position: absolute;
-  top: 222px;
   left: 14px;
   font: 12px/1.4 ui-monospace, Menlo, monospace;
   color: #cfe;

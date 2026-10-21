@@ -1,4 +1,5 @@
 import { CONFIG, WEAPONS, type WeaponId } from '../config';
+import { settings } from '../core/Settings';
 import type { PickupType } from '../map/MapTypes';
 import type { ScoreRow } from '../modes/GameMode';
 import { Minimap } from './Minimap';
@@ -163,6 +164,11 @@ export class Hud {
     this.scoreboardEl = el('div', 'scoreboard', this.root);
 
     this.debugEl = el('div', 'debug', this.root);
+
+    // HUD size setting (scales the panels, not the crosshair).
+    const applyScale = () => this.root.style.setProperty('--hud-scale', String(settings.get().hudScale ?? 1));
+    applyScale();
+    settings.onChange(applyScale);
   }
 
   /** Clear everything from the last match. */

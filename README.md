@@ -128,6 +128,7 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
 
 - **Mouse sensitivity**, **Field of view**, **Volume**
 - **Screen shake**: on or off
+- **HUD size**: shrink the on-screen panels (health, ammo, minimap, kill feed, status bar) down to 60%. The crosshair always stays the same size.
 - **Aim / scope**: hold the right mouse button (default) or the Q key to aim down sights and scope. With Q, the "last weapon" shortcut is off (the number keys and mouse wheel still switch weapons).
 - **Graphics**: Low, Medium, or High. If the game feels choppy, try Medium or Low. Some changes take full effect from the next match.
   - **Low**: no shadows, simpler (cheaper) surface shading, lower resolution, and flat painted textures instead of 3D bricks and concrete panels. Helps most on Retina screens.

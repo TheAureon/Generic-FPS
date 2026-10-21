@@ -9,6 +9,8 @@ export interface SettingsData {
   screenShake: boolean;
   /** Hold right mouse or Q to aim down sights / scope. With Q, the "last weapon" key is off. */
   aimKey: 'mouse' | 'q';
+  /** Size of the HUD panels (health, ammo, minimap, kill feed...), 0.6 to 1. */
+  hudScale: number;
   /** low = fastest, high = best looking. */
   quality: 'low' | 'medium' | 'high';
 }

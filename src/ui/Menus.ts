@@ -111,7 +111,9 @@ export class Menus {
     this.screen = screen;
     this.root.style.display = 'flex';
     const cinematic = screen === 'title' || screen === 'main';
-    this.root.className = `menu-root ${cinematic ? `cinematic ${screen}` : screen === 'setup' || screen === 'controls' ? 'solid' : ''}`;
+    // Screens over a match (pause, end) blur the game behind; the others show the dusk arena.
+    const overGame = screen === 'pause' || screen === 'end' || (screen === 'settings' && this.settingsReturn === 'pause');
+    this.root.className = `menu-root ${cinematic ? `cinematic ${screen}` : overGame ? 'over-game' : 'backdrop'}`;
     this.root.innerHTML = '';
     if (cinematic) {
       div('grain', this.root);
@@ -119,7 +121,7 @@ export class Menus {
       else this.buildMain();
       return;
     }
-    const panel = div('menu-panel', this.root);
+    const panel = div(`menu-panel ${screen}`, this.root);
     switch (screen) {
       case 'controls': this.buildControls(panel); break;
       case 'setup': this.buildSetup(panel); break;
@@ -164,73 +166,104 @@ export class Menus {
   }
 
   private buildControls(p: HTMLElement): void {
-    div('menu-title small', p).textContent = 'How to play';
-    const rows: [string, string][] = [
-      ['W A S D', 'Move'], ['Mouse', 'Look'], ['Space', 'Jump'], ['Shift', 'Sprint'], ['C', 'Crouch'],
-      ['Left click', 'Shoot'], [settings.get().aimKey === 'q' ? 'Q' : 'Right click', 'Aim / scope'], ['R', 'Reload'], ['1 – 4 / Wheel', 'Switch weapon'],
-      ...(settings.get().aimKey === 'q' ? [] : [['Q', 'Last weapon'] as [string, string]]), ['Tab', 'Scoreboard'], ['Esc', 'Pause'],
+    head(p, 'Field manual', 'How to play');
+    const aimQ = settings.get().aimKey === 'q';
+    const groups: [string, [string, string][]][] = [
+      ['Movement', [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Space', 'Jump'], ['Shift', 'Sprint'], ['C', 'Crouch']]],
+      ['Combat', [['Left click', 'Shoot'], [aimQ ? 'Q' : 'Right click', 'Aim / scope'], ['R', 'Reload'], ['1 – 4 / Wheel', 'Switch weapon'], ...(aimQ ? [] : [['Q', 'Last weapon'] as [string, string]])]],
+      ['Other', [['Tab', 'Scoreboard'], ['Esc', 'Pause']]],
     ];
-    const grid = div('controls-grid', p);
-    for (const [k, v] of rows) {
-      div('controls-key', grid).innerHTML = k.split(' / ').map((x) => `<kbd>${x}</kbd>`).join(' ');
-      div('controls-action', grid).textContent = v;
+    const cols = div('controls-cols', p);
+    for (const [title, rows] of groups) {
+      const col = div('controls-group', cols);
+      div('section-title', col).textContent = title;
+      for (const [k, v] of rows) {
+        const row = div('control-row', col);
+        div('controls-action', row).textContent = v;
+        div('controls-key', row).innerHTML = k.split(' / ').map((x) => `<kbd>${x}</kbd>`).join('');
+      }
     }
-    const tips = div('controls-tips', p);
-    tips.innerHTML =
-      '<b>Tips</b><br>' +
-      'Pickups: <span class="t-health">health</span>, <span class="t-armor">armor</span> (on the roof), and <span class="t-ammo">ammo</span> respawn after a while.<br>' +
-      'Bots hear gunshots and come to look — and hurt bots run for cover or health.<br>' +
-      'Headshots do double damage (more with the sniper rifle).';
+    const tips = div('tip-cards', p);
+    const tip = (icon: string, cls: string, title: string, text: string) => {
+      const c = div('tip-card', tips);
+      c.innerHTML = `<span class="tip-icon ${cls}">${icon}</span><span class="tip-title">${title}</span><span class="tip-text">${text}</span>`;
+    };
+    tip(ICONS.health, 't-health', 'Pickups', 'Health, armor (on the roof) and ammo come back a while after they’re taken. Bots grab them too.');
+    tip(ICONS.ear, 't-ammo', 'Bots listen', 'Gunshots bring bots to look. Hurt bots run for cover or health; empty ones go for ammo.');
+    tip(ICONS.target, 't-armor', 'Aim high', 'Headshots do double damage, more with the sniper rifle. Moving makes you harder to hit.');
     const row = div('menu-buttons row', p);
     button(row, 'Back', () => this.show('main'), 'primary');
   }
 
   private buildSetup(p: HTMLElement): void {
     const c = this.config;
-    div('menu-title small', p).textContent = 'New match';
+    head(p, 'Ready up', 'New match');
 
-    const modeRow = field(p, 'Mode');
-    segmented(modeRow, [['deathmatch', 'Deathmatch'], ['survival', 'Survival']], c.mode, (v) => {
+    div('section-title', p).textContent = 'Mode';
+    choiceCards(p, [
+      ['deathmatch', 'Deathmatch', MODE_INFO.deathmatch, ICONS.crosshair],
+      ['survival', 'Survival', MODE_INFO.survival, ICONS.waves],
+    ], c.mode, (v) => {
       c.mode = v as MatchConfig['mode'];
       this.show('setup');
     });
-    div('menu-note', p).textContent = MODE_INFO[c.mode];
 
-    segmented(field(p, 'Map'), MAPS.map((m) => [m.id, m.name] as [string, string]), c.map, (v) => (c.map = v));
-    const diffRow = field(p, 'Difficulty');
-    diffRow.classList.add('wrap');
-    const diffInfo = () => DIFFICULTIES.find((d) => d.id === c.difficulty)?.info ?? '';
-    segmented(diffRow, DIFFICULTIES.map((d) => [d.id, d.name] as [string, string]), c.difficulty, (v) => {
+    div('section-title', p).textContent = 'Map';
+    choiceCards(p, MAPS.map((m) => [m.id, m.name, m.description, ICONS.map] as [string, string, string, string]), c.map, (v) => (c.map = v), 'small');
+
+    div('section-title', p).textContent = 'Difficulty';
+    const diffWrap = div('difficulty', p);
+    const meter = div('diff-meter', diffWrap);
+    const bars = DIFFICULTIES.map(() => div('diff-bar', meter));
+    const diffInfo = div('diff-info', diffWrap);
+    const refresh = () => {
+      const i = DIFFICULTIES.findIndex((d) => d.id === c.difficulty);
+      bars.forEach((b, k) => b.classList.toggle('on', k <= i));
+      meter.dataset.level = String(i);
+      diffInfo.textContent = DIFFICULTIES[i]?.info ?? '';
+    };
+    segmented(diffWrap, DIFFICULTIES.map((d) => [d.id, d.name] as [string, string]), c.difficulty, (v) => {
       c.difficulty = v as MatchConfig['difficulty'];
-      diffNote.textContent = diffInfo();
+      refresh();
     });
-    const diffNote = div('menu-note', p);
-    diffNote.textContent = diffInfo();
-    slider(field(p, c.mode === 'survival' ? 'Bots in wave 1' : 'Bots'), MATCH.minBots, MATCH.maxBots, 1, c.botCount, (v) => String(v), (v) => {
+    diffWrap.appendChild(meter);
+    diffWrap.appendChild(diffInfo);
+    refresh();
+
+    const pair = div('field-pair', p);
+    const bots = div('pair-item', pair);
+    div('section-title', bots).textContent = c.mode === 'survival' ? 'Bots in wave 1' : 'Bots';
+    slider(div('menu-control', bots), MATCH.minBots, MATCH.maxBots, 1, c.botCount, (v) => String(v), (v) => {
       c.botCount = v;
     });
     if (c.mode === 'deathmatch') {
-      segmented(field(p, 'Kill limit'), MATCH.killLimits.map((k) => [String(k), String(k)] as [string, string]), String(c.killLimit), (v) => {
+      const kl = div('pair-item', pair);
+      div('section-title', kl).textContent = 'Kill limit';
+      segmented(div('menu-control', kl), MATCH.killLimits.map((k) => [String(k), String(k)] as [string, string]), String(c.killLimit), (v) => {
         c.killLimit = Number(v);
       });
     }
 
     const row = div('menu-buttons row', p);
     button(row, 'Back', () => this.show('main'));
-    button(row, 'Start', () => {
+    button(row, 'Start match', () => {
       this.saveConfig();
       this.actions.startMatch({ ...c });
-    }, 'primary');
+    }, 'primary start');
   }
 
   private buildPause(p: HTMLElement): void {
-    div('menu-title small', p).textContent = 'Paused';
-    if (this.pauseHint) div('menu-note', p).textContent = this.pauseHint;
-    const col = div('menu-buttons', p);
-    button(col, 'Resume', () => this.actions.resume(), 'primary');
-    button(col, 'Restart match', () => this.actions.restart());
-    button(col, 'Settings', () => this.openSettings('pause'));
-    button(col, 'Quit to main menu', () => this.actions.quitToMenu());
+    head(p, 'Match on hold', 'Paused');
+    if (this.pauseHint) div('menu-note hint', p).textContent = this.pauseHint;
+    const nav = div('main-nav pause-nav', p);
+    const item = (label: string, hint: string, onClick: () => void, featured = false) => {
+      const b = button(nav, '', onClick, `nav-item ${featured ? 'featured' : ''}`);
+      b.innerHTML = `<span class="nav-label">${label}</span><span class="nav-hint">${hint}</span>`;
+    };
+    item('Resume', 'Back to the fight', () => this.actions.resume(), true);
+    item('Restart', 'Same settings, fresh start', () => this.actions.restart());
+    item('Settings', 'Mouse, aim key, graphics, HUD size, sound', () => this.openSettings('pause'));
+    item('Quit', 'Back to the main menu', () => this.actions.quitToMenu());
   }
 
   private openSettings(from: Screen): void {
@@ -239,23 +272,31 @@ export class Menus {
   }
 
   private buildSettings(p: HTMLElement): void {
-    div('menu-title small', p).textContent = 'Settings';
+    head(p, 'Make it yours', 'Settings');
     const s = settings.get();
+
+    div('section-title', p).textContent = 'Controls';
     slider(field(p, 'Mouse sensitivity'), 0.1, 3, 0.05, s.mouseSensitivity, (v) => v.toFixed(2), (v) => settings.set({ mouseSensitivity: v }));
-    slider(field(p, 'Field of view'), 60, 110, 1, s.fov, (v) => `${v}°`, (v) => settings.set({ fov: v }));
-    slider(field(p, 'Volume'), 0, 1, 0.05, s.masterVolume, (v) => `${Math.round(v * 100)}%`, (v) => settings.set({ masterVolume: v }), () =>
-      audio.play('pickup'),
+    slider(field(p, 'Field of view', 'How wide you see'), 60, 110, 1, s.fov, (v) => `${v}°`, (v) => settings.set({ fov: v }));
+    segmented(field(p, 'Aim / scope', 'Hold to aim down sights'), [['mouse', 'Right mouse'], ['q', 'Q key']], s.aimKey, (v) =>
+      settings.set({ aimKey: v as 'mouse' | 'q' }),
     );
+
+    div('section-title', p).textContent = 'Display';
+    segmented(field(p, 'Graphics', 'Lower if the game feels choppy'), [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality, (v) =>
+      settings.set({ quality: v as 'low' | 'medium' | 'high' }),
+    );
+    slider(field(p, 'HUD size', 'Shrinks health, ammo, minimap…'), 0.6, 1, 0.05, s.hudScale ?? 1, (v) => `${Math.round(v * 100)}%`, (v) => settings.set({ hudScale: v }));
     segmented(field(p, 'Screen shake'), [['on', 'On'], ['off', 'Off']], s.screenShake ? 'on' : 'off', (v) =>
       settings.set({ screenShake: v === 'on' }),
     );
-    segmented(field(p, 'Aim / scope'), [['mouse', 'Right mouse'], ['q', 'Q key']], s.aimKey, (v) =>
-      settings.set({ aimKey: v as 'mouse' | 'q' }),
+
+    div('section-title', p).textContent = 'Sound';
+    slider(field(p, 'Volume'), 0, 1, 0.05, s.masterVolume, (v) => `${Math.round(v * 100)}%`, (v) => settings.set({ masterVolume: v }), () =>
+      audio.play('pickup'),
     );
-    segmented(field(p, 'Graphics'), [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality, (v) =>
-      settings.set({ quality: v as 'low' | 'medium' | 'high' }),
-    );
-    div('menu-note', p).textContent = 'Changes are saved automatically. Lower graphics quality if the game feels choppy. Some graphics changes take full effect from the next match.';
+
+    div('menu-note', p).textContent = 'Changes are saved automatically. Some graphics changes take full effect from the next match.';
     const row = div('menu-buttons row', p);
     button(row, 'Back', () => this.show(this.settingsReturn ?? 'main'), 'primary');
   }
@@ -263,8 +304,8 @@ export class Menus {
   private buildEnd(p: HTMLElement): void {
     const r = this.lastResult;
     if (!r) return;
-    const title = div(`menu-title small ${r.result.win ? 'win' : 'lose'}`, p);
-    title.textContent = r.result.title;
+    const h = head(p, 'Match over', r.result.title);
+    h.classList.add(r.result.win ? 'win' : 'lose');
     div('menu-sub', p).textContent = r.result.subtitle;
     const stats = div('end-stats', p);
     for (const line of r.result.stats) div('end-stat', stats).textContent = line;
@@ -273,6 +314,43 @@ export class Menus {
     const row = div('menu-buttons row', p);
     button(row, 'Main menu', () => this.actions.quitToMenu());
     button(row, 'Play again', () => this.actions.restart(), 'primary');
+  }
+}
+
+/** Small line icons for the menus. */
+const ICONS = {
+  crosshair: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>',
+  waves: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 8c3-3 5 3 8 0s5 3 8 0 3-1 4 0"/><path d="M2 13c3-3 5 3 8 0s5 3 8 0 3-1 4 0"/><path d="M2 18c3-3 5 3 8 0s5 3 8 0 3-1 4 0"/></svg>',
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>',
+  health: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7z"/></svg>',
+  ear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9a6 6 0 1 1 12 0c0 4-4 5-4 9a3 3 0 0 1-6 0"/><path d="M10 9a2 2 0 1 1 4 0"/></svg>',
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+};
+
+/** Panel header: a small gold label above a big title. */
+function head(p: HTMLElement, eyebrow: string, title: string): HTMLDivElement {
+  const h = div('panel-head', p);
+  div('panel-eyebrow', h).textContent = eyebrow;
+  div('panel-title', h).textContent = title;
+  return h;
+}
+
+/** Big selectable cards with an icon, a name and a description. */
+function choiceCards(
+  parent: HTMLElement, options: [string, string, string, string][], value: string, onChange: (v: string) => void, size = '',
+): void {
+  const group = div(`choice-cards ${size}`, parent);
+  for (const [v, name, info, icon] of options) {
+    const b = document.createElement('button');
+    b.className = `choice-card ${v === value ? 'active' : ''}`;
+    b.innerHTML = `<span class="choice-icon">${icon}</span><span class="choice-text"><span class="choice-name">${name}</span><span class="choice-info">${info}</span></span>`;
+    b.addEventListener('click', () => {
+      audio.play('ui_click');
+      group.querySelectorAll('.choice-card').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      onChange(v);
+    });
+    group.appendChild(b);
   }
 }
 
@@ -298,9 +376,11 @@ function button(parent: HTMLElement, label: string, onClick: () => void, kind = 
   return b;
 }
 
-function field(parent: HTMLElement, label: string): HTMLDivElement {
+function field(parent: HTMLElement, label: string, hint = ''): HTMLDivElement {
   const row = div('menu-field', parent);
-  div('menu-label', row).textContent = label;
+  const l = div('menu-label', row);
+  l.textContent = label;
+  if (hint) div('menu-hint', l).textContent = hint;
   return div('menu-control', row);
 }
 
