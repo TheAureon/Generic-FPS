@@ -74,7 +74,8 @@ export class CollisionWorld {
   private nearBoxes: AABB[] = [];
   private nearRamps: Ramp[] = [];
 
-  addBox(b: BoxDef): void {
+  /** @param rayTransparent glass: blocks walking, but bullets and eyesight pass through */
+  addBox(b: BoxDef, rayTransparent = false): void {
     const box: AABB = {
       minX: b.x - b.w / 2,
       maxX: b.x + b.w / 2,
@@ -84,7 +85,7 @@ export class CollisionWorld {
       maxZ: b.z + b.d / 2,
     };
     this.boxes.push(box);
-    this.solids.push({ planes: boxPlanes(box), bounds: box });
+    if (!rayTransparent) this.solids.push({ planes: boxPlanes(box), bounds: box });
     this.gridDirty = true;
   }
 

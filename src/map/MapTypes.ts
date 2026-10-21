@@ -5,7 +5,15 @@
  * Coordinates: X = east/west, Z = north/south, Y = up. One unit = one meter.
  */
 
-export type MaterialId = 'floor' | 'wall' | 'concrete' | 'crate' | 'metal' | 'trim' | 'dirt' | 'container';
+export type MaterialId =
+  | 'floor' | 'wall' | 'concrete' | 'crate' | 'metal' | 'trim' | 'dirt' | 'container'
+  // Indoors (office, museum...):
+  | 'carpet' | 'tile' | 'drywall' | 'ceiling' | 'desk' | 'partition' | 'glass' | 'stairs'
+  // Outdoors in town:
+  | 'asphalt' | 'paint' | 'carpaint';
+
+/** The six sides of a box, for giving one side a different material. */
+export type BoxFace = 'top' | 'bottom' | '-x' | '+x' | '-z' | '+z';
 
 /** A solid box. x/z are the CENTER of the box, y is the BOTTOM of the box. */
 export interface BoxDef {
@@ -19,6 +27,12 @@ export interface BoxDef {
   /** Size along Z. */
   d: number;
   material?: MaterialId;
+  /**
+   * Different materials on some sides, e.g. an outer wall that's concrete
+   * outside and painted inside: { material: 'concrete', faces: { '+z': 'drywall' } }.
+   * Glass ('glass') blocks walking but bullets and eyesight pass through it.
+   */
+  faces?: Partial<Record<BoxFace, MaterialId>>;
 }
 
 /** Which way the ramp goes UP. */
@@ -125,6 +139,13 @@ export interface MapDef {
   sky?: SkyDef;
   fogNear: number;
   fogFar: number;
+  /**
+   * Indoor shading (0..1): how much darker places get when they're enclosed
+   * (rooms, under roofs). Use for maps with buildings you can enter.
+   */
+  indoorShading?: number;
+  /** Floor heights of the levels (e.g. [0, 3.5]); the minimap shows the level you're on. */
+  levels?: number[];
   /** Spacing of the bots' navigation grid (meters, default 1.25). Bigger = faster loading on huge maps. */
   navSpacing?: number;
   boxes: BoxDef[];

@@ -19,7 +19,7 @@ interface MaterialStyle {
   line: string;
   /** Texture tiles every N meters. */
   tileSize: number;
-  pattern: 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
+  pattern: 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
   /** Texture resolution (pixels); bigger for textures covering a large area. */
   pixels?: number;
   roughness: number;
@@ -40,6 +40,19 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   panel: { base: '#8f9296', line: '#76797d', tileSize: 4, pattern: 'concrete', roughness: 0.9, metalness: 0 },
   crate: { base: '#9a7446', line: '#5e4326', tileSize: 1.5, pattern: 'planks', roughness: 0.8, metalness: 0 },
   crateFrame: { base: '#7d5a33', line: '#5a3f22', tileSize: 1, pattern: 'grain', roughness: 0.8, metalness: 0 },
+  // ---- Indoors ----
+  carpet: { base: '#4b5664', line: '#3c4552', tileSize: 2, pattern: 'speckle', roughness: 1, metalness: 0 },
+  tile: { base: '#cfccc3', line: '#a9a69e', tileSize: 1.2, pattern: 'tiles', roughness: 0.35, metalness: 0 },
+  drywall: { base: '#d9d5cc', line: '#c9c4ba', tileSize: 2, pattern: 'plain', roughness: 0.9, metalness: 0 },
+  ceiling: { base: '#f2f1ed', line: '#d3d1ca', tileSize: 1.2, pattern: 'ceiling', roughness: 1, metalness: 0 },
+  desk: { base: '#8a6a48', line: '#6b5136', tileSize: 1, pattern: 'grain', roughness: 0.55, metalness: 0 },
+  partition: { base: '#5d6876', line: '#4f5965', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
+  glass: { base: '#a9c8d8', line: '#a9c8d8', tileSize: 1, pattern: 'plain', roughness: 0.05, metalness: 0.1 },
+  stairs: { base: '#b9b6ad', line: '#8f8c84', tileSize: 1, pattern: 'speckle', roughness: 0.7, metalness: 0 },
+  // ---- Town ----
+  asphalt: { base: '#45474b', line: '#36383b', tileSize: 4, pattern: 'speckle', roughness: 0.95, metalness: 0, pixels: 512 },
+  paint: { base: '#ece9df', line: '#ece9df', tileSize: 1, pattern: 'plain', roughness: 0.8, metalness: 0 },
+  carpaint: { base: '#6e7d8f', line: '#596676', tileSize: 1, pattern: 'plain', roughness: 0.3, metalness: 0.55 },
   // Outdoor ground: packed dirt and gravel.
   dirt: { base: '#857a66', line: '#5e5546', tileSize: 6, pattern: 'dirt', roughness: 1, metalness: 0, pixels: 512 },
   // Shipping containers: corrugated, painted steel.
@@ -57,7 +70,8 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
   const size = style.pixels ?? 256;
   const c = document.createElement('canvas');
   c.width = c.height = size;
-  const g = c.getContext('2d')!;
+  // Drawn on the CPU (we read the pixels back to add noise, which is slow on the GPU).
+  const g = c.getContext('2d', { willReadFrequently: true })!;
   g.fillStyle = style.base;
   g.fillRect(0, 0, size, size);
   const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -98,6 +112,31 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
   g.strokeStyle = style.line;
   g.fillStyle = style.line;
   switch (style.pattern) {
+    case 'tiles': {
+      // 2 x 2 floor tiles per texture with grout lines; each tile a slightly different shade.
+      const n = 2, s = size / n;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        g.fillStyle = Math.random() < 0.5 ? `rgba(0,0,0,${rnd(0.02, 0.06)})` : `rgba(255,255,255,${rnd(0.02, 0.06)})`;
+        g.fillRect(i * s, j * s, s, s);
+      }
+      g.fillStyle = style.line;
+      for (let i = 0; i < n; i++) {
+        g.fillRect(i * s, 0, 3, size);
+        g.fillRect(0, i * s, size, 3);
+      }
+      break;
+    }
+    case 'ceiling': {
+      // Acoustic ceiling tiles: a light grid with tiny pores.
+      g.fillStyle = 'rgba(0,0,0,0.12)';
+      for (let i = 0; i < 700; i++) g.fillRect(rnd(0, size), rnd(0, size), 1.5, 1.5);
+      g.fillStyle = style.line;
+      for (let i = 0; i < 2; i++) {
+        g.fillRect((i * size) / 2, 0, 4, size);
+        g.fillRect(0, (i * size) / 2, size, 4);
+      }
+      break;
+    }
     case 'dirt': {
       // Pebbles (light and dark), patches of darker earth, a few tire ruts.
       for (let i = 0; i < 26; i++) {
@@ -363,6 +402,16 @@ export function getMaterial(id: SurfaceId, kind: 'standard' | 'lambert' = 'stand
     const s = STYLES[id];
     let tex = textures.get(id);
     if (!tex) textures.set(id, (tex = makeTexture(s)));
+    if (id === 'glass') {
+      // See-through glass: no texture, faint tint, shiny.
+      const glass =
+        kind === 'lambert'
+          ? new THREE.MeshLambertMaterial({ color: s.base, transparent: true, opacity: 0.22, depthWrite: false })
+          : new THREE.MeshStandardMaterial({ color: s.base, transparent: true, opacity: 0.2, roughness: s.roughness, metalness: s.metalness, depthWrite: false });
+      addBakedLighting(glass);
+      cache.set(key, (m = glass));
+      return m;
+    }
     const mat =
       kind === 'lambert'
         ? new THREE.MeshLambertMaterial({ map: tex })

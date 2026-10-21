@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { MapDef, PickupType } from '../map/MapTypes';
+import type { BoxDef, MapDef, PickupType, RampDef } from '../map/MapTypes';
 
 /** Pixels per meter on the radar, and how far it shows (meters). */
 const SCALE = 3.2;
@@ -20,6 +20,8 @@ export class Minimap {
   readonly el: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private layout: HTMLCanvasElement | null = null;
+  /** Multi-story maps: one layout per level, with each level's floor height. */
+  private levelLayouts: { y: number; canvas: HTMLCanvasElement }[] = [];
   private originX = 0;
   private originZ = 0;
   private dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -37,32 +39,55 @@ export class Minimap {
 
   /** Draw the map layout once (seen from above) for this match. */
   setMap(def: MapDef, bounds: THREE.Box3): void {
-    const w = Math.ceil((bounds.max.x - bounds.min.x) * SCALE);
-    const h = Math.ceil((bounds.max.z - bounds.min.z) * SCALE);
     this.originX = bounds.min.x;
     this.originZ = bounds.min.z;
+    this.levelLayouts = [];
+    if (def.levels && def.levels.length > 1) {
+      // One picture per floor: that floor's slabs and the walls standing on it.
+      const lv = def.levels;
+      lv.forEach((y, i) => {
+        const next = lv[i + 1] ?? Infinity;
+        const slab = (b: BoxDef) => b.h < 0.6 && b.w * b.d > 20;
+        const floors = i === 0 ? [] : def.boxes.filter((b) => slab(b) && Math.abs(b.y + b.h - y) < 0.15);
+        const walls = def.boxes.filter((b) => !slab(b) && b.y >= y - 0.05 && b.y < next - 0.05);
+        const ramps = def.ramps.filter((r) => Math.max(r.low, r.high) > y - 0.05 && Math.min(r.low, r.high) < next - 0.05);
+        this.levelLayouts.push({ y, canvas: this.drawLayout(bounds, floors, walls, ramps, y) });
+      });
+      this.layout = this.levelLayouts[0].canvas;
+      return;
+    }
+    this.layout = this.drawLayout(bounds, [], def.boxes, def.ramps, 0);
+  }
+
+  private drawLayout(bounds: THREE.Box3, floors: BoxDef[], boxes: BoxDef[], ramps: RampDef[], levelY: number): HTMLCanvasElement {
+    const w = Math.ceil((bounds.max.x - bounds.min.x) * SCALE);
+    const h = Math.ceil((bounds.max.z - bounds.min.z) * SCALE);
     const c = document.createElement('canvas');
     c.width = w;
     c.height = h;
     const g = c.getContext('2d')!;
-    g.fillStyle = 'rgba(40, 48, 58, 0.9)';
+    g.fillStyle = levelY > 0 ? 'rgba(14, 17, 22, 0.95)' : 'rgba(40, 48, 58, 0.9)';
     g.fillRect(0, 0, w, h);
     const px = (x: number) => (x - this.originX) * SCALE;
     const pz = (z: number) => (z - this.originZ) * SCALE;
+    // Upper floors: where there's floor to stand on.
+    g.fillStyle = 'rgba(40, 48, 58, 0.95)';
+    for (const b of floors) g.fillRect(px(b.x - b.w / 2), pz(b.z - b.d / 2), b.w * SCALE, b.d * SCALE);
 
     // Draw lower things first so tall things end up on top.
-    const boxes = [...def.boxes].filter((b) => b.y + b.h > 0.05).sort((a, b) => a.y + a.h - (b.y + b.h));
-    for (const b of boxes) {
-      const top = b.y + b.h;
+    const sorted = [...boxes].filter((b) => b.y + b.h > levelY + 0.05).sort((a, b) => a.y + a.h - (b.y + b.h));
+    for (const b of sorted) {
+      const top = b.y + b.h - levelY;
       const area = b.w * b.d;
-      if (top < 1.5) g.fillStyle = '#6d7480'; // low cover
+      if (b.material === 'glass') g.fillStyle = '#7fb2cc'; // windows and glass railings
+      else if (top < 1.5) g.fillStyle = '#6d7480'; // low cover, furniture
       else if (area > 20 && b.h < 3.1) g.fillStyle = '#5a6472'; // raised floors (decks, roof)
       else g.fillStyle = '#b9c0c8'; // walls, pillars
       g.fillRect(px(b.x - b.w / 2), pz(b.z - b.d / 2), b.w * SCALE, b.d * SCALE);
     }
     g.fillStyle = '#4e5866';
-    for (const r of def.ramps) g.fillRect(px(r.x - r.w / 2), pz(r.z - r.d / 2), r.w * SCALE, r.d * SCALE);
-    this.layout = c;
+    for (const r of ramps) g.fillRect(px(r.x - r.w / 2), pz(r.z - r.d / 2), r.w * SCALE, r.d * SCALE);
+    return c;
   }
 
   /** Redraw centered on the player (x, z), turned by `yaw`. */
@@ -85,6 +110,12 @@ export class Minimap {
     // World → radar: move the player to the center, then turn so "forward" is up.
     g.translate(r, r);
     g.rotate(yaw);
+    // Multi-story maps: show the floor you're on.
+    if (this.levelLayouts.length) {
+      let pick = this.levelLayouts[0];
+      for (const l of this.levelLayouts) if (y >= l.y - 0.6) pick = l;
+      this.layout = pick.canvas;
+    }
     if (this.layout) g.drawImage(this.layout, (this.originX - x) * SCALE, (this.originZ - z) * SCALE);
 
     for (const b of blips) {

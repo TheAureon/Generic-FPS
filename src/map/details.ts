@@ -383,3 +383,32 @@ export function rampDetail(r: RampDef): THREE.BufferGeometry[] {
   }
   return out;
 }
+
+// ---- Stairs ----------------------------------------------------------------------------
+
+/**
+ * Visible steps for a ramp marked as stairs (you still walk on the smooth
+ * slope, so moving up and down feels the same as a ramp). Steps are about
+ * 18 cm high, each a block from the ramp's base up to its tread.
+ */
+export function stairSteps(r: RampDef): THREE.BufferGeometry[] {
+  const alongX = r.dir === '+x' || r.dir === '-x';
+  const L = alongX ? r.w : r.d;
+  const W = alongX ? r.d : r.w;
+  const H = r.high - r.low;
+  const base = r.base ?? 0;
+  const turn = { '+x': 0, '-x': Math.PI, '+z': -Math.PI / 2, '-z': Math.PI / 2 }[r.dir];
+  const n = Math.max(2, Math.round(H / 0.18));
+  const out: THREE.BufferGeometry[] = [];
+  for (let k = 0; k < n; k++) {
+    const u0 = -L / 2 + (k / n) * L, u1 = -L / 2 + ((k + 1) / n) * L;
+    const top = r.low + ((k + 1) / n) * H;
+    // Each step reaches all the way down (a solid staircase), plus a small nosing lip.
+    const g = new THREE.BoxGeometry(u1 - u0 + 0.03, top - base, W);
+    g.translate((u0 + u1) / 2 - 0.015, (top + base) / 2, 0);
+    g.rotateY(turn);
+    g.translate(r.x, 0, r.z);
+    out.push(g.toNonIndexed());
+  }
+  return out;
+}

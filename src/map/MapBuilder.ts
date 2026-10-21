@@ -3,9 +3,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { getMaterial, getTileSize, type SurfaceId } from '../assets/materials';
 import { CollisionWorld } from '../core/CollisionWorld';
 import { currentQuality } from '../render/quality';
-import { barrierCollision, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, rampDetail, relief } from './details';
+import { barrierCollision, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, rampDetail, relief, stairSteps } from './details';
 import { Sky } from '../render/Sky';
-import type { LampDef, MapDef, MaterialId, SkyDef } from './MapTypes';
+import type { BoxDef, LampDef, MapDef, MaterialId, SkyDef } from './MapTypes';
 
 export interface BuiltMap {
   def: MapDef;
@@ -23,6 +23,8 @@ const BAKE_CELL = 1.0;
 const AO_RAYS = 12;
 const AO_DISTANCE = 1.5;
 const AO_STRENGTH = 0.85;
+/** How far indoor-shading rays look for a ceiling or wall (meters). */
+const INDOOR_DISTANCE = 18;
 /** Overall brightness of baked lamp light. */
 const LAMP_STRENGTH = 0.75;
 
@@ -37,7 +39,7 @@ const CHUNKED = new Set<SurfaceId>(['brick', 'panel']);
 const CELL = 14;
 
 /** Detail parts that are too small/thin to be worth drawing into the shadow map. */
-const NO_SHADOW = new Set<SurfaceId>(['brick', 'panel', 'crateFrame']);
+const NO_SHADOW = new Set<SurfaceId>(['brick', 'panel', 'crateFrame', 'glass']);
 
 type V3 = [number, number, number];
 interface Quad {
@@ -90,19 +92,24 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       for (const g of jerseyBarrier(b)) props.push({ geo: g, material: 'trim' });
       continue;
     }
-    world.addBox(b);
+    world.addBox(b, b.material === 'glass');
     if (b.material === 'crate') for (const g of crateFrame(b)) props.push({ geo: g, material: 'crateFrame' });
     const x0 = b.x - b.w / 2, x1 = b.x + b.w / 2, y0 = b.y, y1 = b.y + b.h, z0 = b.z - b.d / 2, z1 = b.z + b.d / 2;
-    const mat = b.material ?? 'concrete';
-    pushBoxQuads(quads, x0, x1, y0, y1, z0, z1, () => [y1, y1, y1, y1], mat, y0 <= 0.01);
+    pushBoxQuads(quads, x0, x1, y0, y1, z0, z1, () => [y1, y1, y1, y1], faceMaterials(b), y0 <= 0.01);
   }
   for (const r of def.ramps) {
     world.addRamp(r);
     const ramp = world.ramps[world.ramps.length - 1];
     const h = (x: number, z: number) => world.rampHeightAt(ramp, x, z);
     const { minX: x0, maxX: x1, minZ: z0, maxZ: z1, minY: y0 } = ramp;
-    pushBoxQuads(quads, x0, x1, y0, 0, z0, z1, () => [h(x0, z0), h(x0, z1), h(x1, z1), h(x1, z0)], r.material ?? 'metal', y0 <= 0.01);
-    if ((r.material ?? 'metal') === 'metal') for (const g of rampDetail(r)) props.push({ geo: g, material: 'steel' });
+    if (r.material === 'stairs') {
+      // Stairs: you walk on the smooth slope, but what you see is steps.
+      for (const g of stairSteps(r)) props.push({ geo: g, material: 'stairs' });
+      continue;
+    }
+    const m = r.material ?? 'metal';
+    pushBoxQuads(quads, x0, x1, y0, 0, z0, z1, () => [h(x0, z0), h(x0, z1), h(x1, z1), h(x1, z0)], { top: m, bottom: m, '-x': m, '+x': m, '-z': m, '+z': m }, y0 <= 0.01);
+    if (m === 'metal') for (const g of rampDetail(r)) props.push({ geo: g, material: 'steel' });
   }
 
   // ---- Tessellate, bake, and group by material (or reuse an earlier bake) -----
@@ -120,13 +127,14 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       bounds.union(geo.boundingBox!);
     };
     const covered = (x: number, y: number, z: number) => world.isInsideSolid(x, y, z, 0);
+    const indoor = def.indoorShading ?? 0;
     const aoDirs = hemisphereDirections(AO_RAYS);
     for (const q of quads) {
       const n = faceNormal(q.corners);
       if (!n) continue; // zero-area face (e.g. the thin end of a ramp)
       if (facesOutside(q.corners, n, foot)) continue; // back of the outer walls
       const geo = tessellate(q.corners);
-      bake(geo, world, aoDirs, lamps, lampPos);
+      bake(geo, world, aoDirs, lamps, lampPos, false, indoor);
       let mat: SurfaceId = q.material;
       const wall = Math.abs(n.y) < 0.1;
       // Metal floors and ramps get diamond-plate tread on top.
@@ -147,7 +155,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       put(mat, geo);
     }
     for (const p of props) {
-      bake(p.geo, world, aoDirs, lamps, lampPos, true);
+      bake(p.geo, world, aoDirs, lamps, lampPos, true, indoor);
       put(p.material, p.geo);
     }
     // One mesh per material keeps draw calls low (good for frame rate).
@@ -182,6 +190,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     // Small surface detail doesn't need to cast shadows (less to draw into the shadow map).
     mesh.castShadow = !NO_SHADOW.has(mat);
     mesh.receiveShadow = true;
+    if (mat === 'glass') mesh.renderOrder = 10; // see-through: drawn after everything solid
     mesh.name = `map-${mat}`;
     mesh.userData.mapSurface = mat;
     group.add(mesh);
@@ -221,9 +230,16 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
  * The 6 faces of a box (or a ramp, whose top corners have different heights).
  * Bottom faces resting on the ground are skipped (nobody can see them).
  */
+/** Each side's material: the box's own, or a per-side override. */
+function faceMaterials(b: BoxDef): Record<'top' | 'bottom' | '-x' | '+x' | '-z' | '+z', MaterialId> {
+  const m = b.material ?? 'concrete';
+  const f = b.faces ?? {};
+  return { top: f.top ?? m, bottom: f.bottom ?? m, '-x': f['-x'] ?? m, '+x': f['+x'] ?? m, '-z': f['-z'] ?? m, '+z': f['+z'] ?? m };
+}
+
 function pushBoxQuads(
   out: Quad[], x0: number, x1: number, y0: number, _y1: number, z0: number, z1: number,
-  tops: () => [number, number, number, number], material: MaterialId, skipBottom: boolean,
+  tops: () => [number, number, number, number], mat: Record<'top' | 'bottom' | '-x' | '+x' | '-z' | '+z', MaterialId>, skipBottom: boolean,
 ): void {
   // Top heights at corners (x0,z0), (x0,z1), (x1,z1), (x1,z0).
   const [t00, t01, t11, t10] = tops();
@@ -231,12 +247,12 @@ function pushBoxQuads(
     b00: [x0, y0, z0] as V3, b10: [x1, y0, z0] as V3, b11: [x1, y0, z1] as V3, b01: [x0, y0, z1] as V3,
     u00: [x0, t00, z0] as V3, u10: [x1, t10, z0] as V3, u11: [x1, t11, z1] as V3, u01: [x0, t01, z1] as V3,
   };
-  out.push({ corners: [c.u00, c.u01, c.u11, c.u10], material }); // top
-  if (!skipBottom) out.push({ corners: [c.b00, c.b10, c.b11, c.b01], material }); // bottom
-  out.push({ corners: [c.b00, c.u00, c.u10, c.b10], material }); // -z
-  out.push({ corners: [c.b01, c.b11, c.u11, c.u01], material }); // +z
-  out.push({ corners: [c.b00, c.b01, c.u01, c.u00], material }); // -x
-  out.push({ corners: [c.b10, c.u10, c.u11, c.b11], material }); // +x
+  out.push({ corners: [c.u00, c.u01, c.u11, c.u10], material: mat.top }); // top
+  if (!skipBottom) out.push({ corners: [c.b00, c.b10, c.b11, c.b01], material: mat.bottom }); // bottom
+  out.push({ corners: [c.b00, c.u00, c.u10, c.b10], material: mat['-z'] }); // -z
+  out.push({ corners: [c.b01, c.b11, c.u11, c.u01], material: mat['+z'] }); // +z
+  out.push({ corners: [c.b00, c.b01, c.u01, c.u00], material: mat['-x'] }); // -x
+  out.push({ corners: [c.b10, c.u10, c.u11, c.b11], material: mat['+x'] }); // +x
 }
 
 /** Does this face look out of the arena (e.g. the back of an outer wall)? */
@@ -329,6 +345,8 @@ function bake(
   geo: THREE.BufferGeometry, world: CollisionWorld, dirs: THREE.Vector3[], lamps: LampDef[], lampPos: V3[],
   /** For detail models that don't match the collision boxes exactly: step out of solid areas. */
   pushOut = false,
+  /** Indoor shading strength (0 = off): darken spots that are enclosed. */
+  indoor = 0,
 ): void {
   const pos = geo.getAttribute('position');
   const nrm = geo.getAttribute('normal');
@@ -364,7 +382,23 @@ function bake(
       const hit = world.raycast(px, py, pz, d.x, d.y, d.z, AO_DISTANCE);
       if (hit) occlusion += 1 - hit.distance / AO_DISTANCE;
     }
-    const ao = Math.max(0.3, 1 - (AO_STRENGTH * occlusion) / dirs.length);
+    let ao = Math.max(0.3, 1 - (AO_STRENGTH * occlusion) / dirs.length);
+    // Indoors: long rays toward the sky; the more are blocked (by ceilings,
+    // walls), the darker it gets. Rooms end up lit mostly by their lamps and
+    // by sunlight through the windows.
+    if (indoor > 0) {
+      let blocked = 0;
+      for (let k = 0; k < dirs.length; k += 2) {
+        const dir = dirs[k];
+        d.copy(t1).multiplyScalar(dir.x).addScaledVector(t2, dir.y).addScaledVector(n, dir.z);
+        if (d.y < 0) d.y = -d.y * 0.3; // aim toward the sky, not the ground
+        d.normalize();
+        if (world.raycast(px, py, pz, d.x, d.y, d.z, INDOOR_DISTANCE)) blocked++;
+      }
+      // Ceilings get light bounced up from the room below, so they darken much less.
+      const facingDown = n.y < -0.5;
+      ao *= 1 - indoor * (facingDown ? 0.3 : 1) * (blocked / Math.ceil(dirs.length / 2));
+    }
     colors.set([ao, ao, ao], i * 3);
 
     // Lamp light, if the lamp can "see" this spot.
