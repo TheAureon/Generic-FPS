@@ -92,6 +92,7 @@ The game opens on the title screen. Click or press any key to reach the main men
 - **Map**:
   - **Foundry**: the main arena: two yards with raised decks around a two-story building
   - **Office**: a two-story office building with a parking lot. Ground floor: glass-fronted double-height lobby, corridor, private offices, meeting room, cubicle workspace, break room. Upper floor (two staircases): open office, executive office (armor), conference room, and a walkway with a glass railing over the lobby. Windows all round; you can see and shoot through glass, but not walk through it. The minimap shows the floor you're on.
+  - **Museum**: a grand stone museum on a raised podium, inside a walled garden. The marble Grand Hall has columns, a glass skylight and two staircases up to a balcony (armor). Around it: a sculpture gallery (west), a painting gallery (east), antiquities with glass display cases (north) and a modern art gallery above them, plus the foyer, gift shop and café. Outside: front steps under a columned portico, a fountain plaza, hedge gardens, side paths and a service yard with a loading dock.
   - **Flatlands**: a huge (200 × 200 m), flat dusty plain with scattered cover, eight outposts (shipping containers, crates, low walls) and four corner towers with ramps. Long sightlines: good for the sniper rifle.
   - **Test Room**: a small room for trying out movement
 - **Difficulty**: seven levels, easiest first: Novice, Beginner, Easy, Medium, Advanced, Hard, Insane. This changes how fast bots react, how accurately they aim, how fast they turn, how long their bursts are, how aggressive they are, and how much their bullets hurt (from about a third of yours on Novice up to the same as yours on Hard and Insane). Bots never get more health, speed or ammo than you on any level.
@@ -214,8 +215,8 @@ Maps are plain data in [`src/map/maps/`](src/map/maps/). Each map is a list of b
 
 1. Copy `foundry.ts` (the arena) or `testRoom.ts` (a small room) to a new file and give it a new `id` and `name`.
 2. Change the boxes, ramps, spawns, and pickups. Materials: `floor`, `wall` (brick), `concrete`, `crate`, `metal`, `trim` (jersey barrier), `dirt` (outdoor ground), `container` (shipping container).
-   Indoor materials: `carpet`, `tile`, `drywall`, `ceiling`, `desk`, `partition`, `glass` (see and shoot through, can't walk through), `stairs` (on a ramp: shows steps). Town: `asphalt`, `paint`, `carpaint`. A box can have different materials per side with `faces` (e.g. concrete outside, `drywall` inside).
-   Buildings you can enter: set `indoorShading` (rooms get darker and are lit by their lamps and the windows) and `levels` (the floor heights, for the minimap). See `office.ts`, which also has small helpers for walls with doors and windows.
+   Indoor materials: `carpet`, `tile`, `drywall`, `ceiling`, `desk`, `partition`, `glass` (see and shoot through, can't walk through), `stairs` (on a ramp: shows steps). Town: `asphalt`, `paint`, `carpaint`. Museum and gardens: `marble`, `stone` (stone blocks), `grass`, `hedge`, `water`, `art` (paintings), `gold`, `velvet`. A box can have different materials per side with `faces` (e.g. concrete outside, `drywall` inside).
+   Buildings you can enter: set `indoorShading` (rooms get darker and are lit by their lamps and the windows) and `levels` (the floor heights, for the minimap). See `museum.ts`, which uses the helpers in `src/map/kit.ts` (walls with doors and windows cut in, floor slabs, stairs, lamps).
    For a very big map, set `navSpacing: 2` so the bots' navigation grid is coarser and the map loads quickly (see `flatlands.ts`, which also shows how to place cover with a fixed random seed).
 3. Add it to the list in `src/map/maps/index.ts`.
 

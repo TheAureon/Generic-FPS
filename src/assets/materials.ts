@@ -19,7 +19,7 @@ interface MaterialStyle {
   line: string;
   /** Texture tiles every N meters. */
   tileSize: number;
-  pattern: 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
+  pattern: 'marble' | 'blocks' | 'grass' | 'leaves' | 'water' | 'art' | 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
   /** Texture resolution (pixels); bigger for textures covering a large area. */
   pixels?: number;
   roughness: number;
@@ -53,6 +53,15 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   asphalt: { base: '#45474b', line: '#36383b', tileSize: 4, pattern: 'speckle', roughness: 0.95, metalness: 0, pixels: 512 },
   paint: { base: '#ece9df', line: '#ece9df', tileSize: 1, pattern: 'plain', roughness: 0.8, metalness: 0 },
   carpaint: { base: '#6e7d8f', line: '#596676', tileSize: 1, pattern: 'plain', roughness: 0.3, metalness: 0.55 },
+  // ---- Museum and gardens ----
+  marble: { base: '#e3e0d8', line: '#a8a39a', tileSize: 2.4, pattern: 'marble', roughness: 0.18, metalness: 0, pixels: 512 },
+  stone: { base: '#cbbd9f', line: '#a99b7e', tileSize: 3, pattern: 'blocks', roughness: 0.85, metalness: 0, pixels: 512 },
+  grass: { base: '#5d7a3a', line: '#45602a', tileSize: 4, pattern: 'grass', roughness: 1, metalness: 0, pixels: 512 },
+  hedge: { base: '#3f5a2a', line: '#2c421c', tileSize: 1.5, pattern: 'leaves', roughness: 1, metalness: 0 },
+  water: { base: '#3d6f80', line: '#a9d3df', tileSize: 3, pattern: 'water', roughness: 0.05, metalness: 0.3 },
+  art: { base: '#d8cfb8', line: '#2b2b2b', tileSize: 6.4, pattern: 'art', roughness: 0.7, metalness: 0, pixels: 1024 },
+  gold: { base: '#b8903a', line: '#8c6b26', tileSize: 1, pattern: 'plain', roughness: 0.3, metalness: 0.85 },
+  velvet: { base: '#7a1f27', line: '#5c151c', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
   // Outdoor ground: packed dirt and gravel.
   dirt: { base: '#857a66', line: '#5e5546', tileSize: 6, pattern: 'dirt', roughness: 1, metalness: 0, pixels: 512 },
   // Shipping containers: corrugated, painted steel.
@@ -112,6 +121,154 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
   g.strokeStyle = style.line;
   g.fillStyle = style.line;
   switch (style.pattern) {
+    case 'marble': {
+      // Polished marble slabs (1.2 m) with soft grey veins.
+      g.strokeStyle = 'rgba(110,105,98,0.35)';
+      for (let k = 0; k < 14; k++) {
+        g.lineWidth = rnd(0.6, 2.4);
+        g.beginPath();
+        let x = rnd(0, size), y = rnd(0, size);
+        g.moveTo(x, y);
+        for (let i = 0; i < 8; i++) {
+          x += rnd(-size * 0.12, size * 0.12);
+          y += rnd(size * 0.02, size * 0.1);
+          g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+      g.fillStyle = style.line;
+      g.globalAlpha = 0.5;
+      g.fillRect(0, 0, size, 2);
+      g.fillRect(0, size / 2, size, 2);
+      g.fillRect(0, 0, 2, size);
+      g.fillRect(size / 2, 0, 2, size);
+      g.globalAlpha = 1;
+      break;
+    }
+    case 'blocks': {
+      // Sandstone blocks in courses (0.6 m tall, 1.5 m long), each a bit different.
+      const rows = 5, rh = size / rows;
+      for (let r = 0; r < rows; r++) {
+        const off = r % 2 ? size / 4 : 0;
+        for (let x = -size / 2 + off; x < size; x += size / 2) {
+          g.fillStyle = Math.random() < 0.5 ? `rgba(0,0,0,${rnd(0.02, 0.08)})` : `rgba(255,250,235,${rnd(0.03, 0.08)})`;
+          g.fillRect(x, r * rh, size / 2, rh);
+        }
+        g.fillStyle = style.line;
+        g.fillRect(0, r * rh, size, 3);
+        for (let x = off; x <= size; x += size / 2) g.fillRect(x, r * rh, 3, rh);
+      }
+      break;
+    }
+    case 'grass': {
+      // Lots of short blades in several greens, with lighter and darker patches.
+      for (let i = 0; i < 18; i++) {
+        const x = rnd(0, size), y = rnd(0, size), r = rnd(size * 0.06, size * 0.2);
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, Math.random() < 0.5 ? 'rgba(30,45,10,0.18)' : 'rgba(170,190,90,0.14)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      for (let i = 0; i < 5000; i++) {
+        const x = rnd(0, size), y = rnd(0, size);
+        g.strokeStyle = `rgba(${Math.floor(rnd(40, 120))},${Math.floor(rnd(90, 160))},${Math.floor(rnd(20, 60))},${rnd(0.3, 0.7)})`;
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + rnd(-2, 2), y - rnd(3, 7));
+        g.stroke();
+      }
+      break;
+    }
+    case 'leaves': {
+      // Dense small leaves: dark and light green blobs.
+      for (let i = 0; i < 900; i++) {
+        g.fillStyle = `rgba(${Math.floor(rnd(30, 90))},${Math.floor(rnd(60, 120))},${Math.floor(rnd(20, 50))},${rnd(0.4, 0.9)})`;
+        g.beginPath();
+        g.ellipse(rnd(0, size), rnd(0, size), rnd(2, 6), rnd(1.5, 4), rnd(0, 3), 0, Math.PI * 2);
+        g.fill();
+      }
+      break;
+    }
+    case 'water': {
+      // Ripples: soft light curves on a deep blue-green.
+      g.strokeStyle = 'rgba(200,235,245,0.25)';
+      for (let i = 0; i < 40; i++) {
+        g.lineWidth = rnd(1, 2.5);
+        g.beginPath();
+        const x = rnd(0, size), y = rnd(0, size), w = rnd(20, 70);
+        g.moveTo(x, y);
+        g.quadraticCurveTo(x + w / 2, y - rnd(3, 8), x + w, y);
+        g.stroke();
+      }
+      break;
+    }
+    case 'art': {
+      // A 4 x 4 grid of different little paintings (each painting on a wall
+      // shows a different part): landscapes, abstract shapes, portraits.
+      const n = 4, s = size / n;
+      const palette = ['#c0392b', '#2e86ab', '#f2c14e', '#3b7d4f', '#8e5ea2', '#e07a3f', '#1d3557', '#a8dadc', '#6d4c41', '#f4a261'];
+      const pick = () => palette[Math.floor(Math.random() * palette.length)];
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        const x = i * s, y = j * s;
+        g.save();
+        g.beginPath();
+        g.rect(x, y, s, s);
+        g.clip();
+        const kind = (i + j * 3) % 3;
+        if (kind === 0) {
+          // Landscape: sky, sun, hills.
+          const sky = g.createLinearGradient(0, y, 0, y + s);
+          sky.addColorStop(0, pick());
+          sky.addColorStop(1, '#f6e7c1');
+          g.fillStyle = sky;
+          g.fillRect(x, y, s, s);
+          g.fillStyle = '#fff3c4';
+          g.beginPath();
+          g.arc(x + rnd(s * 0.2, s * 0.8), y + s * 0.3, s * 0.08, 0, Math.PI * 2);
+          g.fill();
+          for (let h = 0; h < 3; h++) {
+            g.fillStyle = pick();
+            g.beginPath();
+            g.moveTo(x, y + s);
+            for (let k = 0; k <= 6; k++) g.lineTo(x + (k / 6) * s, y + s * (0.55 + h * 0.12) + rnd(-s * 0.08, s * 0.08));
+            g.lineTo(x + s, y + s);
+            g.fill();
+          }
+        } else if (kind === 1) {
+          // Abstract: blocks and circles of color.
+          g.fillStyle = pick();
+          g.fillRect(x, y, s, s);
+          for (let k = 0; k < 7; k++) {
+            g.fillStyle = pick();
+            if (Math.random() < 0.5) g.fillRect(x + rnd(0, s * 0.7), y + rnd(0, s * 0.7), rnd(s * 0.15, s * 0.5), rnd(s * 0.15, s * 0.5));
+            else {
+              g.beginPath();
+              g.arc(x + rnd(0, s), y + rnd(0, s), rnd(s * 0.06, s * 0.25), 0, Math.PI * 2);
+              g.fill();
+            }
+          }
+        } else {
+          // Portrait: dark background, a figure.
+          g.fillStyle = '#2d2620';
+          g.fillRect(x, y, s, s);
+          g.fillStyle = pick();
+          g.beginPath();
+          g.ellipse(x + s / 2, y + s * 0.95, s * 0.32, s * 0.4, 0, 0, Math.PI * 2);
+          g.fill();
+          g.fillStyle = '#d9b48f';
+          g.beginPath();
+          g.ellipse(x + s / 2, y + s * 0.42, s * 0.14, s * 0.18, 0, 0, Math.PI * 2);
+          g.fill();
+        }
+        g.restore();
+        g.strokeStyle = style.line;
+        g.lineWidth = 4;
+        g.strokeRect(x + 2, y + 2, s - 4, s - 4);
+      }
+      break;
+    }
     case 'tiles': {
       // 2 x 2 floor tiles per texture with grout lines; each tile a slightly different shade.
       const n = 2, s = size / n;

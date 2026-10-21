@@ -10,7 +10,9 @@ export type MaterialId =
   // Indoors (office, museum...):
   | 'carpet' | 'tile' | 'drywall' | 'ceiling' | 'desk' | 'partition' | 'glass' | 'stairs'
   // Outdoors in town:
-  | 'asphalt' | 'paint' | 'carpaint';
+  | 'asphalt' | 'paint' | 'carpaint'
+  // Museum and gardens:
+  | 'marble' | 'stone' | 'grass' | 'hedge' | 'water' | 'art' | 'gold' | 'velvet';
 
 /** The six sides of a box, for giving one side a different material. */
 export type BoxFace = 'top' | 'bottom' | '-x' | '+x' | '-z' | '+z';
