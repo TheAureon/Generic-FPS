@@ -77,12 +77,13 @@ export const CONFIG = {
     // pixelRatio: resolution cap (Retina screens); shadowMapSize: shadow sharpness;
     // softShadows: blurred shadow edges; materials: 'lambert' is cheaper, 'standard'
     // looks better (reflections); envMap: subtle reflections of the sky;
-    // bloom: glow around bright things (visors, lamps, muzzle flashes).
-    low: { pixelRatio: 1, shadows: false, shadowMapSize: 1024, softShadows: false, materials: 'lambert', envMap: false, bloom: false },
-    medium: { pixelRatio: 1.5, shadows: true, shadowMapSize: 2048, softShadows: false, materials: 'standard', envMap: true, bloom: false },
-    high: { pixelRatio: 2, shadows: true, shadowMapSize: 4096, softShadows: true, materials: 'standard', envMap: true, bloom: true },
+    // bloom: glow around bright things (visors, lamps, muzzle flashes);
+    // mapDetail: real 3D bricks and concrete panels on walls (Low uses flat textures).
+    low: { pixelRatio: 1, mapDetail: false, shadows: false, shadowMapSize: 1024, softShadows: false, materials: 'lambert', envMap: false, bloom: false },
+    medium: { pixelRatio: 1.5, mapDetail: true, shadows: true, shadowMapSize: 2048, softShadows: false, materials: 'standard', envMap: true, bloom: false },
+    high: { pixelRatio: 2, mapDetail: true, shadows: true, shadowMapSize: 4096, softShadows: true, materials: 'standard', envMap: true, bloom: true },
   } as Record<'low' | 'medium' | 'high', {
-    pixelRatio: number; shadows: boolean; shadowMapSize: number; softShadows: boolean;
+    pixelRatio: number; mapDetail: boolean; shadows: boolean; shadowMapSize: number; softShadows: boolean;
     materials: 'lambert' | 'standard'; envMap: boolean; bloom: boolean;
   }>,
 
@@ -211,6 +212,21 @@ export const WEAPONS = {
 } satisfies Record<string, WeaponStats>;
 
 export type WeaponId = keyof typeof WEAPONS;
+
+/**
+ * Fitting custom 3D gun models (files in src/assets/models/weapons/, see the
+ * README there). Only used for guns that have a model file. Adjust these if
+ * a model comes out too big, too small, or turned the wrong way.
+ * - scale: size multiplier (1 = as exported, in meters)
+ * - position: shift in meters [x right, y up, z back]
+ * - rotation: turn in degrees [x, y, z] (the gun should point down -Z, i.e. away from you)
+ */
+export const WEAPON_MODELS: Record<WeaponId, { scale: number; position: [number, number, number]; rotation: [number, number, number] }> = {
+  pistol: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  rifle: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  shotgun: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  sniper: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+};
 
 export const COMBAT = {
   /** Movement speed multiplier while aiming down sights. */

@@ -127,9 +127,11 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
 - **Mouse sensitivity**, **Field of view**, **Volume**
 - **Screen shake**: on or off
 - **Graphics**: Low, Medium, or High. If the game feels choppy, try Medium or Low. Some changes take full effect from the next match.
-  - **Low**: no shadows, simpler (cheaper) surface shading, lower resolution. Helps most on Retina screens.
-  - **Medium**: shadows, and faint reflections on metal and armor.
+  - **Low**: no shadows, simpler (cheaper) surface shading, lower resolution, and flat painted textures instead of 3D bricks and concrete panels. Helps most on Retina screens.
+  - **Medium**: shadows, faint reflections on metal and armor, and real 3D bricks and concrete panels on the walls.
   - **High**: full resolution, sharper soft-edged shadows, and a glow ("bloom") around lamps, visors, and muzzle flashes.
+
+  The map is detailed on every setting: wooden crates have frames, braces and planks, and the yellow barriers are sloped jersey barriers in sections. On Medium and High the brick walls are built from individual 3D bricks (with mortar between them) and the concrete walls from cast panels with seams and form-tie holes.
 
   On every setting the map has **baked lighting**: when a map loads, the game works out once how dark each corner is and how much light each wall lamp throws, and paints that onto the surfaces. That looks like many lights but costs almost nothing while playing. Soldiers pick up the color of lamps they walk past the same way, and so does the gun in your hands.
 
@@ -208,7 +210,9 @@ It appears in the match menu automatically, and bots can navigate it without any
 ### Swapping in real art and sound
 
 - **Sounds**: put audio files in a `public/sounds/` folder and list them in `SAMPLE_FILES` at the top of [`src/audio/sounds.ts`](src/audio/sounds.ts), for example `shot_rifle: '/sounds/rifle.wav'`. A file replaces the generated sound with the same name.
-- **Models**: the gun, character, and pickup models are each made in one function in [`src/assets/`](src/assets/) (`createWeaponModel`, `createCharacterModel`, `createPickupModel`). Replace a function's contents to load a real 3D model instead. The comment at the top of each file explains what the rest of the game expects.
+- **Gun models**: drop `.glb` files named `pistol.glb`, `rifle.glb`, `shotgun.glb` or `sniper.glb` into [`src/assets/models/weapons/`](src/assets/models/weapons/) and they replace the built-in guns automatically (in your hands and the bots'). [`src/assets/models/README.md`](src/assets/models/README.md) explains how to export them and which named parts (sight, grips, magazine, slide, pump, bolt) make the hands and animations line up. Size and rotation fixes go in `WEAPON_MODELS` in [`src/config.ts`](src/config.ts).
+- **Gun animations**: every first-person animation setting (gun position, hand positions, reload keyframes, pump/bolt/slide timing) is in [`src/weapons/animations.ts`](src/weapons/animations.ts).
+- **Other models**: the character and pickup models are each made in one function in [`src/assets/`](src/assets/) (`createCharacterModel`, `createPickupModel`). Replace a function's contents to load a real 3D model instead. The comment at the top of each file explains what the rest of the game expects.
 - **Textures**: wall and floor textures are drawn in [`src/assets/materials.ts`](src/assets/materials.ts). Swap in image files there.
 
 ---
@@ -236,16 +240,18 @@ src/
                   navigation (NavGraph, Navigator), spawning (BotManager), animation
                   (CharacterAnimator), debug view
   weapons/        Weapon stats/state, bullet tracing (hitscan), firing and switching
-                  (WeaponSystem), the gun in your hands (Viewmodel)
+                  (WeaponSystem), the gun and arms in your hands (Viewmodel, ViewmodelArms),
+                  and all their animation settings (animations.ts)
   modes/          Deathmatch and Survival rules
   pickups/        Health, armor, and ammo pickups
-  map/            Map format, map builder (incl. baked lighting), and maps/ (the map data)
+  map/            Map format, map builder (incl. baked lighting), 3D detail (bricks, panels,
+                  crates, barriers), and maps/ (the map data)
   render/         Graphics quality, shader tweaks, and the bloom/reflection pipeline
   effects/        Tracers, sparks, bullet holes, muzzle flashes
   audio/          Sound engine and generated sound effects
   ui/             HUD, minimap, menus (title screen, main menu, setup, pause, settings,
                   end screen), the animated menu background (MenuBackdrop), styles
-  assets/         Textures and models (made in code; swap in real files here)
+  assets/         Textures and models (made in code); models/ is where custom .glb files go
   entities/       Practice dummies (optional, per map)
 ```
 

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { getMaterial, getTileSize } from '../assets/materials';
+import { getMaterial, getTileSize, type SurfaceId } from '../assets/materials';
 import { CollisionWorld } from '../core/CollisionWorld';
 import { currentQuality } from '../render/quality';
+import { barrierCollision, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, relief } from './details';
 import type { LampDef, MapDef, MaterialId } from './MapTypes';
 
 export interface BuiltMap {
@@ -27,7 +28,14 @@ const LAMP_STRENGTH = 0.75;
  * Baking takes a moment, so results are kept per map and reused (by the
  * menu background and every later match on the same map).
  */
-const bakeCache = new Map<string, { geos: Map<MaterialId, THREE.BufferGeometry>; bounds: THREE.Box3 }>();
+const bakeCache = new Map<string, { geos: { mat: SurfaceId; geo: THREE.BufferGeometry }[]; bounds: THREE.Box3 }>();
+
+/** Detail surfaces with lots of vertices are merged per area (CELL m), so areas out of view are skipped. */
+const CHUNKED = new Set<SurfaceId>(['brick', 'panel']);
+const CELL = 14;
+
+/** Detail parts that are too small/thin to be worth drawing into the shadow map. */
+const NO_SHADOW = new Set<SurfaceId>(['brick', 'panel', 'crateFrame']);
 
 type V3 = [number, number, number];
 interface Quad {
@@ -46,10 +54,29 @@ export function buildMap(def: MapDef, scene: THREE.Scene): BuiltMap {
   const world = new CollisionWorld();
   const bounds = new THREE.Box3();
   const quads: Quad[] = [];
+  /** Extra detail models (crate frames, barriers), baked like the surfaces. */
+  const props: { geo: THREE.BufferGeometry; material: SurfaceId }[] = [];
+  const detail = quality.mapDetail;
+
+  // The arena's footprint: faces looking out of it can never be seen.
+  const foot = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
+  for (const b of def.boxes) {
+    foot.x0 = Math.min(foot.x0, b.x - b.w / 2);
+    foot.x1 = Math.max(foot.x1, b.x + b.w / 2);
+    foot.z0 = Math.min(foot.z0, b.z - b.d / 2);
+    foot.z1 = Math.max(foot.z1, b.z + b.d / 2);
+  }
 
   // ---- Collect every surface as a 4-cornered face ---------------------------
   for (const b of def.boxes) {
+    if (b.material === 'trim') {
+      // Yellow barriers are jersey barriers: their own shape and collision.
+      for (const part of barrierCollision(b)) world.addBox(part);
+      for (const g of jerseyBarrier(b)) props.push({ geo: g, material: 'trim' });
+      continue;
+    }
     world.addBox(b);
+    if (b.material === 'crate') for (const g of crateFrame(b)) props.push({ geo: g, material: 'crateFrame' });
     const x0 = b.x - b.w / 2, x1 = b.x + b.w / 2, y0 = b.y, y1 = b.y + b.h, z0 = b.z - b.d / 2, z1 = b.z + b.d / 2;
     const mat = b.material ?? 'concrete';
     pushBoxQuads(quads, x0, x1, y0, y1, z0, z1, () => [y1, y1, y1, y1], mat, y0 <= 0.01);
@@ -65,36 +92,77 @@ export function buildMap(def: MapDef, scene: THREE.Scene): BuiltMap {
   // ---- Tessellate, bake, and group by material (or reuse an earlier bake) -----
   const lamps = def.lamps ?? [];
   const lampPos = lamps.map((l) => lightOrigin(l));
-  let baked = bakeCache.get(def.id);
+  const cacheKey = `${def.id}:${detail ? 'detail' : 'plain'}`;
+  let baked = bakeCache.get(cacheKey);
   if (!baked) {
-    const byMaterial = new Map<MaterialId, THREE.BufferGeometry[]>();
-    const aoDirs = hemisphereDirections(AO_RAYS);
-    for (const q of quads) {
-      if (!faceNormal(q.corners)) continue; // zero-area face (e.g. the thin end of a ramp)
-      const geo = tessellate(q.corners);
-      bake(geo, world, aoDirs, lamps, lampPos);
-      applyWorldUVs(geo, getTileSize(q.material));
-      if (!byMaterial.has(q.material)) byMaterial.set(q.material, []);
-      byMaterial.get(q.material)!.push(geo);
+    const byMaterial = new Map<SurfaceId, THREE.BufferGeometry[]>();
+    const put = (mat: SurfaceId, geo: THREE.BufferGeometry) => {
+      applyWorldUVs(geo, getTileSize(mat));
+      if (!byMaterial.has(mat)) byMaterial.set(mat, []);
+      byMaterial.get(mat)!.push(geo);
       geo.computeBoundingBox();
       bounds.union(geo.boundingBox!);
+    };
+    const covered = (x: number, y: number, z: number) => world.isInsideSolid(x, y, z, 0);
+    const aoDirs = hemisphereDirections(AO_RAYS);
+    for (const q of quads) {
+      const n = faceNormal(q.corners);
+      if (!n) continue; // zero-area face (e.g. the thin end of a ramp)
+      if (facesOutside(q.corners, n, foot)) continue; // back of the outer walls
+      const geo = tessellate(q.corners);
+      bake(geo, world, aoDirs, lamps, lampPos);
+      let mat: SurfaceId = q.material;
+      const wall = Math.abs(n.y) < 0.1;
+      if (detail && q.material === 'wall') {
+        // Real bricks on the sides, a concrete cap on top.
+        if (wall) {
+          for (const g of relief(q.corners, n, BRICKS, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv), covered)) put('brick', g);
+          mat = 'mortar';
+        } else mat = 'concrete';
+      } else if (!detail && q.material === 'concrete' && wall) {
+        mat = 'concreteWall';
+      } else if (detail && q.material === 'concrete' && wall) {
+        for (const g of relief(q.corners, n, CONCRETE_PANELS, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv), covered)) put('panel', g);
+        // The surface behind the panels only shows in the seams.
+        mat = 'seam';
+      }
+      put(mat, geo);
+    }
+    for (const p of props) {
+      bake(p.geo, world, aoDirs, lamps, lampPos, true);
+      put(p.material, p.geo);
     }
     // One mesh per material keeps draw calls low (good for frame rate).
-    const geos = new Map<MaterialId, THREE.BufferGeometry>();
-    for (const [mat, list] of byMaterial) {
-      const merged = mergeGeometries(list, false);
-      merged.userData.cached = true; // shared between matches: don't dispose
-      geos.set(mat, merged);
-      for (const g of list) g.dispose();
+    const geos: { mat: SurfaceId; geo: THREE.BufferGeometry }[] = [];
+    for (const [mat, pieces] of byMaterial) {
+      // Group by area (for big detail surfaces) or all together.
+      const groups = new Map<string, THREE.BufferGeometry[]>();
+      for (const g of pieces) {
+        const c = g.boundingBox!.getCenter(new THREE.Vector3());
+        const key = CHUNKED.has(mat) ? `${Math.floor(c.x / CELL)},${Math.floor(c.z / CELL)}` : 'all';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(g);
+      }
+      for (const all of groups.values()) {
+        // (Merging needs all pieces to be the same kind: indexed or not.)
+        const mixed = all.some((g) => !g.index) && all.some((g) => g.index);
+        const list = mixed ? all.map((g) => (g.index ? g.toNonIndexed() : g)) : all;
+        const merged = mergeGeometries(list, false);
+        merged.userData.cached = true; // shared between matches: don't dispose
+        merged.computeBoundingSphere();
+        geos.push({ mat, geo: merged });
+        for (const g of all) g.dispose();
+        for (const g of list) g.dispose();
+      }
     }
-    bakeCache.set(def.id, (baked = { geos, bounds: bounds.clone() }));
+    bakeCache.set(cacheKey, (baked = { geos, bounds: bounds.clone() }));
   }
   bounds.copy(baked.bounds);
 
-  for (const [mat, geo] of baked.geos) {
+  for (const { mat, geo } of baked.geos) {
     const mesh = new THREE.Mesh(geo, getMaterial(mat, quality.materials));
-    // Thin decorative trim doesn't need to cast shadows (one less thing to draw into the shadow map).
-    mesh.castShadow = mat !== 'trim';
+    // Small surface detail doesn't need to cast shadows (less to draw into the shadow map).
+    mesh.castShadow = !NO_SHADOW.has(mat);
     mesh.receiveShadow = true;
     mesh.name = `map-${mat}`;
     mesh.userData.mapSurface = mat;
@@ -146,6 +214,14 @@ function pushBoxQuads(
   out.push({ corners: [c.b10, c.u10, c.u11, c.b11], material }); // +x
 }
 
+/** Does this face look out of the arena (e.g. the back of an outer wall)? */
+function facesOutside(c: [V3, V3, V3, V3], n: THREE.Vector3, foot: { x0: number; x1: number; z0: number; z1: number }): boolean {
+  if (Math.abs(n.y) > 0.5) return false;
+  const cx = (c[0][0] + c[2][0]) / 2 + n.x * 0.6;
+  const cz = (c[0][2] + c[2][2]) / 2 + n.z * 0.6;
+  return cx < foot.x0 || cx > foot.x1 || cz < foot.z0 || cz > foot.z1;
+}
+
 /** Split a face into a grid of roughly BAKE_CELL-sized tiles. */
 function tessellate([a, b, c, d]: [V3, V3, V3, V3]): THREE.BufferGeometry {
   const len = (p: V3, q: V3) => Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
@@ -172,6 +248,8 @@ function tessellate([a, b, c, d]: [V3, V3, V3, V3]): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setIndex(idx);
+  geo.userData.nu = nu;
+  geo.userData.nv = nv;
   // Flat face normal (from the diagonals, which also works for faces that taper to a point).
   const n = faceNormal([a, b, c, d])!;
   const normals = new Float32Array((pos.length / 3) * 3);
@@ -222,7 +300,11 @@ function lightOrigin(l: LampDef): V3 {
  * - color = ambient occlusion (how open the spot is: corners and contact spots get darker)
  * - aLight = light from lamps (with walls blocking it)
  */
-function bake(geo: THREE.BufferGeometry, world: CollisionWorld, dirs: THREE.Vector3[], lamps: LampDef[], lampPos: V3[]): void {
+function bake(
+  geo: THREE.BufferGeometry, world: CollisionWorld, dirs: THREE.Vector3[], lamps: LampDef[], lampPos: V3[],
+  /** For detail models that don't match the collision boxes exactly: step out of solid areas. */
+  pushOut = false,
+): void {
   const pos = geo.getAttribute('position');
   const nrm = geo.getAttribute('normal');
   const colors = new Float32Array(pos.count * 3);
@@ -232,7 +314,14 @@ function bake(geo: THREE.BufferGeometry, world: CollisionWorld, dirs: THREE.Vect
 
   for (let i = 0; i < pos.count; i++) {
     n.set(nrm.getX(i), nrm.getY(i), nrm.getZ(i));
-    const px = pos.getX(i) + n.x * 0.03, py = pos.getY(i) + n.y * 0.03, pz = pos.getZ(i) + n.z * 0.03;
+    let off = 0.03;
+    let px = pos.getX(i) + n.x * off, py = pos.getY(i) + n.y * off, pz = pos.getZ(i) + n.z * off;
+    while (pushOut && off < 0.4 && world.isInsideSolid(px, py, pz, -0.005)) {
+      off += 0.08;
+      px = pos.getX(i) + n.x * off;
+      py = pos.getY(i) + n.y * off;
+      pz = pos.getZ(i) + n.z * off;
+    }
 
     // A corner buried inside another box (e.g. floor under a wall) is fully
     // dark; blending toward it gives a soft contact shadow at the wall base.

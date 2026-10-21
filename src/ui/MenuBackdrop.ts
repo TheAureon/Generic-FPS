@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { createCharacterModel, type CharacterModel } from '../assets/characterModel';
-import { mergeMeshes } from '../assets/mergeMeshes';
-import { createWeaponModel } from '../assets/weaponModels';
-import { CharacterAnimator, RIFLE_GRIPS } from '../bots/CharacterAnimator';
+import { createWorldWeaponModel } from '../assets/weaponModels';
+import { CharacterAnimator, gunGrips } from '../bots/CharacterAnimator';
 import { buildMap } from '../map/MapBuilder';
 import type { MapDef } from '../map/MapTypes';
 
@@ -91,15 +90,14 @@ export class MenuBackdrop {
     ];
     for (const [x, y, z, yaw] of posts) {
       const model = createCharacterModel(0xb8402f, 0x3f444c);
-      const gun = createWeaponModel('rifle');
-      mergeMeshes(gun, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }));
+      const gun = createWorldWeaponModel('rifle');
       gun.scale.setScalar(1.1);
       model.hand.add(gun);
       model.root.position.set(x, y, z);
       model.root.rotation.y = yaw;
       built.sampleLampLight(new THREE.Vector3(x, y + 1.2, z), model.material.lampLight);
       this.scene.add(model.root);
-      this.guards.push({ model, anim: new CharacterAnimator(model, gun, RIFLE_GRIPS), baseYaw: yaw, phase: Math.random() * 10 });
+      this.guards.push({ model, anim: new CharacterAnimator(model, gun, gunGrips(gun)), baseYaw: yaw, phase: Math.random() * 10 });
     }
   }
 
@@ -144,9 +142,10 @@ export class MenuBackdrop {
     const a = t * 0.045 + 0.6;
     // Title: camera low and looking slightly up, so the logo sits over the sky
     // and the arena fills the bottom of the screen.
-    const radius = THREE.MathUtils.lerp(30, 30, m);
+    // (Stays inside the outer walls: their outsides aren't drawn.)
+    const radius = 28.5;
     const height = THREE.MathUtils.lerp(5.5, 11, m) + Math.sin(t * 0.37) * 0.4;
-    camera.position.set(Math.sin(a) * radius, height, Math.cos(a) * radius * 0.8);
+    camera.position.set(Math.sin(a) * radius, height, Math.cos(a) * radius * 0.73);
     camera.lookAt(Math.sin(t * 0.21) * 1.5, THREE.MathUtils.lerp(10.5, 1.5, m), 0);
     const fov = THREE.MathUtils.lerp(52, 60, m);
     if (Math.abs(camera.fov - fov) > 0.01) {

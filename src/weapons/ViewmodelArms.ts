@@ -1,92 +1,72 @@
 import * as THREE from 'three';
+import { markerPosition } from '../assets/weaponModels';
 import type { WeaponId } from '../config';
+import {
+  BOLT, BOLT_KNOB, ELBOWS, HANDS, RELOADS, SPOT_OFFSETS, smoothstep, window01,
+  type HandPoints, type KeyTable, type Spot,
+} from './animations';
 
 /**
  * Your arms in first person: simple box sleeves with gloves, holding the gun.
  * Each frame the hands are placed on the gun's grip points, so they follow
- * every bob, sway and recoil. During reloads the left hand acts out the
- * reload (swap the magazine, or load shells one by one).
+ * every bob, sway and recoil. During reloads the left hand plays the reload
+ * keyframes from animations.ts, and the gun's moving parts (magazine, slide,
+ * pump, bolt) move with it.
  */
-
-interface HandPoints {
-  /** Right hand on the pistol grip, left hand on the front (gun coordinates). */
-  right: THREE.Vector3;
-  left: THREE.Vector3;
-  /** Where the left hand grabs the magazine / pushes shells in. */
-  reload: THREE.Vector3;
-  /** Pistol: where the left hand grabs the back of the slide to rack it. */
-  slide?: THREE.Vector3;
-}
-
-const HANDS: Record<WeaponId, HandPoints> = {
-  pistol: { right: v(0, -0.055, 0.05), left: v(-0.03, -0.07, 0.03), reload: v(0, -0.125, 0.06), slide: v(-0.03, 0.035, 0.075) },
-  rifle: { right: v(0, -0.08, 0.1), left: v(0, -0.045, -0.25), reload: v(0, -0.15, -0.075) },
-  shotgun: { right: v(0, -0.08, 0.1), left: v(0, -0.05, -0.3), reload: v(0, -0.05, -0.06) },
-  sniper: { right: v(0, -0.085, 0.12), left: v(0, -0.03, -0.2), reload: v(0, -0.09, -0.03) },
-};
-
-/** Where each elbow is, relative to its hand (camera space): arms come from the lower corners. */
-const RIGHT_ELBOW = v(0.15, -0.13, 0.26);
-const LEFT_ELBOW = v(-0.17, -0.17, 0.22);
-/** Left elbow while racking the pistol slide: out to the side, so the arm doesn't cover the gun. */
-const LEFT_ELBOW_RACK = v(-0.3, -0.1, 0.12);
-
-function v(x: number, y: number, z: number): THREE.Vector3 {
-  return new THREE.Vector3(x, y, z);
-}
-function smooth(t: number): number {
-  return t * t * (3 - 2 * t);
-}
-
-/** Keyframes for the left hand: [time 0..1, point name]. */
-type Spot = 'grip' | 'reload' | 'below' | 'away' | 'tap' | 'slide' | 'slideBack' | 'slideOff';
-const MAG_KEYS: [number, Spot][] = [
-  [0, 'grip'],
-  [0.16, 'reload'],
-  [0.24, 'reload'], // grab the magazine
-  [0.42, 'away'], // pull it out and drop it out of view
-  [0.55, 'away'], // (grab a fresh one)
-  [0.7, 'below'],
-  [0.76, 'reload'], // push it in
-  [0.82, 'tap'], // slap it home
-  [0.86, 'reload'],
-  [1, 'grip'],
-];
-/** Pistol: a quicker magazine swap, then rack the slide to chamber a round. */
-const PISTOL_KEYS: [number, Spot][] = [
-  [0, 'grip'],
-  [0.12, 'reload'],
-  [0.18, 'reload'], // grab the magazine
-  [0.32, 'away'],
-  [0.42, 'away'],
-  [0.54, 'below'],
-  [0.6, 'reload'], // push it in
-  [0.65, 'tap'],
-  [0.68, 'reload'],
-  [0.78, 'slide'], // grab the back of the slide
-  [0.86, 'slideBack'], // pull it back...
-  [0.9, 'slideOff'], // ...and let go: it snaps forward
-  [1, 'grip'],
-];
-/** When the slide is pulled back and released (fractions of the pistol reload). */
-const SLIDE_GRAB = 0.78, SLIDE_RELEASE = 0.86, SLIDE_TRAVEL = 0.04;
-const SHELL_KEYS: [number, Spot][] = [
-  [0, 'grip'],
-  [0.25, 'away'], // fetch a shell
-  [0.5, 'below'],
-  [0.68, 'reload'], // push it into the loading port
-  [0.78, 'reload'],
-  [1, 'grip'],
-];
 
 const NO_BOLT = { reach: 0, lift: 0, back: 0 };
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _dir = new THREE.Vector3();
-const _q = new THREE.Quaternion();
 const _inv = new THREE.Matrix4();
 const _elbow = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const v0 = new THREE.Vector3();
 const Z = new THREE.Vector3(0, 0, 1);
+
+/**
+ * A movable part of the gun (magazine, slide, pump, bolt). Moves are given in
+ * the gun's own coordinates, so this works however deep the part sits inside
+ * a loaded model.
+ */
+class MovingPart {
+  private homePos: THREE.Vector3;
+  private homeQuat: THREE.Quaternion;
+  /** Part's parent → gun coordinates, and back. */
+  private toGun = new THREE.Matrix4();
+  private fromGun = new THREE.Matrix4();
+  private homeInGun = new THREE.Vector3();
+  private zAxis = new THREE.Vector3();
+
+  constructor(readonly node: THREE.Object3D, gun: THREE.Object3D) {
+    this.homePos = node.position.clone();
+    this.homeQuat = node.quaternion.clone();
+    gun.updateMatrixWorld(true);
+    this.toGun.copy(gun.matrixWorld).invert().multiply(node.parent!.matrixWorld);
+    this.fromGun.copy(this.toGun).invert();
+    this.homeInGun.copy(this.homePos).applyMatrix4(this.toGun);
+    // The gun's Z axis, seen from the part's parent (for turning the bolt).
+    this.zAxis.set(0, 0, 1).transformDirection(this.fromGun);
+  }
+
+  /** Offset from home (gun coordinates), plus an optional turn around the gun's length. */
+  set(offset: THREE.Vector3, turn = 0): void {
+    this.node.position.copy(_b.copy(this.homeInGun).add(offset).applyMatrix4(this.fromGun));
+    if (turn) this.node.quaternion.copy(_q.setFromAxisAngle(this.zAxis, turn)).multiply(this.homeQuat);
+    else this.node.quaternion.copy(this.homeQuat);
+  }
+
+  reset(): void {
+    this.node.position.copy(this.homePos);
+    this.node.quaternion.copy(this.homeQuat);
+  }
+
+  /** Where a point given in the part's own coordinates is, in gun coordinates. */
+  pointInGun(local: THREE.Vector3, out: THREE.Vector3): THREE.Vector3 {
+    this.node.updateMatrix();
+    return out.copy(local).applyMatrix4(this.node.matrix).applyMatrix4(this.toGun);
+  }
+}
 
 export class ViewmodelArms {
   readonly right: THREE.Group;
@@ -96,15 +76,13 @@ export class ViewmodelArms {
   private leftPos = new THREE.Vector3();
   private leftLocal = new THREE.Vector3();
   private leftInit = false;
-  private mag: THREE.Object3D | null = null;
-  private magHome = new THREE.Vector3();
-  private pump: THREE.Object3D | null = null;
-  private pumpHome = 0;
-  private slide: THREE.Object3D | null = null;
-  private slideHome = 0;
-  private bolt: THREE.Object3D | null = null;
-  private boltHome = 0;
   private weapon: WeaponId = 'pistol';
+  /** This gun's hand points (defaults, or markers from a custom model). */
+  private hands: HandPoints = HANDS.pistol;
+  private mag: MovingPart | null = null;
+  private slide: MovingPart | null = null;
+  private pump: MovingPart | null = null;
+  private bolt: MovingPart | null = null;
 
   constructor(parent: THREE.Object3D) {
     const sleeve = new THREE.MeshStandardMaterial({ color: 0x4a5040, roughness: 0.9 });
@@ -125,20 +103,26 @@ export class ViewmodelArms {
   }
 
   setWeapon(id: WeaponId, model: THREE.Object3D): void {
-    if (this.mag) this.mag.position.copy(this.magHome);
+    for (const p of [this.mag, this.slide, this.pump, this.bolt]) p?.reset();
     this.weapon = id;
-    this.mag = model.getObjectByName('mag') ?? null;
-    if (this.mag) this.magHome.copy(this.mag.position);
-    if (this.pump) this.pump.position.z = this.pumpHome;
-    this.pump = model.getObjectByName('pump') ?? null;
-    if (this.pump) this.pumpHome = this.pump.position.z;
-    if (this.slide) this.slide.position.z = this.slideHome;
-    this.slide = model.getObjectByName('slide') ?? null;
-    if (this.slide) this.slideHome = this.slide.position.z;
-    if (this.bolt) this.bolt.position.z = this.boltHome;
-    if (this.bolt) this.bolt.rotation.z = 0;
-    this.bolt = model.getObjectByName('bolt') ?? null;
-    if (this.bolt) this.boltHome = this.bolt.position.z;
+    const part = (name: string) => {
+      const node = model.getObjectByName(name);
+      return node && node !== model ? new MovingPart(node, model) : null;
+    };
+    this.mag = part('mag');
+    this.slide = part('slide');
+    this.pump = part('pump');
+    this.bolt = part('bolt');
+
+    // Hand points: a custom model's markers win over the defaults.
+    const d = HANDS[id];
+    const marker = (name: string, fallback: THREE.Vector3 | undefined) => markerPosition(model, name) ?? fallback?.clone();
+    this.hands = {
+      right: marker('grip_right', d.right)!,
+      left: marker('grip_left', d.left)!,
+      reload: marker('grip_reload', d.reload)!,
+      slide: marker('grip_slide', d.slide),
+    };
     this.leftInit = false;
   }
 
@@ -150,39 +134,29 @@ export class ViewmodelArms {
    * the grip to the bolt (0..1), how far the bolt is turned up (0..1), and how
    * far it's pulled back (meters).
    */
-  update(dt: number, model: THREE.Object3D, reload: number, perShell: boolean, pump = 0, bolt = NO_BOLT): void {
-    const hands = HANDS[this.weapon];
+  update(dt: number, model: THREE.Object3D, reload: number, pump = 0, bolt = NO_BOLT): void {
+    const hands = this.hands;
+    const anim = RELOADS[this.weapon];
     model.updateMatrix();
     const m = model.matrix;
 
     // Right hand: on the grip, or working the bolt.
     _a.copy(hands.right);
     if (this.bolt) {
-      this.bolt.rotation.z = bolt.lift * 1.25;
-      this.bolt.position.z = this.boltHome + bolt.back;
-      if (bolt.reach > 0) {
-        // The knob, in gun coordinates (follows the bolt as it turns and slides).
-        this.bolt.updateMatrix();
-        _b.set(0.065, -0.012, 0.005).applyMatrix4(this.bolt.matrix);
-        _a.lerp(_b, bolt.reach);
-      }
+      this.bolt.set(v0.set(0, 0, bolt.back), bolt.lift * BOLT.liftAngle);
+      if (bolt.reach > 0) _a.lerp(this.bolt.pointInGun(BOLT_KNOB, _b), bolt.reach);
     }
     _a.applyMatrix4(m);
-    this.place(this.right, _a, RIGHT_ELBOW);
+    this.place(this.right, _a, ELBOWS.right);
 
-    // Left hand: on the front grip, or doing the reload.
-    if (this.pump) this.pump.position.z = this.pumpHome + pump;
+    // Left hand: on the front grip (riding the pump), or doing the reload.
+    this.pump?.set(v0.set(0, 0, pump));
     let target = _b.copy(hands.left).setZ(hands.left.z + pump).applyMatrix4(m);
-    let holding = false;
-    if (reload >= 0) {
-      const pistol = !!hands.slide;
-      const keys = perShell ? SHELL_KEYS : pistol ? PISTOL_KEYS : MAG_KEYS;
-      target = this.keyframe(keys, reload, hands, m, _b);
-      holding = perShell ? reload > 0.22 && reload < 0.7 : pistol ? reload > 0.18 && reload < 0.6 : reload > 0.24 && reload < 0.76;
-      this.shell.visible = perShell && holding;
-    } else {
-      this.shell.visible = false;
-    }
+    const inside = (w?: [number, number]) => !!w && reload >= w[0] && reload <= w[1];
+    const holdingMag = reload >= 0 && inside(anim.holdMag);
+    this.shell.visible = reload >= 0 && inside(anim.holdShell);
+    if (reload >= 0) target = this.keyframe(anim.keys, reload, m, _b);
+
     // Follow the target quickly but smoothly (no pops when a reload starts or
     // is cancelled). Smoothed in the gun's own coordinates, so the hand stays
     // glued to the gun when it kicks or sways.
@@ -195,60 +169,55 @@ export class ViewmodelArms {
       this.leftLocal.lerp(target, 1 - Math.exp(-dt * 30));
     }
     this.leftPos.copy(this.leftLocal).applyMatrix4(m);
-    const racking = hands.slide && reload >= 0 ? smooth(Math.min(1, Math.max(0, (reload - 0.68) / 0.1))) * (1 - smooth(Math.min(1, Math.max(0, (reload - 0.9) / 0.1)))) : 0;
-    this.place(this.left, this.leftPos, racking > 0 ? _elbow.lerpVectors(LEFT_ELBOW, LEFT_ELBOW_RACK, racking) : LEFT_ELBOW);
+    const sl = anim.slide;
+    const racking = sl && reload >= 0 ? window01(reload, sl.poseIn, sl.poseOut) : 0;
+    this.place(this.left, this.leftPos, racking > 0 ? _elbow.lerpVectors(ELBOWS.left, ELBOWS.leftRacking, racking) : ELBOWS.left);
 
     // Pistol slide: follows the hand back, then snaps forward when let go.
-    if (this.slide) {
+    if (this.slide && sl) {
       let back = 0;
-      if (reload > SLIDE_GRAB && reload < SLIDE_RELEASE) back = smooth((reload - SLIDE_GRAB) / (SLIDE_RELEASE - SLIDE_GRAB));
-      else if (reload >= SLIDE_RELEASE && reload < SLIDE_RELEASE + 0.025) back = 1 - (reload - SLIDE_RELEASE) / 0.025;
-      this.slide.position.z = this.slideHome + back * SLIDE_TRAVEL;
+      if (reload > sl.grab && reload < sl.release) back = smoothstep((reload - sl.grab) / (sl.release - sl.grab));
+      else if (reload >= sl.release && reload < sl.release + sl.snap) back = 1 - (reload - sl.release) / sl.snap;
+      this.slide.set(v0.set(0, 0, back * sl.travel));
     }
 
     // The magazine travels with the hand while it's out of the gun.
     if (this.mag) {
-      this.mag.position.copy(this.magHome);
-      if (holding && !perShell) {
-        // Hand offset from the grab point, turned into the gun's own coordinates.
-        _a.copy(hands.reload).applyMatrix4(m);
-        _dir.subVectors(this.leftPos, _a).applyQuaternion(_q.copy(model.quaternion).invert());
-        this.mag.position.add(_dir);
-      }
+      if (holdingMag) this.mag.set(_dir.copy(this.leftLocal).sub(hands.reload));
+      else this.mag.reset();
     }
   }
 
-  private keyframe(keys: [number, Spot][], t: number, hands: HandPoints, m: THREE.Matrix4, out: THREE.Vector3): THREE.Vector3 {
+  /** The left hand's target at time t of a reload (camera coordinates). */
+  private keyframe(keys: KeyTable, t: number, m: THREE.Matrix4, out: THREE.Vector3): THREE.Vector3 {
     let i = 0;
     while (i < keys.length - 2 && t > keys[i + 1][0]) i++;
     const [t0, s0] = keys[i];
     const [t1, s1] = keys[i + 1];
-    const k = smooth(Math.min(1, Math.max(0, (t - t0) / (t1 - t0))));
-    this.spot(s0, hands, m, out);
-    this.spot(s1, hands, m, _dir);
+    const k = smoothstep((t - t0) / (t1 - t0));
+    this.spot(s0, m, out);
+    this.spot(s1, m, _dir);
     return out.lerp(_dir, k);
   }
 
-  private spot(s: Spot, hands: HandPoints, m: THREE.Matrix4, out: THREE.Vector3): THREE.Vector3 {
+  private spot(s: Spot, m: THREE.Matrix4, out: THREE.Vector3): THREE.Vector3 {
+    const h = this.hands;
+    const travel = RELOADS[this.weapon].slide?.travel ?? 0;
     switch (s) {
       case 'grip':
-        return out.copy(hands.left).applyMatrix4(m);
+        return out.copy(h.left).applyMatrix4(m);
       case 'slide':
-        return out.copy(hands.slide ?? hands.left).applyMatrix4(m);
+        return out.copy(h.slide ?? h.left).applyMatrix4(m);
       case 'slideBack':
-        return out.copy(hands.slide ?? hands.left).setZ((hands.slide?.z ?? 0) + SLIDE_TRAVEL).applyMatrix4(m);
+        return out.copy(h.slide ?? h.left).add(v0.set(0, 0, travel)).applyMatrix4(m);
       case 'slideOff':
-        // Let go: the hand flicks up and back off the slide.
-        return out.copy(hands.slide ?? hands.left).add(v0.set(-0.05, 0.015, 0.07)).applyMatrix4(m);
+        return out.copy(h.slide ?? h.left).add(SPOT_OFFSETS.slideOff).applyMatrix4(m);
       case 'reload':
-        return out.copy(hands.reload).applyMatrix4(m);
+        return out.copy(h.reload).applyMatrix4(m);
       case 'below':
-        return out.copy(hands.reload).applyMatrix4(m).add(v0.set(0, -0.06, 0.01));
       case 'tap':
-        return out.copy(hands.reload).applyMatrix4(m).add(v0.set(0, 0.015, 0));
       case 'away':
-        // Down and out of view.
-        return out.copy(hands.reload).applyMatrix4(m).add(v0.set(-0.06, -0.32, 0.08));
+        return out.copy(h.reload).applyMatrix4(m).add(SPOT_OFFSETS[s]);
     }
   }
 
@@ -258,8 +227,6 @@ export class ViewmodelArms {
     arm.quaternion.setFromUnitVectors(Z, _dir.copy(elbowOffset).normalize());
   }
 }
-
-const v0 = new THREE.Vector3();
 
 /** One arm: glove at the origin, sleeve running back along +Z. */
 function makeArm(sleeve: THREE.Material, cuff: THREE.Material, glove: THREE.Material): THREE.Group {

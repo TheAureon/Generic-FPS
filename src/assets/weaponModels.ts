@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import type { WeaponId } from '../config';
+import { customWeaponModel } from './customModels';
+import { mergeMeshes } from './mergeMeshes';
 
 /**
  * Low-poly gun models built from boxes and cylinders.
  * Convention: the gun points down -Z, and has a child object named 'muzzle'
  * at the tip of the barrel (used for muzzle flash and tracers).
  *
- * To use a real 3D model later, load it with GLTFLoader in `createWeaponModel`
- * and add an empty object named 'muzzle' at its barrel tip.
+ * Real 3D models: put a .glb file in src/assets/models/weapons/ (see the
+ * README there) and it's used instead of these, automatically.
  */
 
 const mats = {
@@ -138,8 +140,28 @@ const builders: Record<WeaponId, () => THREE.Group> = {
   },
 };
 
+/** A gun model: the custom model file if there is one, otherwise the built-in one. */
 export function createWeaponModel(id: WeaponId): THREE.Group {
-  const g = builders[id]();
+  const g = customWeaponModel(id) ?? builders[id]();
   g.name = `weapon:${id}`;
   return g;
+}
+
+/**
+ * A gun for characters in the world (bots, menu background). Built-in guns
+ * are merged into one mesh (cheaper to draw); custom models are used as-is
+ * so they keep their textures.
+ */
+export function createWorldWeaponModel(id: WeaponId): THREE.Group {
+  const g = createWeaponModel(id);
+  if (!g.userData.custom) mergeMeshes(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }));
+  return g;
+}
+
+/** Where a named marker inside a gun model is, in the gun's own coordinates (or null). */
+export function markerPosition(model: THREE.Object3D, name: string): THREE.Vector3 | null {
+  const node = model.getObjectByName(name);
+  if (!node || node === model) return null;
+  model.updateMatrixWorld(true);
+  return node.getWorldPosition(new THREE.Vector3()).applyMatrix4(new THREE.Matrix4().copy(model.matrixWorld).invert());
 }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SKELETON, type CharacterModel } from '../assets/characterModel';
+import { markerPosition } from '../assets/weaponModels';
 
 /**
  * Brings the character's skeleton to life, all in code (no animation files):
@@ -392,9 +393,18 @@ export class CharacterAnimator {
   }
 }
 
-/** Grip points for a gun model built by weaponModels (gun-local coordinates). */
+/** Grip points for the built-in rifle model (gun-local coordinates). */
 export const RIFLE_GRIPS: GunGrips = {
   right: new THREE.Vector3(0, -0.075, 0.1),
   left: new THREE.Vector3(0, -0.035, -0.19),
   mag: new THREE.Vector3(0, -0.15, -0.07),
 };
+
+/** A gun's grip points: from a custom model's markers if it has them, else the rifle's. */
+export function gunGrips(gun: THREE.Object3D): GunGrips {
+  return {
+    right: markerPosition(gun, 'grip_right') ?? RIFLE_GRIPS.right.clone(),
+    left: markerPosition(gun, 'grip_left') ?? RIFLE_GRIPS.left.clone(),
+    mag: markerPosition(gun, 'grip_reload') ?? RIFLE_GRIPS.mag.clone(),
+  };
+}

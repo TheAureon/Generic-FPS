@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { WEAPONS, type WeaponId } from '../config';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { getFlashTexture } from '../assets/textures';
-import { createWeaponModel } from '../assets/weaponModels';
+import { createWeaponModel, markerPosition } from '../assets/weaponModels';
+import { AIM_POSE, BOLT, EJECT_PORT, HIP_POSE, PUMP, RELOADS, SIGHT_DISTANCE, smoothstep, window01 } from './animations';
 import { ViewmodelArms } from './ViewmodelArms';
 
 /**
@@ -10,23 +11,6 @@ import { ViewmodelArms } from './ViewmodelArms';
  * own camera and is drawn on top of the world, so it never clips into walls
  * and isn't affected by your field-of-view setting.
  */
-
-/** Where the gun sits when aiming down sights, per weapon (so the sights line up with the screen center). */
-const AIM_POSE: Record<WeaponId, THREE.Vector3> = {
-  pistol: new THREE.Vector3(0, -0.053, -0.27),
-  rifle: new THREE.Vector3(0, -0.0775, -0.24),
-  shotgun: new THREE.Vector3(0, -0.041, -0.38),
-  sniper: new THREE.Vector3(0, -0.085, -0.12),
-};
-const HIP_POSE = new THREE.Vector3(0.14, -0.12, -0.43);
-
-/** Where spent shells pop out of each gun (in the gun's own coordinates). */
-const EJECT_PORT: Record<WeaponId, THREE.Vector3> = {
-  pistol: new THREE.Vector3(0.02, 0.045, -0.03),
-  rifle: new THREE.Vector3(0.03, 0.025, -0.03),
-  shotgun: new THREE.Vector3(0.03, 0.02, 0.0),
-  sniper: new THREE.Vector3(0.03, 0.025, 0.06),
-};
 
 interface Casing {
   mesh: THREE.Mesh;
@@ -49,8 +33,6 @@ export interface ViewmodelState {
   lowered: number;
   /** 0..1 through the current reload (or current shell), -1 if not reloading. */
   reloadProgress: number;
-  /** Shotgun-style: shells loaded one at a time. */
-  perShell: boolean;
   onGround: boolean;
 }
 
@@ -61,6 +43,9 @@ export class Viewmodel {
   private rig = new THREE.Group();
   private models = new Map<WeaponId, THREE.Group>();
   private flashes = new Map<WeaponId, THREE.Object3D>();
+  /** Per gun: aiming position and shell ejection point (from defaults or a custom model's markers). */
+  private aimPose = new Map<WeaponId, THREE.Vector3>();
+  private ejectPort = new Map<WeaponId, THREE.Vector3>();
   private current: WeaponId = 'pistol';
 
   private kickBack = 0;
@@ -102,6 +87,10 @@ export class Viewmodel {
       });
       this.rig.add(model);
       this.models.set(id, model);
+      // A custom model can mark its sight and ejection port.
+      const sight = markerPosition(model, 'sight');
+      this.aimPose.set(id, sight ? new THREE.Vector3(-sight.x, -sight.y, -SIGHT_DISTANCE - sight.z) : AIM_POSE[id].clone());
+      this.ejectPort.set(id, markerPosition(model, 'eject') ?? EJECT_PORT[id].clone());
 
       const flash = makeFlash(flashTex, id === 'shotgun' || id === 'sniper' ? 1.5 : 1);
       model.getObjectByName('muzzle')!.add(flash);
@@ -129,7 +118,7 @@ export class Viewmodel {
     const model = this.models.get(this.current)!;
     model.updateMatrixWorld(true);
     // The camera sits at the origin of this little scene, so world = camera space.
-    c.mesh.position.copy(EJECT_PORT[this.current]).applyMatrix4(model.matrixWorld);
+    c.mesh.position.copy(this.ejectPort.get(this.current)!).applyMatrix4(model.matrixWorld);
     c.mesh.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
     const shotgun = this.current === 'shotgun';
     c.mesh.scale.set(shotgun ? 2.2 : 1, shotgun ? 2 : 1, shotgun ? 2.2 : 1);
@@ -225,25 +214,25 @@ export class Viewmodel {
     const breathe = Math.sin(this.time * 1.6) * 0.002 * (1 - s.ads);
 
     this.reloadBlend += ((s.reloadProgress >= 0 ? 1 : 0) - this.reloadBlend) * Math.min(1, dt * 10);
-    // Magazine reloads tilt the gun to show the magazine well; shell loading tilts it less.
-    const rl = this.reloadBlend * (s.perShell ? 0.6 : 1);
+    // Reloads tilt the gun to show the magazine well (shell loading tilts it less).
+    const anim = RELOADS[this.current];
+    const rl = this.reloadBlend * anim.tilt;
 
     // Shotgun pump: shortly after a shot, rack the pump back (spent shell pops
     // out) and push it forward again, well before the next shot is ready.
     const prevPumpT = this.pumpT;
     this.pumpT += dt;
-    const PUMP_START = 0.1, PUMP_BACK = 0.16, PUMP_FWD = 0.2;
-    const u = this.pumpT - PUMP_START;
+    const u = this.pumpT - PUMP.start;
     let rack = 0;
-    if (u > 0 && u < PUMP_BACK) rack = smoothstep(u / PUMP_BACK);
-    else if (u >= PUMP_BACK && u < PUMP_BACK + PUMP_FWD) rack = 1 - smoothstep((u - PUMP_BACK) / PUMP_FWD);
-    const pump = rack * 0.1;
+    if (u > 0 && u < PUMP.back) rack = smoothstep(u / PUMP.back);
+    else if (u >= PUMP.back && u < PUMP.back + PUMP.forward) rack = 1 - smoothstep((u - PUMP.back) / PUMP.forward);
+    const pump = rack * PUMP.travel;
 
     // Pistol reload ends with racking the slide: the gun is pushed out and
     // turned to show its left side, where the left hand grabs the slide.
     const rp = s.reloadProgress;
-    const slideRack = this.current === 'pistol' && rp >= 0 ? smoothstep(clamp01((rp - 0.68) / 0.1)) * (1 - smoothstep(clamp01((rp - 0.9) / 0.1))) : 0;
-    if (prevPumpT - PUMP_START < PUMP_BACK && u >= PUMP_BACK) this.ejectCasing();
+    const slideRack = anim.slide && rp >= 0 ? window01(rp, anim.slide.poseIn, anim.slide.poseOut) : 0;
+    if (prevPumpT - PUMP.start < PUMP.back && u >= PUMP.back) this.ejectCasing();
 
     // Sniper bolt action: right hand to the bolt, turn it up, pull it back
     // (the case flies out), push it forward, turn it down, hand back to the grip.
@@ -252,10 +241,10 @@ export class Viewmodel {
     const bk = boltKeys(this.boltT, this.bolt);
     if (prevBoltT < BOLT_EJECT && this.boltT >= BOLT_EJECT) this.ejectCasing();
     // A small jolt when the new magazine is slapped in.
-    const seat = s.reloadProgress >= 0 && !s.perShell ? Math.exp(-Math.pow((s.reloadProgress - 0.8) * 18, 2)) : 0;
+    const seat = rp >= 0 && anim.seatAt !== undefined ? Math.exp(-Math.pow((rp - anim.seatAt) * 18, 2)) : 0;
 
     // Blend hip -> aim pose.
-    const pos = model.position.lerpVectors(HIP_POSE, AIM_POSE[this.current], s.ads);
+    const pos = model.position.lerpVectors(HIP_POSE, this.aimPose.get(this.current)!, s.ads);
     // Reloading brings the gun in toward the middle, canted so you see the magazine.
     pos.x += bobX + this.swayX - rl * 0.06;
     pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 + rl * 0.045 + seat * 0.012 - s.sprint * 0.04;
@@ -273,7 +262,7 @@ export class Viewmodel {
       this.swayX * 2 + rl * 0.3 - slideRack * 1.1 + s.sprint * 0.6,
       rl * 0.6 + rack * 0.12 + bk * 0.4 - slideRack * 0.6 + s.sprint * 0.25,
     );
-    this.arms.update(dt, model, s.reloadProgress, s.perShell, pump, this.bolt);
+    this.arms.update(dt, model, s.reloadProgress, pump, this.bolt);
 
     for (const c of this.casings) {
       if (c.life <= 0) continue;
@@ -305,10 +294,9 @@ export class Viewmodel {
   }
 }
 
-/** Bolt action timeline (seconds after the shot); the case ejects at the back of the pull. */
-const BOLT = { start: 0.22, reach: 0.14, lift: 0.1, back: 0.13, fwd: 0.12, down: 0.09, ret: 0.16 };
+/** When the bolt is at the back of its pull (the case ejects then), and when it's all done. */
 const BOLT_EJECT = BOLT.start + BOLT.reach + BOLT.lift + BOLT.back;
-const BOLT_END = BOLT_EJECT + BOLT.fwd + BOLT.down + BOLT.ret;
+const BOLT_END = BOLT_EJECT + BOLT.forward + BOLT.down + BOLT.ret;
 
 /** Fills in the bolt pose for time `t`; returns how "busy" the hand is (0..1). */
 function boltKeys(t: number, out: { reach: number; lift: number; back: number }): number {
@@ -323,26 +311,18 @@ function boltKeys(t: number, out: { reach: number; lift: number; back: number })
   const reach = seg(BOLT.reach);
   const lift = seg(BOLT.lift);
   const back = seg(BOLT.back);
-  const fwd = seg(BOLT.fwd);
+  const fwd = seg(BOLT.forward);
   const down = seg(BOLT.down);
   const ret = seg(BOLT.ret);
   out.reach = reach * (1 - ret);
   out.lift = lift * (1 - down);
-  out.back = back * (1 - fwd) * 0.075;
+  out.back = back * (1 - fwd) * BOLT.travel;
   return out.reach;
 }
 
 /** True while the sniper's bolt is being worked (you can't use the scope then). */
 export function boltBusy(t: number): boolean {
   return t > BOLT.start && t < BOLT_END - BOLT.ret * 0.5;
-}
-
-function clamp01(t: number): number {
-  return Math.min(1, Math.max(0, t));
-}
-
-function smoothstep(t: number): number {
-  return t * t * (3 - 2 * t);
 }
 
 function makeFlash(tex: THREE.Texture, size: number): THREE.Object3D {

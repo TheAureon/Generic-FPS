@@ -3,8 +3,7 @@ import { BOT_DIFFICULTY, BOTS, type Difficulty } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
 import { createCharacterModel, type CharacterModel } from '../assets/characterModel';
-import { mergeMeshes } from '../assets/mergeMeshes';
-import { createWeaponModel } from '../assets/weaponModels';
+import { createWorldWeaponModel } from '../assets/weaponModels';
 import { CharacterBody } from '../core/CharacterBody';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import { CharacterHitbox, type Damageable, type DamageInfo } from '../core/Hitbox';
@@ -15,7 +14,7 @@ import type { Trackable } from '../player/Player';
 import { shotDamage, traceShot } from '../weapons/hitscan';
 import { Weapon } from '../weapons/Weapon';
 import { anglesTo, BotAim } from './BotAim';
-import { CharacterAnimator, RIFLE_GRIPS } from './CharacterAnimator';
+import { CharacterAnimator, gunGrips } from './CharacterAnimator';
 import { Perception } from './Perception';
 
 const DEG = Math.PI / 180;
@@ -92,13 +91,11 @@ export class Bot implements Damageable, Trackable {
     this.skill = BOT_DIFFICULTY[difficulty];
     this.body = new CharacterBody(ctx.world, BOTS.height, BOTS.radius, 0.45, 20);
     this.model = createCharacterModel(0xb8402f, 0x3f444c);
-    this.weaponModel = createWeaponModel(BOTS.weapon);
+    this.weaponModel = createWorldWeaponModel(BOTS.weapon);
     // Slightly oversized so it reads clearly at a distance.
     this.weaponModel.scale.setScalar(1.1);
-    // One mesh for the whole gun (cheaper to draw).
-    mergeMeshes(this.weaponModel, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }));
     this.model.hand.add(this.weaponModel);
-    this.anim = new CharacterAnimator(this.model, this.weaponModel, RIFLE_GRIPS);
+    this.anim = new CharacterAnimator(this.model, this.weaponModel, gunGrips(this.weaponModel));
     this.anim.onStep = (speed) => {
       if (speed > 1.5) audio.play('step', { position: this.position, volume: 0.5 + speed * 0.08 });
     };
