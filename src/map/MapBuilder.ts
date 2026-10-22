@@ -3,7 +3,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { getMaterial, getTileSize, type SurfaceId } from '../assets/materials';
 import { CollisionWorld } from '../core/CollisionWorld';
 import { currentQuality } from '../render/quality';
-import { barrierCollision, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, rampDetail, relief, stairSteps } from './details';
+import { barrierCollision, BOARDS, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, logRelief, rampDetail, relief, RUIN_STONES, stairSteps, STONE_BLOCKS } from './details';
+import { buildModel, type ModelPart } from './models';
 import { Sky } from '../render/Sky';
 import type { BoxDef, LampDef, MapDef, MaterialId, PropDef, SkyDef, TerrainDef } from './MapTypes';
 import { propFoliage, propGeometry, propRadius, propSolids } from './nature';
@@ -81,6 +82,8 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   const quads: Quad[] = [];
   /** Extra detail models (crate frames, barriers), baked like the surfaces. */
   const props: { geo: THREE.BufferGeometry; material: SurfaceId }[] = [];
+  /** Boxes drawn as detailed models (furniture, cars, statues...). */
+  const modelBoxes: BoxDef[] = [];
   const detail = quality.mapDetail;
 
   // The arena's footprint: faces looking out of it can never be seen.
@@ -123,6 +126,12 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   for (const b of def.boxes) {
     if (b.hidden) {
       world.addBox(b, true);
+      continue;
+    }
+    if (b.model) {
+      // Drawn as a model; the box is still the solid part.
+      if (!b.decor) world.addBox(b, b.material === 'glass');
+      modelBoxes.push(b);
       continue;
     }
     if (b.material === 'trim') {
@@ -184,6 +193,20 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
           for (const g of relief(q.corners, n, BRICKS, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv), covered)) put('brick', g);
           mat = 'mortar';
         } else mat = 'concrete';
+      } else if (detail && wall && q.material === 'stone') {
+        // Raised sandstone blocks with mortar joints.
+        for (const g of relief(q.corners, n, STONE_BLOCKS, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv), covered)) put('stone', g);
+        mat = 'mortar';
+      } else if (detail && wall && q.material === 'ruin') {
+        for (const g of relief(q.corners, n, RUIN_STONES, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv), covered)) put('ruin', g);
+        mat = 'seam';
+      } else if (detail && wall && (q.material === 'barnwood' || q.material === 'planks')) {
+        for (const g of relief(q.corners, n, BOARDS, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv), covered)) put(q.material, g);
+        mat = 'seam';
+      } else if (detail && wall && q.material === 'timber') {
+        // Round logs stacked up the wall (the flat wall behind only shows in the gaps).
+        for (const g of logRelief(q.corners, n, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv))) put('timber', g);
+        mat = 'seam';
       } else if (!detail && q.material === 'concrete' && wall) {
         mat = 'concreteWall';
       } else if (detail && q.material === 'concrete' && wall) {
@@ -196,6 +219,12 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     for (const p of props) {
       bake(p.geo, world, aoDirs, lamps, lampPos, true, indoor);
       put(p.material, p.geo);
+    }
+    for (const b of modelBoxes) {
+      const parts = buildModel(b);
+      if (!parts.length) continue;
+      bakeModelBox(parts, world, aoDirs, lamps, lampPos, indoor);
+      for (const part of parts) put(part.material, part.geo);
     }
     if (terrain) for (const [mat, geo] of buildTerrain(terrain, placed, world, aoDirs, lamps, lampPos, def.playArea)) put(mat, geo);
     for (const { p, y } of placed) {
@@ -592,6 +621,89 @@ function bake(
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.setAttribute('aLight', new THREE.BufferAttribute(light, 3));
+}
+
+/**
+ * Lighting for a model (much quicker than `bake`, since models have lots of
+ * small parts): light is measured at the 8 corners just outside the model's
+ * box (shading from nearby walls and floors, enclosure, lamps), then blended
+ * across the model, darker on faces turned down.
+ */
+function bakeModelBox(parts: ModelPart[], world: CollisionWorld, dirs: THREE.Vector3[], lamps: LampDef[], lampPos: V3[], indoor: number): void {
+  const bb = new THREE.Box3();
+  for (const p of parts) {
+    p.geo.computeBoundingBox();
+    bb.union(p.geo.boundingBox!);
+  }
+  const lampColors = lamps.map((l) => new THREE.Color(l.color));
+  const n = new THREE.Vector3(), t1 = new THREE.Vector3(), t2 = new THREE.Vector3(), d = new THREE.Vector3();
+  const aoDirs = dirs.filter((_, i) => i % 2 === 0), skyDirs = dirs.filter((_, i) => i % 4 === 0);
+  // Corner samples: [ao, r, g, b] for each corner (x0/x1, y0/y1, z0/z1).
+  const corners: number[][] = [];
+  for (let k = 0; k < 8; k++) {
+    const sx = k & 1 ? 1 : -1, sy = k & 2 ? 1 : -1, sz = k & 4 ? 1 : -1;
+    const px = sx > 0 ? bb.max.x + 0.05 : bb.min.x - 0.05;
+    const py = sy > 0 ? bb.max.y + 0.05 : bb.min.y + 0.06;
+    const pz = sz > 0 ? bb.max.z + 0.05 : bb.min.z - 0.05;
+    n.set(sx, sy > 0 ? 1 : 0.35, sz).normalize();
+    t1.set(Math.abs(n.y) < 0.9 ? 0 : 1, Math.abs(n.y) < 0.9 ? 1 : 0, 0).cross(n).normalize();
+    t2.crossVectors(n, t1);
+    let occ = 0;
+    for (const dir of aoDirs) {
+      d.copy(t1).multiplyScalar(dir.x).addScaledVector(t2, dir.y).addScaledVector(n, dir.z);
+      const hit = world.raycast(px, py, pz, d.x, d.y, d.z, AO_DISTANCE * 1.4);
+      if (hit) occ += 1 - hit.distance / (AO_DISTANCE * 1.4);
+    }
+    let ao = Math.max(0.4, 1 - (AO_STRENGTH * 0.8 * occ) / aoDirs.length);
+    if (indoor > 0) {
+      let blocked = 0;
+      for (const dir of skyDirs) {
+        d.copy(t1).multiplyScalar(dir.x).addScaledVector(t2, dir.y).addScaledVector(n, dir.z);
+        if (d.y < 0) d.y = -d.y * 0.3;
+        d.normalize();
+        if (world.raycast(px, py, pz, d.x, d.y, d.z, INDOOR_DISTANCE)) blocked++;
+      }
+      ao *= 1 - indoor * (blocked / skyDirs.length);
+    }
+    let r = 0, g = 0, b = 0;
+    lamps.forEach((l, i) => {
+      const o = lampPos[i];
+      const dist = Math.hypot(o[0] - px, o[1] - py, o[2] - pz);
+      if (dist >= l.range || !world.hasLineOfSight(px, py, pz, o[0], o[1], o[2])) return;
+      const a = falloff(dist, l.range) * l.intensity * LAMP_STRENGTH * 0.8;
+      r += lampColors[i].r * a;
+      g += lampColors[i].g * a;
+      b += lampColors[i].b * a;
+    });
+    corners.push([ao, r, g, b]);
+  }
+  const size = bb.getSize(new THREE.Vector3()).max(new THREE.Vector3(1e-3, 1e-3, 1e-3));
+  for (const part of parts) {
+    const geo = part.geo;
+    const pos = geo.getAttribute('position'), nrm = geo.getAttribute('normal');
+    const colors = new Float32Array(pos.count * 3), light = new Float32Array(pos.count * 3);
+    const [tr, tg, tb] = part.tint ?? [1, 1, 1];
+    for (let i = 0; i < pos.count; i++) {
+      const u = (pos.getX(i) - bb.min.x) / size.x, v = (pos.getY(i) - bb.min.y) / size.y, w = (pos.getZ(i) - bb.min.z) / size.z;
+      const v4 = [0, 0, 0, 0];
+      for (let k = 0; k < 8; k++) {
+        const f = (k & 1 ? u : 1 - u) * (k & 2 ? v : 1 - v) * (k & 4 ? w : 1 - w);
+        for (let c = 0; c < 4; c++) v4[c] += corners[k][c] * f;
+      }
+      // Faces turned down get less light; nearer the bottom a little darker still (contact shading).
+      const ny = nrm.getY(i);
+      const ao = v4[0] * (0.82 + 0.18 * (ny * 0.5 + 0.5)) * (0.9 + 0.1 * Math.min(1, v * 3));
+      colors[i * 3] = ao * tr;
+      colors[i * 3 + 1] = ao * tg;
+      colors[i * 3 + 2] = ao * tb;
+      const lit = 0.55 + 0.45 * Math.max(0, ny * 0.5 + 0.5);
+      light[i * 3] = v4[1] * lit;
+      light[i * 3 + 1] = v4[2] * lit;
+      light[i * 3 + 2] = v4[3] * lit;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('aLight', new THREE.BufferAttribute(light, 3));
+  }
 }
 
 /** The visible lamp fixtures: a dark housing with a glowing panel. */

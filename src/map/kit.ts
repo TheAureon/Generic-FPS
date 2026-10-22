@@ -49,6 +49,16 @@ export class MapKit {
     this.boxes.push({ x, y, z, w, h, d, material, faces });
   }
 
+  /** A box drawn as a detailed model (see `src/map/models.ts`); the box is still the solid part. */
+  model(kind: NonNullable<BoxDef['model']>, x: number, y: number, z: number, w: number, h: number, d: number, extra: Partial<BoxDef> = {}): void {
+    this.boxes.push({ x, y, z, w, h, d, model: kind, ...extra });
+  }
+
+  /** A model filling the box given by its corners. */
+  modelSpan(kind: NonNullable<BoxDef['model']>, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, extra: Partial<BoxDef> = {}): void {
+    this.model(kind, (x0 + x1) / 2, y0, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0, extra);
+  }
+
   /** A box given by its corners (x0..x1, y0..y1, z0..z1). */
   span(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, material: MaterialId, faces?: BoxDef['faces']): void {
     this.box((x0 + x1) / 2, y0, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0, material, faces);

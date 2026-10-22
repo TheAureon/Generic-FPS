@@ -5,6 +5,8 @@
  * Coordinates: X = east/west, Z = north/south, Y = up. One unit = one meter.
  */
 
+import type { ModelKind } from './models';
+
 export type MaterialId =
   | 'floor' | 'wall' | 'concrete' | 'crate' | 'metal' | 'trim' | 'dirt' | 'container'
   // Indoors (office, museum...):
@@ -41,6 +43,18 @@ export interface BoxDef {
   hidden?: boolean;
   /** Drawn, but nothing collides with it: e.g. water you wade through. */
   decor?: boolean;
+  /**
+   * Draw this box as a detailed model (a car, a chair, a statue... see
+   * `src/map/models.ts`) instead of a plain box. The box is still what you
+   * bump into and shoot. 'none' = solid but invisible.
+   */
+  model?: ModelKind;
+  /** Model: turn it (degrees; 0 = its front faces +Z). */
+  rot?: number;
+  /** Model: which version (e.g. a statue's pose, a painting's picture). */
+  variant?: number;
+  /** Model: main color (e.g. a car's paint), as 0xRRGGBB. */
+  tint?: number;
 }
 
 /** Which way the ramp goes UP. */

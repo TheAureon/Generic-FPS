@@ -89,17 +89,24 @@ function floor(x0: number, x1: number, z0: number, z1: number, top: MaterialId):
 function box(x: number, y: number, z: number, w: number, h: number, d: number, material: MaterialId, faces?: BoxDef['faces']): void {
   boxes.push({ x, y, z, w, h, d, material, faces });
 }
+/** A box drawn as a detailed model (the box is still the solid part). */
+function model(kind: NonNullable<BoxDef['model']>, x: number, y: number, z: number, w: number, h: number, d: number, extra: Partial<BoxDef> = {}): void {
+  boxes.push({ x, y, z, w, h, d, model: kind, ...extra });
+}
 function lamp(x: number, y: number, z: number, intensity = 1.0, range = 7.5, color = 0xf3efe4): void {
   lamps.push({ x, y, z, color, intensity, range, facing: 'down' });
 }
 
-/** A cubicle pod: two desks back to back with a partition between, monitors on top. */
+/** A cubicle pod: two desks back to back with a partition between, monitors and chairs. */
 function pod(x: number, y: number, z: number): void {
-  box(x, y, z, 3.0, 0.75, 1.6, 'desk');
-  box(x, y + 0.75, z, 3.0, 0.55, 0.06, 'partition');
-  box(x + 1.53, y, z, 0.06, 1.3, 1.6, 'partition');
-  box(x - 0.7, y + 0.75, z - 0.35, 0.55, 0.36, 0.05, 'carpaint');
-  box(x + 0.7, y + 0.75, z + 0.35, 0.55, 0.36, 0.05, 'carpaint');
+  model('table', x, y, z, 3.0, 0.75, 1.6);
+  model('partition', x, y + 0.75, z, 3.0, 0.55, 0.06);
+  model('partition', x + 1.53, y, z, 0.06, 1.3, 1.6, { rot: 90 });
+  model('monitor', x - 0.7, y + 0.75, z - 0.35, 0.55, 0.36, 0.05, { rot: 180 });
+  model('monitor', x + 0.7, y + 0.75, z + 0.35, 0.55, 0.36, 0.05);
+  // Chairs (you can walk through them, so the aisles stay clear).
+  model('officeChair', x - 0.7, y, z - 1.05, 0.55, 1.0, 0.55, { decor: true });
+  model('officeChair', x + 0.7, y, z + 1.05, 0.55, 1.0, 0.55, { decor: true, rot: 180 });
 }
 
 // ---- Ground and outside ----------------------------------------------------------------
@@ -121,34 +128,30 @@ for (let i = 0; i <= 14; i++) {
   box(x, -0.12, 21, 0.1, 0.02, 5, 'paint');
   box(x, -0.12, 31, 0.1, 0.02, 5, 'paint');
 }
-function car(x: number, z: number, paint: MaterialId): void {
-  box(x, 0.18, z, 1.8, 0.72, 4.3, paint);
-  // Cabin, with dark tinted windows all round.
-  box(x, 0.9, z + 0.2, 1.6, 0.55, 2.3, 'partition', { top: paint });
-  for (const dx of [-0.82, 0.82]) for (const dz of [-1.4, 1.4]) box(x + dx, -0.12, z + dz, 0.25, 0.62, 0.62, 'partition');
+function car(x: number, z: number, paint: number, rot = 0): void {
+  model('car', x, -0.12, z, 1.8, 1.45, 4.3, { tint: paint, rot });
 }
-car(-16.5, 21, 'carpaint');
-car(-7.5, 21, 'container');
-car(4.5, 21, 'carpaint');
-car(13.5, 31, 'container');
-car(-1.5, 31, 'carpaint');
-car(-19.5, 31, 'carpaint');
+car(-16.5, 21, 0x6e7d8f);
+car(-7.5, 21, 0x8a2f26);
+car(4.5, 21, 0xd8d8d2);
+car(13.5, 31, 0x2f4f7a, 180);
+car(-1.5, 31, 0x3a3d42, 180);
+car(-19.5, 31, 0x8a6a2a, 180);
 // Lamp posts along the parking aisle.
 for (const x of [-18, -6, 6, 18]) {
-  box(x, -0.12, 26, 0.22, 5, 0.22, 'metal');
-  box(x, 4.7, 26, 0.9, 0.12, 0.5, 'metal');
-  lamp(x, 4.68, 26, 0.9, 9, 0xffe2b0);
+  model('lampPost', x, -0.12, 26, 0.3, 4.9, 0.3);
+  lamp(x, 4.52, 26.42, 0.9, 9, 0xffe2b0);
 }
 // Plaza planters (concrete with soil) and benches.
-for (const x of [-14, 14]) box(x, 0, 16, 2.2, 0.7, 1.2, 'concrete', { top: 'dirt' });
-for (const x of [-9, 9]) box(x, 0, 16.6, 2, 0.45, 0.6, 'desk');
+for (const x of [-14, 14]) model('planter', x, 0, 16, 2.2, 0.7, 1.2);
+for (const x of [-9, 9]) model('bench', x, 0, 16.6, 2, 0.85, 0.6, { rot: 180 });
 // Back alley: dumpsters, crates, air conditioning units.
-box(-12, 0, -19.5, 2.2, 1.4, 1.3, 'container');
-box(-9.2, 0, -19.5, 2.2, 1.4, 1.3, 'container');
+model('dumpster', -12, 0, -19.5, 2.2, 1.4, 1.3);
+model('dumpster', -9.2, 0, -19.5, 2.2, 1.4, 1.3);
 box(6, 0, -19.8, 1.5, 1.5, 1.5, 'crate');
 box(7.6, 0, -19.6, 1.2, 1.1, 1.2, 'crate');
-box(16, 0, -19.2, 2.5, 1.6, 1.5, 'metal');
-box(19, 0, -19.2, 2.5, 1.6, 1.5, 'metal');
+model('acUnit', 16, 0, -19.2, 2.5, 1.6, 1.5);
+model('acUnit', 19, 0, -19.2, 2.5, 1.6, 1.5);
 // Side paths: crates and a stack of pallets.
 box(-28.5, 0, 6, 1.4, 1.2, 1.4, 'crate');
 box(28.5, 0, -6, 1.4, 1.2, 1.4, 'crate');
@@ -213,26 +216,28 @@ wall('z', 8, { from: 2, to: 14 - EXT, y0: GF, y1: TOP - 0.3 });
 // Workspace: six cubicle pods.
 for (const x of [-13, -7, -1]) for (const z of [-10.6, -6.4]) pod(x, GF, z);
 // Break room: counter with tile top, fridge, vending machine, a table.
-box(11, GF, -13.2, 10, 0.92, 0.7, 'desk', { top: 'tile' });
-box(16.4, GF, -12.3, 0.8, 1.9, 0.7, 'paint');
-box(5.9, GF, -3.0, 1.0, 1.9, 0.8, 'container');
-box(11, GF, -7.5, 2.4, 0.75, 1.2, 'desk');
+model('counter', 11, GF, -13.2, 10, 0.92, 0.7);
+model('fridge', 16.4, GF, -12.3, 0.8, 1.9, 0.7);
+model('vending', 5.5, GF, -3.0, 0.8, 1.9, 1.0, { rot: 90 });
+model('table', 11, GF, -7.5, 2.4, 0.75, 1.2, { variant: 1 });
+for (const dz of [-1, 1]) model('cafeChair', 11 + dz * 0.6, GF, -7.5 + dz * 0.95, 0.45, 0.85, 0.45, { rot: dz > 0 ? 180 : 0, decor: true });
 // Offices: desk, bookshelf, chair.
 for (const cx of [-21.35, -16.05, -10.7]) {
-  box(cx, GF, 10.8, 1.7, 0.75, 0.8, 'desk');
-  box(cx - 1.9, GF, 8, 0.35, 1.9, 1.2, 'desk');
-  box(cx, GF, 9.8, 0.55, 0.9, 0.55, 'partition');
+  model('officeDesk', cx, GF, 10.8, 1.7, 0.75, 0.8, { rot: 180 });
+  model('bookshelf', cx - 1.9, GF, 8, 0.35, 1.9, 1.2, { rot: 90 });
+  model('officeChair', cx, GF, 9.8, 0.55, 1.0, 0.55);
+  model('monitor', cx + 0.2, GF + 0.75, 11.0, 0.55, 0.36, 0.05, { rot: 180, decor: true });
 }
 // Lobby: reception desk, sofas, planters.
-box(0, GF, 7.6, 4.2, 1.1, 0.9, 'desk', { top: 'tile' });
-box(-2.4, GF, 6.8, 0.6, 1.1, 2.4, 'desk', { top: 'tile' });
-box(-5, GF, 11.6, 2.2, 0.8, 0.9, 'partition');
-box(5, GF, 11.6, 2.2, 0.8, 0.9, 'partition');
-box(-6.6, GF, 3.6, 1, 0.9, 1, 'concrete', { top: 'dirt' });
-box(6.6, GF, 3.6, 1, 0.9, 1, 'concrete', { top: 'dirt' });
+model('counter', 0, GF, 7.6, 4.2, 1.1, 0.9, { variant: 1 });
+model('counter', -2.4, GF, 6.8, 0.6, 1.1, 2.4, { rot: 270, variant: 1 });
+model('sofa', -5, GF, 11.6, 2.2, 0.8, 0.9, { rot: 180 });
+model('sofa', 5, GF, 11.6, 2.2, 0.8, 0.9, { rot: 180, tint: 0x7a5a48 });
+model('planter', -6.6, GF, 3.6, 1, 0.9, 1);
+model('planter', 6.6, GF, 3.6, 1, 0.9, 1);
 // Meeting room: long table with chairs.
-box(16, GF, 8, 6, 0.75, 1.6, 'desk');
-for (const x of [13.5, 16, 18.5]) for (const z of [6.7, 9.3]) box(x, GF, z, 0.55, 0.9, 0.55, 'partition');
+model('table', 16, GF, 8, 6, 0.75, 1.6, { variant: 1 });
+for (const x of [13.5, 16, 18.5]) for (const z of [6.7, 9.3]) model('officeChair', x, GF, z, 0.55, 1.0, 0.55, { rot: z < 8 ? 0 : 180 });
 
 // ---- Upper floor rooms -------------------------------------------------------------------------
 // Corridor walls. North side: stairwell landings, the open office.
@@ -245,12 +250,13 @@ box(0, UF + 1.0, 2.05, 16, 0.06, 0.1, 'metal'); // handrail
 // Open office: ten pods.
 for (const x of [-12, -6, 0, 6, 12]) for (const z of [-9.8, -5.8]) pod(x, UF, z);
 // Executive office: big desk, bookshelves, sofa.
-box(-16, UF, 9.5, 2.6, 0.78, 1.1, 'desk');
-box(-23.2, UF, 6, 0.4, 2.2, 3, 'desk');
-box(-11, UF, 12.5, 2.4, 0.8, 0.9, 'partition');
+model('officeDesk', -16, UF, 9.5, 2.6, 0.78, 1.1, { rot: 180 });
+model('officeChair', -16, UF, 8.4, 0.6, 1.1, 0.6, { tint: 0x2a2a2a });
+model('bookshelf', -23.2, UF, 6, 0.4, 2.2, 3, { rot: 90 });
+model('sofa', -11, UF, 12.5, 2.4, 0.8, 0.9, { rot: 180, tint: 0x4a3426 });
 // Conference room: big table and chairs.
-box(16, UF, 8, 7, 0.75, 2, 'desk');
-for (const x of [13, 16, 19]) for (const z of [6.4, 9.6]) box(x, UF, z, 0.55, 0.9, 0.55, 'partition');
+model('table', 16, UF, 8, 7, 0.75, 2, { variant: 1 });
+for (const x of [13, 16, 19]) for (const z of [6.4, 9.6]) model('officeChair', x, UF, z, 0.55, 1.0, 0.55, { rot: z < 8 ? 0 : 180 });
 
 // ---- Lights ---------------------------------------------------------------------------------------
 const gfL = SLAB - 0.08, ufL = TOP - 0.38;

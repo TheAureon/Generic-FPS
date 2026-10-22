@@ -34,23 +34,17 @@ function ramp(x: number, z: number, w: number, d: number, low: number, high: num
   k.ramps.push({ x, z, w, d, low, high, dir, base, material });
 }
 
-/** A statue on a plinth (`s` = size). */
-function statue(x: number, z: number, y = F, s = 1): void {
-  const p = 1.0 * s;
-  box(x, y, z, 1.2 * s, p, 1.2 * s, 'stone', { top: 'marble' });
-  const b = y + p;
-  box(x, b, z, 0.5 * s, 0.9 * s, 0.32 * s, 'marble'); // legs
-  box(x, b + 0.9 * s, z, 0.62 * s, 0.72 * s, 0.36 * s, 'marble'); // body
-  box(x - 0.4 * s, b + 0.98 * s, z, 0.16 * s, 0.62 * s, 0.18 * s, 'marble'); // arm down
-  box(x + 0.4 * s, b + 1.45 * s, z, 0.16 * s, 0.62 * s, 0.18 * s, 'marble'); // arm raised
-  box(x, b + 1.66 * s, z, 0.26 * s, 0.3 * s, 0.28 * s, 'marble'); // head
+/** Each statue, sculpture, painting and case gets a different look. */
+let variety = 0;
+
+/** A marble statue on a plinth (`s` = size). */
+function statue(x: number, z: number, y = F, s = 1, rot = 0): void {
+  k.model('statue', x, y, z, 1.2 * s, 2.96 * s, 1.2 * s, { variant: variety++, rot });
 }
 
-/** A modern sculpture: a painted pillar with a gold crossbar. */
+/** A modern sculpture on a low plinth. */
 function sculpture(x: number, z: number, y: number): void {
-  box(x, y, z, 1.4, 0.4, 1.4, 'stone', { top: 'marble' });
-  box(x, y + 0.4, z, 0.5, 2.2, 0.5, 'carpaint');
-  box(x + 0.2, y + 1.7, z, 1.2, 0.3, 0.3, 'gold');
+  k.model('sculpture', x, y, z, 1.4, 2.8, 1.4, { variant: variety++ });
 }
 
 /**
@@ -60,44 +54,35 @@ function sculpture(x: number, z: number, y: number): void {
 function painting(x: number, y: number, z: number, facing: '+x' | '-x' | '+z' | '-z', w = 1.6, h = 1.1): void {
   const nx = facing === '+x' ? 1 : facing === '-x' ? -1 : 0;
   const nz = facing === '+z' ? 1 : facing === '-z' ? -1 : 0;
-  const along = nx !== 0 ? 'z' : 'x';
-  const part = (off: number, depth: number, pw: number, ph: number, py: number, m: MaterialId) => {
-    const cx = x + nx * off, cz = z + nz * off;
-    if (along === 'z') box(cx, py, cz, depth, ph, pw, m);
-    else box(cx, py, cz, pw, ph, depth, m);
-  };
-  part(0.025, 0.05, w + 0.2, h + 0.2, y, 'gold'); // frame
-  part(0.065, 0.03, w, h, y + 0.1, 'art'); // canvas
+  const depth = 0.08, W = w + 0.2, H = h + 0.2;
+  const rot = { '+z': 0, '+x': 90, '-z': 180, '-x': 270 }[facing];
+  k.model('painting', x + nx * depth / 2, y, z + nz * depth / 2, nx ? depth : W, H, nx ? W : depth, { rot, variant: variety++ });
 }
 
-/** A glass display case on a wooden base, with a gold artifact inside. */
+/** A glass display case on a wooden base, with a gold treasure inside. */
 function displayCase(x: number, z: number, y = F): void {
-  box(x, y, z, 1.2, 0.9, 0.9, 'desk');
-  box(x, y + 0.9, z, 1.2, 0.7, 0.9, 'glass');
-  box(x, y + 0.9, z, 0.24, 0.36, 0.24, 'gold');
+  k.model('displayCase', x, y, z, 1.2, 1.6, 0.9, { variant: variety++ });
 }
 
-/** A bench with a velvet cushion. */
-function bench(x: number, z: number, y: number, alongX: boolean): void {
-  if (alongX) box(x, y, z, 2.0, 0.45, 0.6, 'desk', { top: 'velvet' });
-  else box(x, y, z, 0.6, 0.45, 2.0, 'desk', { top: 'velvet' });
+/** A bench: a velvet museum bench indoors, a park bench outdoors. */
+function bench(x: number, z: number, y: number, alongX: boolean, outdoor = false): void {
+  const rot = alongX ? 0 : 90;
+  if (outdoor) k.model('bench', x, y, z, alongX ? 2.0 : 0.6, 0.85, alongX ? 0.6 : 2.0, { rot: rot + 180 });
+  else k.model('ottoman', x, y, z, alongX ? 2.0 : 0.6, 0.45, alongX ? 0.6 : 2.0, { rot });
 }
 
 function hedge(x0: number, x1: number, z0: number, z1: number): void {
-  span(x0, x1, 0, 1.3, z0, z1, 'hedge');
+  k.modelSpan('hedge', x0, x1, 0, 1.3, z0, z1);
 }
 
 /** A garden lamp post. */
 function lampPost(x: number, z: number): void {
-  box(x, 0, z, 0.2, 4, 0.2, 'metal');
-  box(x, 3.95, z, 0.6, 0.15, 0.6, 'metal');
-  k.lamp(x, 3.93, z, 0.8, 9, 0xffe2b0);
+  k.model('lampPost', x, 0, z, 0.3, 4.1, 0.3);
+  k.lamp(x, 3.86, z + 0.42, 0.8, 9, 0xffe2b0);
 }
 
-function car(x: number, z: number, paint: MaterialId): void {
-  box(x, 0.18, z, 1.8, 0.72, 4.3, paint);
-  box(x, 0.9, z + 0.2, 1.6, 0.55, 2.3, 'partition', { top: paint });
-  for (const dx of [-0.82, 0.82]) for (const dz of [-1.4, 1.4]) box(x + dx, 0, z + dz, 0.25, 0.62, 0.62, 'partition');
+function car(x: number, z: number, paint: number, rot = 0): void {
+  k.model('car', x, 0, z, 1.8, 1.45, 4.3, { tint: paint, rot });
 }
 
 // ---- Grounds ------------------------------------------------------------------------------
@@ -109,7 +94,7 @@ box(-40.5, 0, 6, 1, 3.5, 72, 'stone');
 box(40.5, 0, 6, 1, 3.5, 72, 'stone');
 // Gate pillars and a (closed) iron gate at the south end.
 for (const x of [-4, 4]) box(x, 0, 41.4, 1.2, 4.4, 1.2, 'stone', { top: 'marble' });
-span(-3.4, 3.4, 0, 3.2, 41.6, 41.8, 'metal');
+k.modelSpan('gate', -3.4, 3.4, 0, 3.2, 41.6, 41.8);
 // Paths (a few centimeters high so they don't flicker against the grass).
 const P = 0.04;
 span(-8, 8, 0, P, 29, 40, 'stone'); // fountain plaza
@@ -122,16 +107,16 @@ span(-31, -30, 0, P, -1.3, 1.3, 'stone'); // to the side entrances
 span(30, 31, 0, P, -1.3, 1.3, 'stone');
 span(-30, 30, 0, P, -30, -22.6, 'asphalt'); // service yard
 
-// Fountain: a stone basin with water, a pillar and a bowl in the middle.
+// Fountain: a round stone basin with water, a pedestal and an upper bowl
+// (the model; the invisible boxes are what you bump into).
 const FZ = 34.5;
-span(-3.5, 3.5, P, 0.75, FZ - 3.5, FZ - 3.1, 'stone');
-span(-3.5, 3.5, P, 0.75, FZ + 3.1, FZ + 3.5, 'stone');
-span(-3.5, -3.1, P, 0.75, FZ - 3.1, FZ + 3.1, 'stone');
-span(3.1, 3.5, P, 0.75, FZ - 3.1, FZ + 3.1, 'stone');
-span(-3.1, 3.1, P, 0.5, FZ - 3.1, FZ + 3.1, 'water');
-box(0, 0.5, FZ, 0.8, 1.2, 0.8, 'stone');
-box(0, 1.7, FZ, 2, 0.25, 2, 'stone', { top: 'water' });
-box(0, 1.95, FZ, 0.3, 0.3, 0.3, 'gold');
+for (const [x0, x1, z0, z1] of [[-3.5, 3.5, FZ - 3.5, FZ - 3.1], [-3.5, 3.5, FZ + 3.1, FZ + 3.5], [-3.5, -3.1, FZ - 3.1, FZ + 3.1], [3.1, 3.5, FZ - 3.1, FZ + 3.1]]) {
+  k.modelSpan('none', x0, x1, P, 0.75, z0, z1);
+}
+k.modelSpan('none', -3.1, 3.1, P, 0.5, FZ - 3.1, FZ + 3.1);
+k.model('none', 0, 0.5, FZ, 0.9, 1.75, 0.9);
+k.model('none', 0, 1.75, FZ, 2.1, 0.3, 2.1);
+k.model('fountain', 0, P, FZ, 7, 2.5, 7, { decor: true });
 
 // Hedge gardens either side of the plaza, with a statue and a bench in each.
 for (const s of [-1, 1]) {
@@ -143,7 +128,7 @@ for (const s of [-1, 1]) {
   hedge(...lo(14, 14.9), 36.5, 39.5);
   hedge(...lo(10, 11), 28, 31.5);
   statue(a(20), 29.5, 0, 1.1);
-  bench(a(20), 38, 0, true);
+  bench(a(20), 38, 0, true, true);
   lampPost(a(9), 31);
   lampPost(a(29), 37);
 }
@@ -155,8 +140,8 @@ hedge(-29.6, -28.8, -18, -10);
 hedge(28.8, 29.6, 6, 13);
 hedge(37.6, 38.6, -14, -6);
 statue(37.5, 2, 0);
-bench(37.8, 12, 0, false);
-bench(-37.8, -24, 0, false);
+bench(37.8, 12, 0, false, true);
+bench(-37.8, -24, 0, false, true);
 for (const s of [-1, 1]) for (const z of [-18, 0, 18]) lampPost(s * 36.6, z + 3);
 
 // Service yard (north): loading dock, containers, crates, a van, dumpsters.
@@ -167,9 +152,9 @@ span(22, 28, P, 2.6 + P, -29.6, -27.2, 'container');
 box(-16.5, P, -28.6, 1.5, 1.5, 1.5, 'crate');
 box(-15, P, -28.8, 1.2, 1.1, 1.2, 'crate');
 box(-16.5, 1.5 + P, -28.6, 1.1, 1.1, 1.1, 'crate');
-car(12, -26, 'carpaint');
-car(5, -26.5, 'container');
-box(19, P, -28.8, 2.2, 1.4, 1.3, 'container');
+car(12, -26, 0x2f4f7a);
+car(5, -26.5, 0xd8d8d2, 180);
+k.model('dumpster', 19, P, -28.8, 2.2, 1.4, 1.3);
 box(16.5, P, -23.4, 1.4, 1.2, 1.4, 'crate');
 box(3, F, -23.2, 1.2, 1.0, 1.2, 'crate');
 
@@ -187,9 +172,7 @@ k.stairs(29.5, 0, 3, 2.6, 0, F, '-x');
 
 // Portico: six columns, a roof and a stepped pediment.
 for (const x of [-12, -8, -4.5, 4.5, 8, 12]) {
-  box(x, F, 22.3, 1.1, 0.3, 1.1, 'stone');
-  box(x, F + 0.3, 22.3, 0.85, 8.2 - F - 0.6, 0.85, 'marble');
-  box(x, 8.2 - 0.3, 22.3, 1.1, 0.3, 1.1, 'stone');
+  k.model('column', x, F, 22.3, 1.1, 8.2 - F, 1.1);
 }
 span(-14, 14, 8.2, 9, 18, 23.2, 'stone', { bottom: 'marble' });
 span(-12, 12, 9, 9.6, 18.2, 23.1, 'stone');
@@ -277,9 +260,7 @@ span(-7.55, 7.55, U + 1, U + 1.06, -9.55, -9.45, 'gold');
 // ---- Grand hall --------------------------------------------------------------------------------
 for (const x of [-5.5, 5.5]) {
   for (const z of [-7, -1.5, 4]) {
-    box(x, F, z, 1.3, 0.4, 1.3, 'stone');
-    box(x, F + 0.4, z, 1.0, HR - F - 0.8, 1.0, 'marble');
-    box(x, HR - 0.4, z, 1.3, 0.4, 1.3, 'stone');
+    k.model('column', x, F, z, 1.3, HR - F, 1.3);
   }
 }
 statue(0, -1, F, 1.5);
@@ -327,11 +308,9 @@ displayCase(-7, -19.5);
 displayCase(6.5, -19.5);
 displayCase(10.5, -15.5);
 // A sarcophagus on a low plinth.
-span(-2, 2, F, F + 0.3, -18.5, -16.3, 'stone');
-span(-1.4, 1.4, F + 0.3, F + 1.2, -18.1, -16.7, 'stone', { top: 'gold' });
+k.modelSpan('sarcophagus', -1.6, 1.6, F, F + 1.2, -18.4, -16.4);
 // An obelisk and a stone tablet.
-box(-24.5, F, -20.2, 1.0, 0.3, 1.0, 'stone');
-box(-24.5, F + 0.3, -20.2, 0.7, 3.6, 0.7, 'stone', { top: 'gold' });
+k.model('obelisk', -24.5, F, -20.2, 1.0, 3.9, 1.0);
 span(-14, -11, F, F + 2.2, -21.4, -21.1, 'stone');
 
 // ---- North wing, upstairs: modern gallery -------------------------------------------------------
@@ -348,17 +327,17 @@ bench(-10, -17, U, false);
 bench(1, -15, U, true);
 
 // ---- South: foyer, gift shop, café -------------------------------------------------------------
-span(-5.4, -4.4, F, F + 1.1, 12, 16, 'desk', { top: 'marble' }); // ticket desk
-span(4.4, 5.4, F, F + 1.1, 12, 16, 'desk', { top: 'marble' }); // cloakroom
+k.modelSpan('counter', -5.4, -4.4, F, F + 1.1, 12, 16, { rot: 90, variant: 1 }); // ticket desk
+k.modelSpan('counter', 4.4, 5.4, F, F + 1.1, 12, 16, { rot: 270, variant: 1 }); // cloakroom
 // Gift shop: shelves and a counter.
-for (const x of [-25, -20, -15]) span(x, x + 0.6, F, F + 1.8, 12.5, 16, 'desk');
-span(-10.5, -7.5, F, F + 1.0, 11.4, 12.3, 'desk', { top: 'marble' });
-// Café: a counter, tables and chairs.
-span(23.5, 27.3, F, F + 1.05, 11, 11.9, 'desk', { top: 'marble' });
+for (const x of [-25, -20, -15]) k.modelSpan('shelf', x, x + 0.6, F, F + 1.8, 12.5, 16, { rot: 90 });
+k.modelSpan('counter', -10.5, -7.5, F, F + 1.0, 11.4, 12.3, { variant: 1 });
+// Café: a counter, round tables and bistro chairs.
+k.modelSpan('counter', 23.5, 27.3, F, F + 1.05, 11, 11.9, { variant: 1 });
 for (const x of [10, 14, 18, 22]) {
-  box(x, F, 14.5, 0.9, 0.75, 0.9, 'desk');
-  box(x - 0.85, F, 14.5, 0.5, 0.85, 0.5, 'partition');
-  box(x + 0.85, F, 14.5, 0.5, 0.85, 0.5, 'partition');
+  k.model('cafeTable', x, F, 14.5, 0.9, 0.75, 0.9);
+  k.model('cafeChair', x - 0.85, F, 14.5, 0.5, 0.85, 0.5, { rot: 90 });
+  k.model('cafeChair', x + 0.85, F, 14.5, 0.5, 0.85, 0.5, { rot: 270 });
 }
 
 // ---- Lights ---------------------------------------------------------------------------------------

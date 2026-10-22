@@ -149,9 +149,10 @@ for (let z = LAKE.z - LAKE.r; z < LAKE.z + LAKE.r; z += 3) {
     const R = Y + WALL;
     k.ramps.push({ x: 48, z: 74.1, w: 11, d: 4.6, low: R - 0.3, high: R + 1.8, dir: '+z', base: R - 0.3, material: 'partition' });
     k.ramps.push({ x: 48, z: 77.9, w: 11, d: 4.6, low: R - 0.3, high: R + 1.8, dir: '-z', base: R - 0.3, material: 'partition' });
-    box(46, Y, 74.5, 1.6, 0.78, 1.0, 'desk'); // kitchen table
-    box(44, Y, 73, 0.7, 0.92, 1.8, 'desk', { top: 'tile' }); // counter
-    box(51.8, Y, 73.4, 1.9, 0.5, 1.0, 'desk', { top: 'canvas' }); // bed
+    k.model('table', 46, Y, 74.5, 1.6, 0.78, 1.0, { variant: 1 }); // kitchen table
+    for (const dz of [-1, 1]) k.model('cafeChair', 46, Y, 74.5 + dz * 0.75, 0.45, 0.85, 0.45, { rot: dz > 0 ? 180 : 0, decor: true });
+    k.model('counter', 44, Y, 73, 0.7, 0.92, 1.8, { rot: 90 }); // counter
+    k.model('bed', 51.8, Y, 73.4, 1.9, 0.5, 1.0); // bed
     box(50, Y, 72.6, 1.2, 1.8, 0.4, 'desk'); // wardrobe
     k.lamp(46, R - 0.4, 76, 0.9, 6, 0xffdcaa);
     k.lamp(51, R - 0.4, 76, 0.9, 6, 0xffdcaa);
@@ -175,23 +176,22 @@ for (let z = LAKE.z - LAKE.r; z < LAKE.z + LAKE.r; z += 3) {
     k.ramps.push({ x: 66, z: 61.3, w: 17, d: 5.6, low: R - 0.3, high: R + 2.6, dir: '+z', base: R - 0.3, material: 'container' });
     k.ramps.push({ x: 66, z: 66.7, w: 17, d: 5.6, low: R - 0.3, high: R + 2.6, dir: '-z', base: R - 0.3, material: 'container' });
     // Hay bales: downstairs and in the loft.
-    for (const [x, z, y] of [[60, 67.4, Y], [61.5, 67.4, Y], [60.7, 67.4, Y + 1.2], [72.4, 60.8, LOFT], [72.4, 62.2, LOFT], [72.4, 60.8, LOFT + 1.2], [70.9, 67.4, LOFT], [72.4, 67.4, LOFT]] as const) box(x, y, z, 1.4, 1.2, 1.3, 'hay');
-    box(70, Y, 61, 3, 1.2, 1.3, 'metal'); // feed trough
+    for (const [x, z, y] of [[60, 67.4, Y], [61.5, 67.4, Y], [60.7, 67.4, Y + 1.2], [72.4, 60.8, LOFT], [72.4, 62.2, LOFT], [72.4, 60.8, LOFT + 1.2], [70.9, 67.4, LOFT], [72.4, 67.4, LOFT]] as const) k.model('hayBale', x, y, z, 1.4, 1.2, 1.3);
+    k.model('trough', 70, Y, 61, 3, 0.8, 1.0); // feed trough
     k.lamp(62, R - 0.3, 64, 1.0, 8, 0xffe2b0);
     k.lamp(70, R - 0.3, 64, 1.0, 8, 0xffe2b0);
     k.pickups.push({ type: 'ammo', x: 63, y: Y, z: 66 });
     k.pickups.push({ type: 'health', x: 69.5, y: LOFT, z: 65 });
   }
   // Silo and a water tank.
-  box(79, top(79, 74, 2.5) - 0.5, 74, 4.2, 12.5, 4.2, 'metal');
-  box(79, top(79, 74, 2.5) + 12, 74, 3.2, 1.2, 3.2, 'metal');
-  box(78, top(78, 62, 1.2), 62, 2.4, 1.6, 1.4, 'container');
+  k.model('silo', 79, top(79, 74, 2.5) - 0.5, 74, 4.2, 14, 4.2);
+  k.model('fuelTank', 78, top(78, 62, 1.2), 62, 2.4, 1.6, 1.4);
   // Paddock fence (with a gate gap on the road side).
   const fence = (ax: number, az: number, bx: number, bz: number) => {
     const len = Math.hypot(bx - ax, bz - az), n = Math.round(len / 2.5);
     for (let i = 0; i <= n; i++) {
       const x = ax + ((bx - ax) * i) / n, z = az + ((bz - az) * i) / n;
-      box(x, low(x, z, 0.2) - 0.3, z, 0.16, top(x, z, 0.2) - low(x, z, 0.2) + 1.4, 0.16, 'bark');
+      k.model('post', x, low(x, z, 0.2) - 0.3, z, 0.16, top(x, z, 0.2) - low(x, z, 0.2) + 1.4, 0.16);
       if (i === n) break;
       const nx = ax + ((bx - ax) * (i + 1)) / n, nz = az + ((bz - az) * (i + 1)) / n;
       const y = Math.max(top(x, z, 0.2), top(nx, nz, 0.2));
@@ -222,9 +222,10 @@ for (let z = LAKE.z - LAKE.r; z < LAKE.z + LAKE.r; z += 3) {
   k.wall('z', x0 + 0.2, { ...o, from: z0 + 0.4, to: z1 - 0.4, openings: [win(Z - 1.5, Z, 1.2, 1.9)] });
   k.wall('z', x1 - 0.2, { ...o, from: z0 + 0.4, to: z1 - 0.4, openings: [door(Z - 1.6, Z + 0.2)] });
   span(x0 - 0.3, x1 + 0.3, Y + WALL, Y + WALL + 0.35, z0 - 0.3, z1 + 0.3, 'concrete', { bottom: 'ceiling' });
-  box(X - 4.2, Y, Z - 2.9, 2.6, 0.78, 0.9, 'desk'); // radio desk
-  box(X - 4.2, Y + 0.78, Z - 3.1, 1.6, 0.5, 0.45, 'metal');
-  box(X + 2.6, Y, Z - 3.1, 1.4, 2.0, 0.7, 'metal'); // equipment cabinet
+  k.model('table', X - 4.2, Y, Z - 2.9, 2.6, 0.78, 0.9); // radio desk
+  k.model('radio', X - 4.2, Y + 0.78, Z - 3.1, 1.6, 0.5, 0.45);
+  k.model('radio', X + 2.6, Y, Z - 3.1, 1.4, 2.0, 0.7); // equipment cabinet
+  k.model('officeChair', X - 4.2, Y, Z - 1.9, 0.55, 1.0, 0.55, { rot: 180, decor: true });
   k.lamp(X - 1, Y + WALL - 0.08, Z - 0.5, 1.0, 7, 0xe8f0ff);
   k.pickups.push({ type: 'armor', x: X - 1, y: Y, z: Z - 1.5 });
   // Radio mast: four legs with cross braces, on a concrete pad.
@@ -239,8 +240,8 @@ for (let z = LAKE.z - LAKE.r; z < LAKE.z + LAKE.r; z += 3) {
   }
   box(MX, G + 0.25 + M, MZ, 0.12, 4, 0.12, 'metal');
   // Fuel tanks, barriers along the road in.
-  box(X - 9, G, Z - 2, 1.6, 1.6, 3.2, 'metal');
-  box(X - 9, G, Z + 2, 1.6, 1.6, 3.2, 'metal');
+  k.model('fuelTank', X - 9, G, Z - 2, 1.6, 1.6, 3.2);
+  k.model('fuelTank', X - 9, G, Z + 2, 1.6, 1.6, 3.2);
   for (const x of [X - 4, X + 2]) box(x, top(x, Z + 9, 1), Z + 9, 3, 1, 0.5, 'trim');
   box(X + 6, G, Z + 2, 1.4, 1.2, 1.4, 'crate');
   k.pickups.push({ type: 'ammo', x: X + 6, y: G, z: Z + 4.5 });
@@ -257,14 +258,14 @@ for (let z = LAKE.z - LAKE.r; z < LAKE.z + LAKE.r; z += 3) {
   k.wall('z', HX - 2.825, { ...o, from: HZ - 2.15, to: HZ + 2.15, openings: [door(HZ - 0.9, HZ + 0.9)] });
   k.wall('z', HX + 2.825, { ...o, from: HZ - 2.15, to: HZ + 2.15, openings: [win(HZ - 0.8, HZ + 0.8, 0.9, 1.8)] });
   k.ramps.push({ x: HX, z: HZ, w: 6.8, d: 5.6, low: Y + WALL, high: Y + WALL + 1.3, dir: '-x', base: Y + WALL, material: 'planks' });
-  box(HX + 1.5, Y, HZ + 1.3, 1.6, 0.8, 0.9, 'desk');
+  k.model('table', HX + 1.5, Y, HZ + 1.3, 1.6, 0.8, 0.9, { variant: 1 });
   k.pickups.push({ type: 'health', x: HX + 0.5, y: Y, z: HZ - 1 });
   // Jetty out over the water.
   const JY = lakeSurface + 0.35;
   span(LAKE.x + 8, LAKE.x + 19.5, JY - 0.2, JY, HZ - 0.8, HZ + 0.8, 'planks');
-  for (let x = LAKE.x + 8.5; x < LAKE.x + 19.5; x += 2.5) for (const s of [-1, 1]) box(x, JY - 2, HZ + s * 0.75, 0.16, 2.6, 0.16, 'bark');
+  for (let x = LAKE.x + 8.5; x < LAKE.x + 19.5; x += 2.5) for (const s of [-1, 1]) k.model('post', x, JY - 2, HZ + s * 0.75, 0.16, 2.6, 0.16);
   // A rowing boat (upside down on the shore) and crates.
-  box(HX - 4.5, top(HX - 4.5, HZ + 5, 1.5), HZ + 5, 3.2, 0.5, 1.2, 'carpaint');
+  k.model('boat', HX - 4.5, top(HX - 4.5, HZ + 5, 1.5) - 0.05, HZ + 5, 3.2, 0.5, 1.2);
   box(HX + 4.5, top(HX + 4.5, HZ - 3, 0.8), HZ - 3, 1.2, 1.0, 1.2, 'crate');
 }
 
@@ -320,8 +321,14 @@ for (const [cx, cz] of [[86, 88], [40, 90], [84, 50], [30, 70]] as const) {
     const x = cx + (rnd() - 0.5) * 16, z = cz + (rnd() - 0.5) * 12;
     if (nearRoad(x, z, 1.5) || nearRiver(x, z, 2)) continue;
     const y = low(x, z, 0.8) - 0.05;
-    box(x, y, z, 1.5, 1.25 + (top(x, z, 0.8) - low(x, z, 0.8)), 1.3, 'hay');
-    if (rnd() < 0.4) box(x + 0.1, y + 1.25 + (top(x, z, 0.8) - low(x, z, 0.8)), z, 1.5, 1.25, 1.3, 'hay');
+    const lift = top(x, z, 0.8) - low(x, z, 0.8);
+    if (rnd() < 0.55) {
+      // A big round bale.
+      k.model('roundBale', x, y - 0.05, z, 1.5, 1.3 + lift, 1.3);
+    } else {
+      k.model('hayBale', x, y, z, 1.5, 1.25 + lift, 1.3);
+      if (rnd() < 0.5) k.model('hayBale', x + 0.1, y + 1.25 + lift, z, 1.5, 1.25, 1.3);
+    }
   }
 }
 

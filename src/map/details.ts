@@ -30,7 +30,50 @@ export interface ReliefLayout {
   tint: (rand: () => number) => [number, number, number];
   /** Small dark form-tie holes on each unit (concrete). */
   tieHoles?: boolean;
+  /** Vary how far each unit sticks out (0..1 of depth), for rough stonework. */
+  depthJitter?: number;
 }
+
+/** Cut sandstone blocks (museum): 1.5 x 0.6 m, lined up with the stone texture's joints. */
+export const STONE_BLOCKS: ReliefLayout = {
+  unitW: 1.5,
+  unitH: 0.6,
+  gap: 0.03,
+  depth: 0.025,
+  bond: 0.5,
+  tint: (r) => {
+    const k = 0.92 + r() * 0.14;
+    return [k, k * (0.98 + r() * 0.03), k * (0.95 + r() * 0.05)];
+  },
+};
+
+/** Old rough stones (ruins, field walls): uneven, sticking out by different amounts. */
+export const RUIN_STONES: ReliefLayout = {
+  unitW: 0.75,
+  unitH: 0.6,
+  gap: 0.05,
+  depth: 0.06,
+  bond: 0.5,
+  depthJitter: 0.7,
+  tint: (r) => {
+    const k = 0.78 + r() * 0.3;
+    const moss = r() < 0.25 ? 0.1 : 0;
+    return [k * (1 - moss), k, k * (1 - moss * 1.5)];
+  },
+};
+
+/** Vertical boards (barns, sheds), lined up with the plank texture. */
+export const BOARDS: ReliefLayout = {
+  unitW: 0.3,
+  unitH: 100,
+  gap: 0.014,
+  depth: 0.014,
+  bond: 0,
+  tint: (r) => {
+    const k = 0.86 + r() * 0.22;
+    return [k, k * (0.97 + r() * 0.05), k * (0.95 + r() * 0.06)];
+  },
+};
 
 export const BRICKS: ReliefLayout = {
   unitW: 0.5,
@@ -130,7 +173,7 @@ export function relief(
     alongX ? out.set(u, y, plane + normal.z * depth) : out.set(plane + normal.x * depth, y, u);
 
   const chunks: QuadBuilder[] = [];
-  const { unitW, unitH, gap, depth } = layout;
+  const { unitW, unitH, gap } = layout;
   const P = [0, 1, 2, 3, 4, 5, 6, 7].map(() => new THREE.Vector3());
   const ao = [0, 1, 2, 3].map(() => new THREE.Color());
   const li = [0, 1, 2, 3].map(() => new THREE.Color());
@@ -155,6 +198,7 @@ export function relief(
       const qb = (chunks[ci] ??= new QuadBuilder());
       const rand = seeded(Math.floor(plane * 997) * 73856093 ^ r * 19349663 ^ k * 83492791);
       const [tr, tg, tb] = layout.tint(rand);
+      const depth = layout.depthJitter ? layout.depth * (1 - layout.depthJitter + rand() * layout.depthJitter * 2) : layout.depth;
       // Corners: back (on the wall) 0-3, front 4-7, order (ua,ya) (ub,ya) (ub,yb) (ua,yb).
       const uv: [number, number][] = [[ua, ya], [ub, ya], [ub, yb], [ua, yb]];
       for (let i = 0; i < 4; i++) {
@@ -183,6 +227,60 @@ export function relief(
           for (let i = 0; i < 4; i++) dark[i].copy(ao[i]).multiplyScalar(0.45);
           qb.quad([P[0], P[1], P[2], P[3]], normal, dark, li);
         }
+      }
+    }
+  }
+  return chunks.map((c) => c?.build()).filter((g): g is THREE.BufferGeometry => !!g);
+}
+
+/**
+ * Round logs on a log-cabin wall: half-round logs stacked up the face, with
+ * their ends sticking out past the wall's corners like a real cabin.
+ */
+export function logRelief(corners: Corners, normal: THREE.Vector3, sample: LightSampler): THREE.BufferGeometry[] {
+  if (Math.abs(normal.y) > 0.1) return [];
+  const alongX = Math.abs(normal.z) > Math.abs(normal.x);
+  const us = corners.map((c) => (alongX ? c[0] : c[2]));
+  const ys = corners.map((c) => c[1]);
+  const u0 = Math.min(...us), u1 = Math.max(...us), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const plane = alongX ? corners[0][2] : corners[0][0];
+  const R = 0.15, SEG = 6, OVER = 0.18;
+  const at = (u: number, y: number, out: number, v: THREE.Vector3) => (alongX ? v.set(u, y, plane + normal.z * out) : v.set(plane + normal.x * out, y, u));
+  const chunks: QuadBuilder[] = [];
+  const P = [0, 1, 2, 3].map(() => new THREE.Vector3());
+  const N = new THREE.Vector3();
+  const ao = [0, 1, 2, 3].map(() => new THREE.Color()), li = [0, 1, 2, 3].map(() => new THREE.Color());
+  const tmp = new THREE.Vector3();
+  for (let row = 0; (row + 0.5) * R * 2 <= y1 - y0 + 0.01; row++) {
+    const yc = y0 + R + row * R * 2;
+    const rand = seeded(Math.floor(plane * 991) * 7919 ^ row * 104729);
+    const tint = 0.85 + rand() * 0.25;
+    const r = R * (0.92 + rand() * 0.12);
+    // Logs run past both ends of the wall a little.
+    const a = u0 - OVER * (0.6 + rand() * 0.6), b = u1 + OVER * (0.6 + rand() * 0.6);
+    const pieces = Math.max(1, Math.ceil((b - a) / CHUNK));
+    for (let c = 0; c < pieces; c++) {
+      const ua = a + ((b - a) * c) / pieces, ub = a + ((b - a) * (c + 1)) / pieces;
+      const qb = (chunks[c] ??= new QuadBuilder());
+      for (let k = 0; k < SEG; k++) {
+        const t0 = -Math.PI / 2 + (k / SEG) * Math.PI, t1 = -Math.PI / 2 + ((k + 1) / SEG) * Math.PI;
+        const tm = (t0 + t1) / 2;
+        // Radial direction in the wall's frame: out of the wall (normal) and up.
+        const out0 = Math.cos(t0) * r, up0 = Math.sin(t0) * r, out1 = Math.cos(t1) * r, up1 = Math.sin(t1) * r;
+        at(ua, yc + up0, out0 * 0.8, P[0]);
+        at(ub, yc + up0, out0 * 0.8, P[1]);
+        at(ub, yc + up1, out1 * 0.8, P[2]);
+        at(ua, yc + up1, out1 * 0.8, P[3]);
+        if (alongX) N.set(0, Math.sin(tm), normal.z * Math.cos(tm)).normalize();
+        else N.set(normal.x * Math.cos(tm), Math.sin(tm), 0).normalize();
+        for (let i = 0; i < 4; i++) {
+          const uu = Math.min(u1, Math.max(u0, i === 0 || i === 3 ? ua : ub));
+          sample(at(uu, Math.min(y1, Math.max(y0, P[i].y)), 0, tmp), ao[i], li[i]);
+          // Darker toward the gaps between logs.
+          const shade = tint * (0.7 + 0.3 * Math.cos(i < 2 ? (t0 + t1) / 2 : tm));
+          ao[i].multiplyScalar(shade);
+        }
+        qb.quad(P, N, ao, li);
       }
     }
   }

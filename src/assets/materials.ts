@@ -12,7 +12,9 @@ import { addBakedLighting } from '../render/shaders';
  * Every kind of surface: the map's own materials plus the detail parts the
  * map builder adds (bricks, mortar, concrete panels, crate frames).
  */
-export type SurfaceId = MaterialId | 'brick' | 'mortar' | 'panel' | 'seam' | 'concreteWall' | 'crateFrame' | 'tread' | 'steel';
+export type SurfaceId = MaterialId | 'brick' | 'mortar' | 'panel' | 'seam' | 'concreteWall' | 'crateFrame' | 'tread' | 'steel'
+  // Neutral (light) surfaces for models, colored by each part's tint:
+  | 'fabric' | 'chrome' | 'plastic' | 'rubber' | 'corrugated';
 
 interface MaterialStyle {
   base: string;
@@ -24,7 +26,22 @@ interface MaterialStyle {
   pixels?: number;
   roughness: number;
   metalness: number;
+  /**
+   * Surface relief from the texture's light and dark (bump mapping, Medium
+   * and High graphics): 0 = smooth, ~1 = normal, 2+ = deep (rock, bark).
+   */
+  bump?: number;
 }
+
+/** Relief per material (anything not listed gets BUMP_DEFAULT). */
+const BUMP: Partial<Record<SurfaceId, number>> = {
+  glass: 0, paint: 0.15, carpaint: 0, gold: 0.2, marble: 0.35, tile: 0.6, ceiling: 0.6, drywall: 0.4, art: 0,
+  rock: 2.6, bark: 3, ruin: 2.2, stone: 1.6, timber: 2.2, planks: 1.6, barnwood: 1.6, crate: 1.4, crateFrame: 1.2,
+  brick: 1.4, mortar: 1.2, concrete: 1.2, panel: 1.1, concreteWall: 1.4, floor: 1.0, asphalt: 1.4, dirt: 1.8,
+  forest: 1.6, grass: 1.3, hedge: 2.4, needles: 2.2, foliage: 2.2, hay: 2.4, canvas: 1.0, carpet: 1.4, velvet: 0.8,
+  desk: 0.8, water: 1.6, snow: 0.8, tread: 1.6, container: 1.4, metal: 0.8, steel: 0.5, trim: 1.0, stairs: 1.0,
+};
+const BUMP_DEFAULT = 1.0;
 
 const STYLES: Record<SurfaceId, MaterialStyle> = {
   // Industrial concrete floor: 2 x 2 m slabs (the texture covers 8 x 8 m, each slab a bit different).
@@ -52,7 +69,8 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   // ---- Town ----
   asphalt: { base: '#45474b', line: '#36383b', tileSize: 4, pattern: 'speckle', roughness: 0.95, metalness: 0, pixels: 512 },
   paint: { base: '#ece9df', line: '#ece9df', tileSize: 1, pattern: 'plain', roughness: 0.8, metalness: 0 },
-  carpaint: { base: '#6e7d8f', line: '#596676', tileSize: 1, pattern: 'plain', roughness: 0.3, metalness: 0.55 },
+  // Car paint: light, so each car's tint gives its color.
+  carpaint: { base: '#e4e6e8', line: '#c8ccd0', tileSize: 1, pattern: 'plain', roughness: 0.28, metalness: 0.5 },
   // ---- Museum and gardens ----
   marble: { base: '#e3e0d8', line: '#a8a39a', tileSize: 2.4, pattern: 'marble', roughness: 0.18, metalness: 0, pixels: 512 },
   stone: { base: '#cbbd9f', line: '#a99b7e', tileSize: 3, pattern: 'blocks', roughness: 0.85, metalness: 0, pixels: 512 },
@@ -76,6 +94,12 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   // Wooden boards (decks, platforms, sheds) and red-painted barn boards.
   planks: { base: '#8d6a45', line: '#4f3a24', tileSize: 1.5, pattern: 'planks', roughness: 0.85, metalness: 0 },
   barnwood: { base: '#8a3528', line: '#4f1d16', tileSize: 1.5, pattern: 'planks', roughness: 0.85, metalness: 0 },
+  // ---- Model surfaces (light, so a tint gives the color) ----
+  fabric: { base: '#d6d6d6', line: '#b8b8b8', tileSize: 0.5, pattern: 'speckle', roughness: 1, metalness: 0, bump: 0.8 },
+  chrome: { base: '#d4d8dc', line: '#b0b6bc', tileSize: 1, pattern: 'plain', roughness: 0.25, metalness: 0.75, bump: 0 },
+  plastic: { base: '#d0d0d0', line: '#c0c0c0', tileSize: 1, pattern: 'plain', roughness: 0.5, metalness: 0, bump: 0 },
+  rubber: { base: '#3a3a3a', line: '#303030', tileSize: 1, pattern: 'speckle', roughness: 0.9, metalness: 0, bump: 0.4 },
+  corrugated: { base: '#c9ced3', line: '#9aa1a8', tileSize: 1, pattern: 'ribs', roughness: 0.45, metalness: 0.5, bump: 1.6 },
   // Hay bales: dry yellow straw.
   hay: { base: '#c9a95a', line: '#a3843e', tileSize: 1, pattern: 'grain', roughness: 1, metalness: 0 },
   // Old weathered stone blocks with moss.
@@ -724,14 +748,35 @@ export function getMaterial(id: SurfaceId, kind: 'standard' | 'lambert' = 'stand
       cache.set(key, (m = glass));
       return m;
     }
-    const mat =
-      kind === 'lambert'
-        ? new THREE.MeshLambertMaterial({ map: tex })
-        : new THREE.MeshStandardMaterial({ map: tex, roughness: s.roughness, metalness: s.metalness });
+    const bump = s.bump ?? BUMP[id] ?? BUMP_DEFAULT;
+    let mat: THREE.MeshStandardMaterial | THREE.MeshLambertMaterial;
+    if (kind === 'lambert') mat = new THREE.MeshLambertMaterial({ map: tex });
+    else {
+      mat = new THREE.MeshStandardMaterial({ map: tex, roughness: s.roughness, metalness: s.metalness });
+      if (bump > 0) {
+        mat.bumpMap = tex;
+        mat.bumpScale = bump;
+      }
+    }
+    if (id === 'water') {
+      // Slightly see-through, glossy, gently moving.
+      mat.transparent = true;
+      mat.opacity = kind === 'lambert' ? 0.85 : 0.8;
+      if (mat instanceof THREE.MeshStandardMaterial) {
+        mat.roughness = 0.04;
+        mat.metalness = 0.15;
+      }
+    }
     addBakedLighting(mat);
     cache.set(key, (m = mat));
   }
   return m;
+}
+
+/** Moving textures (water ripples drift). Call once per frame with the time in seconds. */
+export function animateMaterials(t: number): void {
+  const water = textures.get('water');
+  if (water) water.offset.set(t * 0.018, t * 0.011);
 }
 
 /** How many meters one texture tile covers, for the given material. */

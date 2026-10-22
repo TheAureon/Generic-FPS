@@ -3,6 +3,7 @@ import { CONFIG, MATCH } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { getMap } from '../map/maps';
 import type { MatchConfig } from '../modes/GameMode';
+import { animateMaterials } from '../assets/materials';
 import { Hud } from '../ui/Hud';
 import { MenuBackdrop } from '../ui/MenuBackdrop';
 import { Menus } from '../ui/Menus';
@@ -184,6 +185,7 @@ export class Game {
 
   private frame(): void {
     const dt = Math.min(this.clock.getDelta(), MAX_FRAME_DT);
+    animateMaterials(this.clock.elapsedTime);
     const m = this.match;
 
     if (m && this.state !== 'menu') {

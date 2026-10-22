@@ -109,7 +109,7 @@ function footbridge(z: number): void {
   k.ramps.push(r);
   for (let x = x0 + 1; x <= x1 - 0.9; x += 2.6) {
     const y = lerp(hw, he, (x - x0) / (x1 - x0));
-    for (const s of [-1, 1]) box(x, y - 0.1, z + s * 1.0, 0.16, 1.15, 0.16, 'bark');
+    for (const s of [-1, 1]) k.model('post', x, y - 0.1, z + s * 1.0, 0.16, 1.15, 0.16);
   }
 }
 footbridge(-12);
@@ -125,7 +125,7 @@ footbridge(38);
   // Porch in front (south), with two posts.
   span(X - W, X + W, low(X, Z + D + 1.2, 4) - 0.5, F - 0.05, Z + D, Z + D + 2.4, 'planks');
   const R = F + WALL;
-  for (const s of [-1, 1]) span(X + s * (W - 0.2) - 0.11, X + s * (W - 0.2) + 0.11, F - 0.05, R - 0.45, Z + D + 2.09, Z + D + 2.31, 'bark');
+  for (const s of [-1, 1]) k.model('post', X + s * (W - 0.2), F - 0.05, Z + D + 2.2, 0.22, R - 0.4 - F, 0.22);
   const wallOpts = { t: 0.3, mat: 'timber' as const, y0: F, y1: F + WALL };
   k.wall('x', Z - D + 0.15, { ...wallOpts, from: X - W, to: X + W, openings: [win(X - 2.5, X - 1, 0.9, 1.9), win(X + 1, X + 2.5, 0.9, 1.9)] });
   k.wall('x', Z + D - 0.15, { ...wallOpts, from: X - W, to: X + W, openings: [win(X - 3, X - 1.6, 0.9, 1.9), door(X - 0.9, X + 0.9), win(X + 1.6, X + 3, 0.9, 1.9)] });
@@ -136,14 +136,13 @@ footbridge(38);
   k.ramps.push({ x: X, z: Z + D / 2 + 0.2, w: W * 2 + 0.8, d: D + 0.4, low: R, high: R + 1.6, dir: '-z', base: R, material: 'planks' });
   k.ramps.push({ x: X, z: Z + D + 1.5, w: W * 2 + 0.4, d: 2.2, low: R - 0.45, high: R - 0.05, dir: '-z', base: R - 0.55, material: 'planks' });
   // Inside: a table, a bunk, a stove, a shelf.
-  box(X - 1.5, F, Z - 0.6, 1.6, 0.75, 1.0, 'desk');
-  box(X + 2.9, F, Z - 1.8, 1.9, 0.5, 0.9, 'desk', { top: 'canvas' });
-  box(X - 3.3, F, Z - 2.1, 0.7, 0.9, 0.7, 'metal');
-  box(X - 3.3, F + 0.9, Z - 2.1, 0.18, 1.8, 0.18, 'metal');
-  box(X + 0.6, F, Z - 2.55, 1.6, 1.6, 0.35, 'desk');
+  k.model('table', X - 1.5, F, Z - 0.6, 1.6, 0.75, 1.0, { variant: 1 });
+  k.model('bed', X + 2.9, F, Z - 1.8, 1.9, 0.5, 0.9, { rot: 180, variant: 1 });
+  k.model('stove', X - 3.3, F, Z - 2.1, 0.7, R - F - 0.05, 0.7);
+  k.model('bookshelf', X + 0.6, F, Z - 2.55, 1.6, 1.6, 0.35);
   k.lamp(X, R - 0.08, Z, 1.0, 6.5, 0xffd9a0);
   // Woodpile and an axe block by the side.
-  box(X + W + 0.6, top(X + W + 0.6, Z - 2, 0.6) - 0.1, Z - 2, 0.9, 1.0, 1.6, 'timber');
+  k.model('woodpile', X + W + 0.6, top(X + W + 0.6, Z - 2, 0.6) - 0.1, Z - 2, 0.9, 1.0, 1.6);
   k.pickups.push({ type: 'health', x: X - 1.5, y: F, z: Z + 1.4 });
 }
 
@@ -152,7 +151,7 @@ footbridge(38);
   const { x: X, z: Z } = TOWER;
   const G = levels.tower;
   const P = G + 4.8; // platform top
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(X + sx * 1.9, G - 0.5, Z + sz * 1.9, 0.34, 8.3, 0.34, 'bark');
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) k.model('post', X + sx * 1.9, G - 0.5, Z + sz * 1.9, 0.34, 8.3, 0.34);
   span(X - 2.3, X + 2.3, P - 0.3, P, Z - 2.3, Z + 2.3, 'planks');
   // Railings (opening on the south side, where the stairs arrive).
   span(X - 2.3, X + 2.3, P, P + 1.0, Z - 2.3, Z - 2.15, 'planks');
@@ -190,10 +189,9 @@ footbridge(38);
   broken(-6, 6, 5.2, 6, [1.4, 1.0, 0.5, 0, 0, 0, 2.4, 3.0, 2.7]); // south
   // Broken columns and a fallen one.
   for (const [x, z, h] of [[-3, -3, 3.8], [3, -3, 1.6], [-3, 3, 2.4], [3, 3, 0.9]] as const) {
-    box(X + x, G, Z + z, 1.0, 0.3, 1.0, 'ruin');
-    box(X + x, G + 0.3, Z + z, 0.75, h, 0.75, 'marble');
+    k.model('column', X + x, G, Z + z, 1.0, 0.3 + h, 1.0, { variant: 1 });
   }
-  span(X - 1.5, X + 2.6, G + 0.08, G + 0.78, Z - 0.35, Z + 0.35, 'marble');
+  k.modelSpan('fallenColumn', X - 1.5, X + 2.6, G + 0.08, G + 0.78, Z - 0.35, Z + 0.35);
   k.pickups.push({ type: 'health', x: X - 3.6, y: G + 0.08, z: Z + 0.2 });
   k.pickups.push({ type: 'ammo', x: X + 3.4, y: G + 0.08, z: Z - 0.5 });
 }
@@ -204,20 +202,14 @@ footbridge(38);
   const G = levels.camp;
   /** An A-frame tent (2.4 m wide, 3 m long). */
   const tent = (x: number, z: number, alongX: boolean) => {
-    if (alongX) {
-      k.ramps.push({ x, z: z - 0.6, w: 3, d: 1.2, low: G - 0.05, high: G + 1.7, dir: '+z', base: G - 0.3, material: 'canvas' });
-      k.ramps.push({ x, z: z + 0.6, w: 3, d: 1.2, low: G - 0.05, high: G + 1.7, dir: '-z', base: G - 0.3, material: 'canvas' });
-    } else {
-      k.ramps.push({ x: x - 0.6, z, w: 1.2, d: 3, low: G - 0.05, high: G + 1.7, dir: '+x', base: G - 0.3, material: 'canvas' });
-      k.ramps.push({ x: x + 0.6, z, w: 1.2, d: 3, low: G - 0.05, high: G + 1.7, dir: '-x', base: G - 0.3, material: 'canvas' });
-    }
+    // Ridge along X (alongX) or Z; the box is what you bump into.
+    k.model('tent', x, G - 0.05, z, alongX ? 3 : 2.4, 1.75, alongX ? 2.4 : 3, { rot: alongX ? 90 : 0 });
   };
   tent(X - 5, Z - 4, true);
   tent(X + 4, Z - 5, false);
   tent(X - 4, Z + 5, false);
   // Picnic table, supply crates.
-  box(X + 4.5, G, Z + 3.5, 2.2, 0.78, 0.9, 'desk');
-  for (const s of [-1, 1]) box(X + 4.5, G, Z + 3.5 + s * 0.85, 2.2, 0.45, 0.3, 'desk');
+  k.model('picnicTable', X + 4.5, G, Z + 3.5, 2.2, 0.78, 2.0);
   box(X + 6.5, G, Z - 1, 1.2, 1.0, 1.2, 'crate');
   box(X + 7.3, G, Z + 0.3, 1.0, 0.8, 1.0, 'crate');
   k.pickups.push({ type: 'health', x: X + 2.5, y: G, z: Z - 2.5 });
