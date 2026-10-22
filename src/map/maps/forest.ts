@@ -104,7 +104,7 @@ function footbridge(z: number): void {
   const cx = streamX(z), x0 = cx - 7.5, x1 = cx + 7.5;
   const hw = top(x0, z, 1.1) + 0.05, he = top(x1, z, 1.1) + 0.05;
   const lowEnd = Math.min(hw, he);
-  const r: RampDef = { x: cx, z, w: x1 - x0, d: 2.2, low: hw, high: he, dir: '+x', base: lowEnd - 0.3, material: 'crate' };
+  const r: RampDef = { x: cx, z, w: x1 - x0, d: 2.2, low: hw, high: he, dir: '+x', base: lowEnd - 0.3, material: 'planks' };
   if (he < hw) Object.assign(r, { low: he, high: hw, dir: '-x' });
   k.ramps.push(r);
   for (let x = x0 + 1; x <= x1 - 0.9; x += 2.6) {
@@ -123,7 +123,7 @@ footbridge(38);
   const WALL = 2.7;
   span(X - W, X + W, low(X, Z, 4.5) - 0.5, F, Z - D, Z + D, 'timber', { top: 'desk' });
   // Porch in front (south), with two posts.
-  span(X - W, X + W, low(X, Z + D + 1.2, 4) - 0.5, F - 0.05, Z + D, Z + D + 2.4, 'crate');
+  span(X - W, X + W, low(X, Z + D + 1.2, 4) - 0.5, F - 0.05, Z + D, Z + D + 2.4, 'planks');
   const R = F + WALL;
   for (const s of [-1, 1]) span(X + s * (W - 0.2) - 0.11, X + s * (W - 0.2) + 0.11, F - 0.05, R - 0.45, Z + D + 2.09, Z + D + 2.31, 'bark');
   const wallOpts = { t: 0.3, mat: 'timber' as const, y0: F, y1: F + WALL };
@@ -132,9 +132,9 @@ footbridge(38);
   k.wall('z', X - W + 0.15, { ...wallOpts, from: Z - D + 0.3, to: Z + D - 0.3, openings: [win(Z - 0.8, Z + 0.8, 0.9, 1.9)] });
   k.wall('z', X + W - 0.15, { ...wallOpts, from: Z - D + 0.3, to: Z + D - 0.3, openings: [door(Z - 0.9, Z + 0.9)] });
   // Gable roof (two slopes) over the cabin, a lower one over the porch.
-  k.ramps.push({ x: X, z: Z - D / 2 - 0.2, w: W * 2 + 0.8, d: D + 0.4, low: R, high: R + 1.6, dir: '+z', base: R, material: 'crate' });
-  k.ramps.push({ x: X, z: Z + D / 2 + 0.2, w: W * 2 + 0.8, d: D + 0.4, low: R, high: R + 1.6, dir: '-z', base: R, material: 'crate' });
-  k.ramps.push({ x: X, z: Z + D + 1.5, w: W * 2 + 0.4, d: 2.2, low: R - 0.45, high: R - 0.05, dir: '-z', base: R - 0.55, material: 'crate' });
+  k.ramps.push({ x: X, z: Z - D / 2 - 0.2, w: W * 2 + 0.8, d: D + 0.4, low: R, high: R + 1.6, dir: '+z', base: R, material: 'planks' });
+  k.ramps.push({ x: X, z: Z + D / 2 + 0.2, w: W * 2 + 0.8, d: D + 0.4, low: R, high: R + 1.6, dir: '-z', base: R, material: 'planks' });
+  k.ramps.push({ x: X, z: Z + D + 1.5, w: W * 2 + 0.4, d: 2.2, low: R - 0.45, high: R - 0.05, dir: '-z', base: R - 0.55, material: 'planks' });
   // Inside: a table, a bunk, a stove, a shelf.
   box(X - 1.5, F, Z - 0.6, 1.6, 0.75, 1.0, 'desk');
   box(X + 2.9, F, Z - 1.8, 1.9, 0.5, 0.9, 'desk', { top: 'canvas' });
@@ -153,17 +153,17 @@ footbridge(38);
   const G = levels.tower;
   const P = G + 4.8; // platform top
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(X + sx * 1.9, G - 0.5, Z + sz * 1.9, 0.34, 8.3, 0.34, 'bark');
-  span(X - 2.3, X + 2.3, P - 0.3, P, Z - 2.3, Z + 2.3, 'crate');
+  span(X - 2.3, X + 2.3, P - 0.3, P, Z - 2.3, Z + 2.3, 'planks');
   // Railings (opening on the south side, where the stairs arrive).
-  span(X - 2.3, X + 2.3, P, P + 1.0, Z - 2.3, Z - 2.15, 'crate');
-  span(X - 2.3, X - 2.15, P, P + 1.0, Z - 2.15, Z + 2.3, 'crate');
-  span(X + 2.15, X + 2.3, P, P + 1.0, Z - 2.15, Z + 2.3, 'crate');
-  span(X - 2.15, X - 0.45, P, P + 1.0, Z + 2.15, Z + 2.3, 'crate');
-  span(X + 1.25, X + 2.15, P, P + 1.0, Z + 2.15, Z + 2.3, 'crate');
+  span(X - 2.3, X + 2.3, P, P + 1.0, Z - 2.3, Z - 2.15, 'planks');
+  span(X - 2.3, X - 2.15, P, P + 1.0, Z - 2.15, Z + 2.3, 'planks');
+  span(X + 2.15, X + 2.3, P, P + 1.0, Z - 2.15, Z + 2.3, 'planks');
+  span(X - 2.15, X - 0.45, P, P + 1.0, Z + 2.15, Z + 2.3, 'planks');
+  span(X + 1.25, X + 2.15, P, P + 1.0, Z + 2.15, Z + 2.3, 'planks');
   // Roof.
-  span(X - 2.7, X + 2.7, G + 7.8, G + 8.05, Z - 2.7, Z + 2.7, 'crate');
+  span(X - 2.7, X + 2.7, G + 7.8, G + 8.05, Z - 2.7, Z + 2.7, 'planks');
   // Stairs up (south side).
-  k.ramps.push({ x: X + 0.4, z: Z + 2.3 + 4.75, w: 1.5, d: 9.5, low: G, high: P, dir: '-z', base: G - 0.5, material: 'crate' });
+  k.ramps.push({ x: X + 0.4, z: Z + 2.3 + 4.75, w: 1.5, d: 9.5, low: G, high: P, dir: '-z', base: G - 0.5, material: 'planks' });
   k.pickups.push({ type: 'armor', x: X - 0.6, y: P, z: Z - 0.6 });
   k.pickups.push({ type: 'ammo', x: X - 3.5, y: top(X - 3.5, Z + 4), z: Z + 4 });
 }

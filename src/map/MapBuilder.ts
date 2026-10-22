@@ -14,6 +14,8 @@ export interface BuiltMap {
   group: THREE.Group;
   world: CollisionWorld;
   bounds: THREE.Box3;
+  /** The part players can reach (the play area, or everything). */
+  playBounds: THREE.Box3;
   sky: Sky;
   /** How much lamp light reaches a point (for lighting characters). */
   sampleLampLight(p: THREE.Vector3, out: THREE.Color): THREE.Color;
@@ -98,6 +100,14 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     foot.z0 = Math.min(foot.z0, terrain.z0);
     foot.z1 = Math.max(foot.z1, terrain.z0 + terrain.rows * terrain.cell);
   }
+  if (def.playArea) {
+    // Invisible walls around the play area (walking only).
+    const { x0, z0, x1, z1 } = def.playArea, T = 4, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, W = x1 - x0 + 2 * T, D = z1 - z0 + 2 * T;
+    for (const b of [
+      { x: cx, z: z0 - T / 2, w: W, d: T }, { x: cx, z: z1 + T / 2, w: W, d: T },
+      { x: x0 - T / 2, z: cz, w: T, d: D }, { x: x1 + T / 2, z: cz, w: T, d: D },
+    ]) world.addBox({ ...b, y: -100, h: 400 }, true);
+  }
   // Trees, rocks, logs: standing on the terrain (on its lowest point under them, so they never float).
   const placed: { p: PropDef; y: number }[] = (def.props ?? []).map((p) => {
     if (p.y !== undefined || !terrain) return { p, y: p.y ?? 0 };
@@ -121,14 +131,14 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       for (const g of jerseyBarrier(b)) props.push({ geo: g, material: 'trim' });
       continue;
     }
-    world.addBox(b, b.material === 'glass');
+    if (!b.decor) world.addBox(b, b.material === 'glass');
     if (b.material === 'crate') for (const g of crateFrame(b)) props.push({ geo: g, material: 'crateFrame' });
     const x0 = b.x - b.w / 2, x1 = b.x + b.w / 2, y0 = b.y, y1 = b.y + b.h, z0 = b.z - b.d / 2, z1 = b.z + b.d / 2;
     pushBoxQuads(quads, x0, x1, y0, y1, z0, z1, () => [y1, y1, y1, y1], faceMaterials(b), y0 <= 0.01);
   }
   for (const r of def.ramps) {
-    world.addRamp(r);
-    const ramp = world.ramps[world.ramps.length - 1];
+    if (!r.decor) world.addRamp(r);
+    const ramp = r.decor ? CollisionWorld.rampShape(r) : world.ramps[world.ramps.length - 1];
     const h = (x: number, z: number) => world.rampHeightAt(ramp, x, z);
     const { minX: x0, maxX: x1, minZ: z0, maxZ: z1, minY: y0 } = ramp;
     if (r.material === 'stairs') {
@@ -187,7 +197,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       bake(p.geo, world, aoDirs, lamps, lampPos, true, indoor);
       put(p.material, p.geo);
     }
-    if (terrain) for (const [mat, geo] of buildTerrain(terrain, placed, world, aoDirs, lamps, lampPos)) put(mat, geo);
+    if (terrain) for (const [mat, geo] of buildTerrain(terrain, placed, world, aoDirs, lamps, lampPos, def.playArea)) put(mat, geo);
     for (const { p, y } of placed) {
       for (const part of propGeometry(p, y)) {
         if (part.prebaked) part.geo.setAttribute('aLight', new THREE.BufferAttribute(new Float32Array(part.geo.getAttribute('position').count * 3), 3));
@@ -240,7 +250,16 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   const size = bounds.getSize(new THREE.Vector3());
   const sky = new Sky(skyDef, center, Math.max(size.x, size.z) * 0.6);
   group.add(sky.group);
-  addSunAndSky(group, bounds, quality.shadowMapSize, skyDef, sky.sunDir);
+  // The reachable part: shadows only need to cover this (sharper shadows on maps with far-off scenery).
+  const playBounds = bounds.clone();
+  if (def.playArea) {
+    const a = def.playArea;
+    playBounds.min.x = Math.max(bounds.min.x, a.x0);
+    playBounds.max.x = Math.min(bounds.max.x, a.x1);
+    playBounds.min.z = Math.max(bounds.min.z, a.z0);
+    playBounds.max.z = Math.min(bounds.max.z, a.z1);
+  }
+  addSunAndSky(group, playBounds, quality.shadowMapSize, skyDef, sky.sunDir);
   scene.background = new THREE.Color(skyDef.horizon);
   const [fogNear, fogFar] = opts.fog ?? [def.fogNear, def.fogFar];
   scene.fog = new THREE.Fog(skyDef.horizon, fogNear, fogFar);
@@ -261,7 +280,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     return out;
   };
 
-  return { def, group, world, bounds, sky, sampleLampLight };
+  return { def, group, world, bounds, playBounds, sky, sampleLampLight };
 }
 
 /**
@@ -272,6 +291,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
  */
 function buildTerrain(
   t: TerrainDef, placed: { p: PropDef; y: number }[], world: CollisionWorld, dirs: THREE.Vector3[], lamps: LampDef[], lampPos: V3[],
+  playArea?: MapDef['playArea'],
 ): [SurfaceId, THREE.BufferGeometry][] {
   const W = t.cols + 1, n = W * (t.rows + 1), C = t.cell, H = t.heights;
   const pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3);
@@ -289,7 +309,10 @@ function buildTerrain(
   const grid = new THREE.BufferGeometry();
   grid.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   grid.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
-  bake(grid, world, dirs, lamps, lampPos, false, 0);
+  // Far scenery (well outside the play area) doesn't need measured shading.
+  const area = playArea;
+  const far = area ? (x: number, z: number) => x < area.x0 - 15 || x > area.x1 + 15 || z < area.z0 - 15 || z > area.z1 + 15 : undefined;
+  bake(grid, world, dirs, lamps, lampPos, false, 0, far);
   const col = grid.getAttribute('color') as THREE.BufferAttribute;
   const light = grid.getAttribute('aLight') as THREE.BufferAttribute;
 
@@ -329,7 +352,9 @@ function buildTerrain(
       const a = j * W + i, b = a + 1, c = a + W + 1, d = a + W;
       const cx = t.x0 + (i + 0.5) * C, cz = t.z0 + (j + 0.5) * C;
       const slope = Math.max(Math.abs(H[b] - H[a]), Math.abs(H[c] - H[d]), Math.abs(H[d] - H[a]), Math.abs(H[c] - H[b])) / C;
-      const mat: SurfaceId = slope > 0.85 ? 'rock' : onPath(cx, cz) ? pathMat : ground;
+      const hAvg = (H[a] + H[b] + H[c] + H[d]) / 4;
+      const snowy = t.snowLine !== undefined && hAvg > t.snowLine + fbm(cx / 20, cz / 20, 5, 2) * 6;
+      const mat: SurfaceId = snowy ? (slope > 1.4 ? 'rock' : 'snow') : slope > 0.85 ? 'rock' : onPath(cx, cz) ? pathMat : ground;
       if (!byMat.has(mat)) byMat.set(mat, []);
       // Same split as the collision: along the (i, j) → (i+1, j+1) diagonal.
       byMat.get(mat)!.push(a, c, b, a, d, c);
@@ -489,6 +514,8 @@ function bake(
   pushOut = false,
   /** Indoor shading strength (0 = off): darken spots that are enclosed. */
   indoor = 0,
+  /** Corners to leave unlit-by-rays (fully open), e.g. far scenery nobody can get close to. */
+  skip?: (x: number, z: number) => boolean,
 ): void {
   const pos = geo.getAttribute('position');
   const nrm = geo.getAttribute('normal');
@@ -498,6 +525,10 @@ function bake(
   const lampColors = lamps.map((l) => new THREE.Color(l.color));
 
   for (let i = 0; i < pos.count; i++) {
+    if (skip?.(pos.getX(i), pos.getZ(i))) {
+      colors.set([0.95, 0.95, 0.95], i * 3);
+      continue;
+    }
     n.set(nrm.getX(i), nrm.getY(i), nrm.getZ(i));
     let off = 0.03;
     let px = pos.getX(i) + n.x * off, py = pos.getY(i) + n.y * off, pz = pos.getZ(i) + n.z * off;

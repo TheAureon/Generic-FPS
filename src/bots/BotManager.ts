@@ -46,7 +46,7 @@ export class BotManager {
     // Build the navigation graph from the map (connected to the spawn points).
     const def = d.map.def;
     const seeds = [...def.playerSpawns, ...def.botSpawns].map((s) => new THREE.Vector3(s.x, s.y, s.z));
-    this.nav = NavGraph.build(this.world, d.map.bounds, seeds, { radius: BOTS.radius + 0.06, ...(def.navSpacing ? { spacing: def.navSpacing } : {}) });
+    this.nav = NavGraph.build(this.world, d.map.playBounds, seeds, { radius: BOTS.radius + 0.06, ...(def.navSpacing ? { spacing: def.navSpacing } : {}) });
 
     // Bots hear gunshots within each gun's hearing range.
     this.unsubscribe = events.on('shot', (e) => {

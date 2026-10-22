@@ -14,7 +14,7 @@ export type MaterialId =
   // Museum and gardens:
   | 'marble' | 'stone' | 'grass' | 'hedge' | 'water' | 'art' | 'gold' | 'velvet'
   // Forest and mountains:
-  | 'forest' | 'rock' | 'bark' | 'needles' | 'foliage' | 'timber' | 'canvas' | 'ruin';
+  | 'forest' | 'rock' | 'bark' | 'needles' | 'foliage' | 'timber' | 'canvas' | 'ruin' | 'snow' | 'hay' | 'planks' | 'barnwood';
 
 /** The six sides of a box, for giving one side a different material. */
 export type BoxFace = 'top' | 'bottom' | '-x' | '+x' | '-z' | '+z';
@@ -39,6 +39,8 @@ export interface BoxDef {
   faces?: Partial<Record<BoxFace, MaterialId>>;
   /** An invisible wall at the edge of the map: blocks walking only (not drawn, bullets pass). */
   hidden?: boolean;
+  /** Drawn, but nothing collides with it: e.g. water you wade through. */
+  decor?: boolean;
 }
 
 /** Which way the ramp goes UP. */
@@ -59,6 +61,8 @@ export interface RampDef {
   dir: RampDir;
   base?: number;
   material?: MaterialId;
+  /** Drawn, but nothing collides with it (e.g. a sloping water surface you wade through). */
+  decor?: boolean;
 }
 
 export interface SpawnPoint {
@@ -153,6 +157,8 @@ export interface TerrainDef {
   /** Ground material (default 'forest'), and for paths and stream beds (default 'dirt'). */
   material?: MaterialId;
   pathMaterial?: MaterialId;
+  /** Ground above this height is snow (except where it's too steep, which stays rock). */
+  snowLine?: number;
   /** Spots shown as dirt paths: a list of [x, z] points per path, and its width. */
   paths?: { points: [number, number][]; width: number }[];
 }
@@ -196,6 +202,12 @@ export interface MapDef {
   navSpacing?: number;
   boxes: BoxDef[];
   ramps: RampDef[];
+  /**
+   * Where players can go, if the map is bigger than that (e.g. mountains
+   * around the edge that you can see but not reach): invisible walls are put
+   * around it, and bots only plan routes inside it.
+   */
+  playArea?: { x0: number; z0: number; x1: number; z1: number };
   /** Hilly ground (optional). */
   terrain?: TerrainDef;
   /** Trees, bushes, rocks and logs (optional). */

@@ -112,7 +112,7 @@ export class Game {
     this.viewmodel.matchLighting(this.match.map.sky.def);
     this.accumulator = 0;
     this.hud.reset();
-    this.hud.minimap.setMap(this.match.map.def, this.match.map.bounds);
+    this.hud.minimap.setMap(this.match.map.def, this.match.map.playBounds);
     this.hud.setVisible(true);
     this.menus.hide();
     // Wait for the mouse to be captured before play begins.

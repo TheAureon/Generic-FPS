@@ -13,7 +13,7 @@ export interface AABB {
   _q?: number;
 }
 
-interface Ramp extends AABB {
+export interface Ramp extends AABB {
   low: number;
   high: number;
   dir: RampDef['dir'];
@@ -149,6 +149,21 @@ export class CollisionWorld {
     this.boxes.push(box);
     if (!rayTransparent) this.solids.push({ planes: boxPlanes(box), bounds: box });
     this.gridDirty = true;
+  }
+
+  /** A ramp's shape (without adding it to the world). */
+  static rampShape(r: RampDef): Ramp {
+    return {
+      minX: r.x - r.w / 2,
+      maxX: r.x + r.w / 2,
+      minY: r.base ?? 0,
+      maxY: Math.max(r.low, r.high),
+      minZ: r.z - r.d / 2,
+      maxZ: r.z + r.d / 2,
+      low: r.low,
+      high: r.high,
+      dir: r.dir,
+    };
   }
 
   addRamp(r: RampDef): void {

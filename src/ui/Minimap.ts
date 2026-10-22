@@ -2,6 +2,9 @@ import type * as THREE from 'three';
 import type { BoxDef, MapDef, PickupType, RampDef } from '../map/MapTypes';
 import { terrainHeightAt } from '../map/terrain';
 
+/** Terrain shading per map (it's the same every match). */
+const terrainShadeCache = new Map<string, HTMLCanvasElement>();
+
 /** Pixels per meter on the radar, and how far it shows (meters). */
 const SCALE = 3.2;
 const SIZE = 190;
@@ -93,8 +96,10 @@ export class Minimap {
       else g.fillStyle = '#b9c0c8'; // walls, pillars
       g.fillRect(px(b.x - b.w / 2), pz(b.z - b.d / 2), b.w * SCALE, b.d * SCALE);
     }
-    g.fillStyle = '#4e5866';
-    for (const r of ramps) g.fillRect(px(r.x - r.w / 2), pz(r.z - r.d / 2), r.w * SCALE, r.d * SCALE);
+    for (const r of ramps) {
+      g.fillStyle = r.material === 'water' ? '#3f7896' : '#4e5866';
+      g.fillRect(px(r.x - r.w / 2), pz(r.z - r.d / 2), r.w * SCALE, r.d * SCALE);
+    }
     // Trees and rocks: small dots.
     for (const p of this.def?.props ?? []) {
       if (p.kind === 'bush') continue;
@@ -110,27 +115,40 @@ export class Minimap {
   /** Hilly ground: greener low, lighter high, gray where steep, with contour lines every 2 m and dirt paths. */
   private drawTerrain(g: CanvasRenderingContext2D, w: number, h: number): void {
     const t = this.def!.terrain!;
-    let lo = Infinity, hi = -Infinity;
-    for (const v of t.heights) { if (v < lo) lo = v; if (v > hi) hi = v; }
-    const img = g.getImageData(0, 0, w, h);
-    const d = img.data;
-    const heightAt = (px: number, pz: number) => terrainHeightAt(t, this.originX + px / SCALE, this.originZ + pz / SCALE);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const hv = heightAt(x, y);
-        if (!Number.isFinite(hv)) continue;
-        const hr = heightAt(x + 1, y), hd = heightAt(x, y + 1);
-        const slope = (Math.max(Math.abs(hr - hv), Math.abs(hd - hv)) || 0) * SCALE;
-        const k = (hv - lo) / Math.max(1, hi - lo);
-        let r = 44 + k * 46, gg = 58 + k * 44, b = 40 + k * 30;
-        if (slope > 0.85) { r = gg = b = 96 + k * 30; }
-        // Contour line where the 2 m band changes.
-        if (Math.floor(hv / 2) !== Math.floor(hr / 2) || Math.floor(hv / 2) !== Math.floor(hd / 2)) { r *= 0.72; gg *= 0.72; b *= 0.72; }
-        const i = (y * w + x) * 4;
-        d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 240;
+    // Shaded at 1 pixel per meter (then scaled up smoothly): quick to make, and kept for the next match.
+    const key = `${this.def!.id}:${this.originX}:${this.originZ}:${w}:${h}`;
+    let shade = terrainShadeCache.get(key);
+    if (!shade) {
+      let lo = Infinity, hi = -Infinity;
+      for (const v of t.heights) { if (v < lo) lo = v; if (v > hi) hi = v; }
+      const sw = Math.ceil(w / SCALE), sh = Math.ceil(h / SCALE);
+      shade = document.createElement('canvas');
+      shade.width = sw;
+      shade.height = sh;
+      const sg = shade.getContext('2d', { willReadFrequently: true })!;
+      const img = sg.createImageData(sw, sh);
+      const d = img.data;
+      const heightAt = (px: number, pz: number) => terrainHeightAt(t, this.originX + px, this.originZ + pz);
+      for (let y = 0; y < sh; y++) {
+        for (let x = 0; x < sw; x++) {
+          const hv = heightAt(x, y);
+          if (!Number.isFinite(hv)) continue;
+          const hr = heightAt(x + 1, y), hd = heightAt(x, y + 1);
+          const slope = Math.max(Math.abs(hr - hv), Math.abs(hd - hv)) || 0;
+          const k = (hv - lo) / Math.max(1, hi - lo);
+          let r = 44 + k * 46, gg = 58 + k * 44, b = 40 + k * 30;
+          if (slope > 0.85) { r = gg = b = 96 + k * 30; }
+          // Contour line where the 2 m band changes.
+          if (Math.floor(hv / 2) !== Math.floor(hr / 2) || Math.floor(hv / 2) !== Math.floor(hd / 2)) { r *= 0.72; gg *= 0.72; b *= 0.72; }
+          const i = (y * sw + x) * 4;
+          d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 240;
+        }
       }
+      sg.putImageData(img, 0, 0);
+      terrainShadeCache.set(key, shade);
     }
-    g.putImageData(img, 0, 0);
+    g.imageSmoothingEnabled = true;
+    g.drawImage(shade, 0, 0, shade.width * SCALE, shade.height * SCALE);
     g.strokeStyle = 'rgba(150, 128, 92, 0.85)';
     g.lineCap = 'round';
     g.lineJoin = 'round';

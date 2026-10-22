@@ -72,6 +72,12 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   // Log cabin walls: stacked round logs.
   timber: { base: '#8a6440', line: '#4a331d', tileSize: 1.2, pattern: 'logs', roughness: 0.9, metalness: 0 },
   canvas: { base: '#a88a5c', line: '#86704a', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
+  snow: { base: '#e8edf2', line: '#c4cfdb', tileSize: 5, pattern: 'speckle', roughness: 0.6, metalness: 0, pixels: 256 },
+  // Wooden boards (decks, platforms, sheds) and red-painted barn boards.
+  planks: { base: '#8d6a45', line: '#4f3a24', tileSize: 1.5, pattern: 'planks', roughness: 0.85, metalness: 0 },
+  barnwood: { base: '#8a3528', line: '#4f1d16', tileSize: 1.5, pattern: 'planks', roughness: 0.85, metalness: 0 },
+  // Hay bales: dry yellow straw.
+  hay: { base: '#c9a95a', line: '#a3843e', tileSize: 1, pattern: 'grain', roughness: 1, metalness: 0 },
   // Old weathered stone blocks with moss.
   ruin: { base: '#8f8a7c', line: '#5d594f', tileSize: 3, pattern: 'oldBlocks', roughness: 0.95, metalness: 0, pixels: 512 },
   // Outdoor ground: packed dirt and gravel.

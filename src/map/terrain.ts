@@ -13,7 +13,7 @@ import type { TerrainDef } from './MapTypes';
 export function makeTerrain(
   x0: number, z0: number, width: number, depth: number, cell: number,
   height: (x: number, z: number) => number,
-  extra: Partial<Pick<TerrainDef, 'material' | 'pathMaterial' | 'paths'>> = {},
+  extra: Partial<Pick<TerrainDef, 'material' | 'pathMaterial' | 'paths' | 'snowLine'>> = {},
 ): TerrainDef {
   const cols = Math.round(width / cell), rows = Math.round(depth / cell);
   const heights = new Float32Array((cols + 1) * (rows + 1));
