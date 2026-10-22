@@ -309,6 +309,11 @@ export const office: MapDef = {
   levels: [GF, UF],
   // A finer bot navigation grid, so bots always find their way through doors.
   navSpacing: 0.75,
+  // Game modes: Control zones in the workspace, the lobby and the break room; the hill moves around inside and out.
+  objectives: {
+    zones: [[-15, GF, -8.5], [0, GF, 10.5], [11, GF, -4.5]],
+    hills: [[0, GF, 10.5], [0, UF, -3.4], [-10, GF, -3.4], [0, -0.12, 26], [11, GF, -4.5], [0, 0, -19.5]],
+  },
   boxes,
   ramps,
   lamps,

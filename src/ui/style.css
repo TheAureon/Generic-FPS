@@ -182,7 +182,7 @@ body {
   opacity: 0.85;
 }
 .end-table {
-  max-height: 300px;
+  max-height: min(440px, 52vh);
   overflow-y: auto;
 }
 
@@ -1447,3 +1447,83 @@ body {
   text-shadow: 0 0 2px #000;
   white-space: pre;
 }
+
+/* ---------- Game modes: objective markers, the objective bar, teams ---------- */
+.markers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: -14px 0 0 -40px;
+  width: 80px;
+  color: var(--mk, #fff);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  will-change: transform;
+}
+.marker .mk-icon {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 13px;
+  border: 2px solid var(--mk, #fff);
+  background: rgba(10, 12, 16, 0.55);
+  font: 800 13px/22px system-ui, sans-serif;
+  text-align: center;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--mk, #fff) 45%, transparent);
+}
+.marker .mk-dist { font-size: 11px; font-weight: 600; opacity: 0.85; }
+.marker.edge { opacity: 0.85; }
+.marker.edge .mk-icon { transform: scale(0.85); }
+.marker.ally { margin: -22px 0 0 -40px; }
+.marker.ally .mk-name { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; opacity: 0.9; }
+.marker.ally .mk-chev {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid var(--mk, #5aa6ff);
+}
+
+.objective-bar {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  scale: var(--hud-scale, 1);
+  transform-origin: top center;
+  min-width: 240px;
+  padding: 7px 14px 9px;
+  border-radius: 8px;
+  background: rgba(12, 15, 20, 0.62);
+  border: 1px solid var(--ob, #fff);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--ob, #fff);
+  text-shadow: 0 1px 2px #000;
+}
+.objective-bar .ob-track { margin-top: 6px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.objective-bar .ob-fill { height: 100%; width: 0; background: var(--ob, #fff); transition: width 0.15s linear; }
+.objective-bar.no-bar .ob-track { display: none; }
+
+.seg-part.team-blue, .seg-part.team-blue:first-child { color: #5aa6ff; font-weight: 700; }
+.seg-part.team-red { color: #ff6152; font-weight: 700; }
+
+.score-table tr.teamed td:nth-child(2) { border-left: 3px solid var(--team); padding-left: 8px; }
+.score-table tr.team-head td {
+  padding-top: 12px;
+  color: var(--team);
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 12px;
+  background: none !important;
+}
+.score-table tr.team-head td.team-score { font-size: 16px; text-align: right; }
+.score-table td.obj { color: #e8d9a8; font-weight: 700; }
+.choice-cards.modes .choice-info { font-size: 11px; }

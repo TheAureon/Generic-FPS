@@ -10,7 +10,7 @@ import type { PickupType } from '../map/MapTypes';
 export interface GameEvents {
   shot: { shooter: string; weapon: WeaponId; position: THREE.Vector3; hearingRange: number };
   damage: { attacker: string; victim: string; amount: number; part: HitPart; killed: boolean };
-  kill: { killer: string; victim: string; weapon: WeaponId; headshot: boolean };
+  kill: { killer: string; victim: string; weapon: WeaponId | 'zone'; headshot: boolean };
   pickup: { who: string; type: PickupType };
 }
 

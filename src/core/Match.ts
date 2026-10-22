@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, PICKUPS } from '../config';
+import { CONFIG, PICKUPS, TEAMS } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { BotDebugView } from '../bots/BotDebugView';
 import { BotManager } from '../bots/BotManager';
@@ -8,9 +8,15 @@ import { TargetDummy } from '../entities/TargetDummy';
 import { buildMap, type BuiltMap } from '../map/MapBuilder';
 import { getMap } from '../map/maps';
 import type { PickupType, SpawnPoint } from '../map/MapTypes';
+import { BattleRoyale } from '../modes/BattleRoyale';
+import { CaptureTheFlag } from '../modes/CaptureTheFlag';
+import { Control } from '../modes/Control';
 import { Deathmatch } from '../modes/Deathmatch';
-import type { GameMode, MatchConfig, ModeContext } from '../modes/GameMode';
+import type { Combatant, GameMode, Marker, MatchConfig, ModeContext } from '../modes/GameMode';
+import { KingOfTheHill } from '../modes/KingOfTheHill';
+import { teamSides } from '../modes/objectives';
 import { Survival } from '../modes/Survival';
+import { TeamDeathmatch } from '../modes/TeamDeathmatch';
 import { Pickups, type Collector } from '../pickups/Pickups';
 import { Player } from '../player/Player';
 import { PlayerController } from '../player/PlayerController';
@@ -62,6 +68,8 @@ export class Match {
   private radarVisible = new Set<string>();
   private _targets: Damageable[] = [];
   private collectors: Collector[] = [];
+  /** Team modes: each team's spawn points. */
+  private sides: [SpawnPoint[], SpawnPoint[]];
 
   constructor(
     readonly config: MatchConfig,
@@ -75,18 +83,31 @@ export class Match {
     this.pickups = new Pickups(this.scene, this.map.def.pickups ?? []);
     (this.map.def.practiceTargets ?? []).forEach((t, i) => this.dummies.push(new TargetDummy(`Dummy ${i + 1}`, t, this.scene)));
 
+    this.sides = teamSides(this.map.def);
+
     // The mode needs a view of the match; build it before the bots.
     const self = this;
     const ctx: ModeContext = {
       config,
       get bots() { return self.bots; },
       player: this.player,
+      combatants: () => this.combatants(),
       kills: this.kills,
       deaths: this.deaths,
       get time() { return self.time; },
+      scene: this.scene,
+      world: this.map.world,
+      get nav() { return self.bots.nav; },
+      map: this.map.def,
+      playBounds: this.map.playBounds,
+      sides: this.sides,
       announce: (t, s, sec) => hud.announce(t, s, sec),
+      cue: (kind) => audio.play(kind === 'good' ? 'objective_good' : kind === 'bad' ? 'objective_bad' : 'objective_info'),
     };
-    this.mode = config.mode === 'survival' ? new Survival(ctx) : new Deathmatch(ctx);
+    this.mode = createMode(ctx);
+    // Teams: you're on Blue. The bots are split as evenly as possible (Blue gets you plus half, rounded down).
+    if (this.mode.teams) this.player.team = 0;
+    const blueBots = Math.floor(this.mode.initialBots / 2);
 
     this.bots = new BotManager({
       scene: this.scene,
@@ -95,10 +116,13 @@ export class Match {
       player: this.player,
       freeForAll: this.mode.freeForAll,
       autoRespawn: this.mode.botsRespawn,
+      teams: this.mode.teams,
+      sides: this.sides,
+      objective: this.mode.botObjective ? (bot) => this.mode.botObjective!(bot) : undefined,
       findHealth: (from) => this.pickups.nearest('health', from, 40),
       findAmmo: (from, maxDist, includeTaken) => this.pickups.nearest('ammo', from, maxDist, includeTaken),
     });
-    this.bots.spawnBots(this.mode.initialBots, config.difficulty);
+    this.bots.spawnBots(this.mode.initialBots, config.difficulty, this.mode.teams ? (i) => (i < blueBots ? 0 : 1) : undefined);
     this.botDebug = new BotDebugView(this.bots, this.scene);
 
     this.weapons = new WeaponSystem({
@@ -130,7 +154,7 @@ export class Match {
       events.on('kill', (e) => {
         if (e.killer !== e.victim) this.kills.set(e.killer, (this.kills.get(e.killer) ?? 0) + 1);
         this.deaths.set(e.victim, (this.deaths.get(e.victim) ?? 0) + 1);
-        hud.addKill(e.killer, e.victim, e.weapon, e.headshot);
+        hud.addKill(e.killer, e.victim, e.weapon, e.headshot, this.teamColor(e.killer), this.teamColor(e.victim));
         if (e.victim === this.player.name) audio.play('death');
       }),
       events.on('shot', (e) => {
@@ -153,6 +177,18 @@ export class Match {
     for (const bot of this.bots.bots) this.addBotCollector(bot);
 
     this.mode.start();
+  }
+
+  /** Player + bots. */
+  combatants(): Combatant[] {
+    return [this.player, ...this.bots.bots];
+  }
+
+  /** Team color (CSS) for a name in team modes, else undefined. */
+  private teamColor(name: string): string | undefined {
+    if (!this.mode.teams) return undefined;
+    const c = this.combatants().find((x) => x.name === name);
+    return c && c.team !== null ? TEAMS.css[c.team] : undefined;
   }
 
   private addBotCollector(bot: BotManager['bots'][number]): void {
@@ -195,7 +231,8 @@ export class Match {
   private targets(): readonly Damageable[] {
     this._targets.length = 0;
     for (const d of this.dummies) this._targets.push(d);
-    for (const b of this.bots.bots) this._targets.push(b);
+    // No friendly fire: your shots pass through teammates.
+    for (const b of this.bots.bots) if (b.team === null || b.team !== this.player.team) this._targets.push(b);
     return this._targets;
   }
 
@@ -231,7 +268,7 @@ export class Match {
     }
     this.controller.deathCam = Math.min(1, this.controller.deathCam + dt * 2);
     if (!this.mode.playerRespawns) {
-      hud.setDeath({ killer: pl.killedBy, seconds: -1 });
+      hud.setDeath({ killer: pl.killedBy, seconds: -1, note: this.mode.noRespawnNote });
       return;
     }
     pl.respawnTimer -= dt;
@@ -243,13 +280,16 @@ export class Match {
     }
   }
 
-  /** The player spawn point farthest from any living bot. */
+  /** The player spawn point farthest from any living enemy (team modes: on Blue's side). */
   private pickPlayerSpawn(): SpawnPoint {
-    let best = this.map.def.playerSpawns[0];
+    const team = this.player.team;
+    const spawns = team !== null ? this.sides[team] : this.map.def.playerSpawns;
+    let best = spawns[0];
     let bestScore = -Infinity;
-    for (const s of this.map.def.playerSpawns) {
+    for (const s of spawns) {
       let nearest = 60;
       for (const b of this.bots.bots) {
+        if (team !== null && b.team === team) continue;
         if (b.isAlive()) nearest = Math.min(nearest, Math.hypot(b.position.x - s.x, b.position.z - s.z));
       }
       const score = nearest + Math.random() * 3;
@@ -283,10 +323,28 @@ export class Match {
     }
     for (const b of this.bots.bots) {
       if (!b.isAlive()) continue;
+      // Teammates always show (in blue).
+      if (b.team !== null && b.team === this.player.team) {
+        blips.push({ x: b.position.x, y: b.position.y, z: b.position.z, kind: 'ally' });
+        continue;
+      }
       const fired = this.time - (this.lastShotAt.get(b.name) ?? -99) < 2;
       if (fired || this.radarVisible.has(b.name)) blips.push({ x: b.position.x, y: b.position.y, z: b.position.z, kind: 'enemy' });
     }
+    // Hills, zones, flags.
+    for (const mk of this.mode.markers?.() ?? []) blips.push({ x: mk.x, y: mk.y, z: mk.z, kind: 'mark', color: mk.color, label: mk.label, radius: mk.radius });
     return blips;
+  }
+
+  /** Things to point out on screen: objectives, and teammates (team modes). */
+  screenMarkers(): (Marker & { ally?: boolean })[] {
+    const out: (Marker & { ally?: boolean })[] = (this.mode.markers?.() ?? []).filter((m) => m.label);
+    if (this.player.team !== null) {
+      for (const b of this.bots.bots) {
+        if (b.isAlive() && b.team === this.player.team) out.push({ x: b.position.x, y: b.position.y + 2.15, z: b.position.z, label: b.name, color: TEAMS.css[b.team], ally: true });
+      }
+    }
+    return out;
   }
 
   /** Free GPU memory and stop listening to events. */
@@ -298,5 +356,19 @@ export class Match {
         if (!o.geometry.userData.cached) o.geometry.dispose();
       }
     });
+  }
+}
+
+/** The game mode for a match config. */
+function createMode(ctx: ModeContext): GameMode {
+  switch (ctx.config.mode) {
+    case 'survival': return new Survival(ctx);
+    case 'tdm': return new TeamDeathmatch(ctx);
+    case 'koh': return new KingOfTheHill(ctx, false);
+    case 'coh': return new KingOfTheHill(ctx, true);
+    case 'ctf': return new CaptureTheFlag(ctx);
+    case 'control': return new Control(ctx);
+    case 'br': return new BattleRoyale(ctx);
+    default: return new Deathmatch(ctx);
   }
 }

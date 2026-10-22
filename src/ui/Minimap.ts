@@ -13,7 +13,12 @@ export interface RadarBlip {
   x: number;
   y: number;
   z: number;
-  kind: 'enemy' | PickupType;
+  /** enemy, teammate, pickup, or a game-mode mark (hill, zone, flag). */
+  kind: 'enemy' | 'ally' | 'mark' | PickupType;
+  /** Marks: CSS color, a short label, and a radius (meters) to draw a ring instead of a dot. */
+  color?: string;
+  label?: string;
+  radius?: number;
 }
 
 /**
@@ -188,13 +193,57 @@ export class Minimap {
     }
     if (this.layout) g.drawImage(this.layout, (this.originX - x) * SCALE, (this.originZ - z) * SCALE);
 
+    // Rings first (zones, the Battle Royale circle), under everything else.
     for (const b of blips) {
-      const bx = (b.x - x) * SCALE, bz = (b.z - z) * SCALE;
-      if (bx * bx + bz * bz > (r - 6) * (r - 6)) continue;
+      if (b.kind !== 'mark' || !b.radius) continue;
+      g.strokeStyle = b.color ?? '#fff';
+      g.lineWidth = 2;
+      g.globalAlpha = 0.85;
+      g.beginPath();
+      g.arc((b.x - x) * SCALE, (b.z - z) * SCALE, b.radius * SCALE, 0, Math.PI * 2);
+      g.stroke();
+      g.globalAlpha = 0.14;
+      g.fillStyle = b.color ?? '#fff';
+      g.fill();
+      g.globalAlpha = 1;
+    }
+    for (const b of blips) {
+      let bx = (b.x - x) * SCALE, bz = (b.z - z) * SCALE;
+      const far = bx * bx + bz * bz > (r - 8) * (r - 8);
+      if (far) {
+        // Objectives stay on the radar's rim, pointing the way.
+        if (b.kind !== 'mark' || !b.label) continue;
+        const k = (r - 9) / Math.hypot(bx, bz);
+        bx *= k;
+        bz *= k;
+      }
       g.save();
       g.translate(bx, bz);
       g.rotate(-yaw); // keep icons upright
-      if (b.kind === 'enemy') {
+      if (b.kind === 'mark') {
+        if (b.label) {
+          g.fillStyle = b.color ?? '#fff';
+          g.strokeStyle = '#000';
+          g.lineWidth = 1.5;
+          g.beginPath();
+          g.arc(0, 0, 7, 0, Math.PI * 2);
+          g.fill();
+          g.stroke();
+          g.fillStyle = '#111';
+          g.font = 'bold 9px system-ui, sans-serif';
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.fillText(b.label.length > 2 ? b.label[0] : b.label, 0, 0.5);
+        }
+      } else if (b.kind === 'ally') {
+        g.fillStyle = '#5aa6ff';
+        g.strokeStyle = '#000';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.arc(0, 0, 4, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+      } else if (b.kind === 'enemy') {
         g.fillStyle = '#ff3b30';
         g.strokeStyle = '#000';
         g.lineWidth = 1.5;

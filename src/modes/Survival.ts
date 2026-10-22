@@ -11,7 +11,9 @@ type Skill = (typeof BOT_DIFFICULTY)['medium'];
 export class Survival implements GameMode {
   readonly id = 'survival' as const;
   readonly name = 'Survival';
+  readonly teams = false;
   readonly freeForAll = false;
+  readonly noRespawnNote = 'No respawns in Survival';
   readonly botsRespawn = false;
   readonly playerRespawns = false;
   result: MatchResult | null = null;

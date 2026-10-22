@@ -7,6 +7,7 @@ import { events } from '../core/events';
 import type { Effects } from '../effects/Effects';
 import type { BuiltMap } from '../map/MapBuilder';
 import type { SpawnPoint } from '../map/MapTypes';
+import type { BotObjective } from '../modes/GameMode';
 import type { Player, Trackable } from '../player/Player';
 import { Bot } from './Bot';
 import { BotBrain } from './BotBrain';
@@ -25,7 +26,15 @@ export interface BotManagerDeps {
   findAmmo?: (from: THREE.Vector3, maxDist?: number, includeTaken?: boolean) => THREE.Vector3 | null;
   /** Bring dead bots back automatically (deathmatch). Default true. */
   autoRespawn?: boolean;
+  /** Team modes: bots fight the other team only, and spawn on their own side. */
+  teams?: boolean;
+  /** Team modes: each team's spawn points (Blue's, Red's). */
+  sides?: [SpawnPoint[], SpawnPoint[]];
+  /** What the game mode wants each bot to do (hills, flags, zones). */
+  objective?: (bot: Bot) => BotObjective | null;
 }
+
+type Fighter = Trackable & Damageable & { team: number | null };
 
 /** Creates bots, runs their brains, and respawns them. */
 export class BotManager {
@@ -34,8 +43,8 @@ export class BotManager {
   readonly nav: NavGraph;
   private world: CollisionWorld;
   /** Everyone in the fight (player + bots). */
-  private combatants: (Trackable & Damageable)[] = [];
-  private onlyPlayer: (Trackable & Damageable)[];
+  private combatants: Fighter[] = [];
+  private onlyPlayer: Fighter[];
   private unsubscribe: () => void;
 
   constructor(private d: BotManagerDeps) {
@@ -58,7 +67,8 @@ export class BotManager {
   }
 
   /** Who a bot may shoot at. */
-  private enemiesOf(bot: Bot): readonly (Trackable & Damageable)[] {
+  private enemiesOf(bot: Bot): readonly Fighter[] {
+    if (this.d.teams) return this.combatants.filter((c) => c !== bot && c.team !== bot.team);
     return this.d.freeForAll ? this.combatants.filter((c) => c !== bot) : this.onlyPlayer;
   }
 
@@ -71,7 +81,7 @@ export class BotManager {
   revive(i: number, skill: (typeof BOT_DIFFICULTY)[Difficulty]): void {
     const bot = this.bots[i];
     bot.skill = skill;
-    bot.spawn(this.pickSpawn());
+    bot.spawn(this.pickSpawn(bot));
     this.brains[i].reset();
   }
 
@@ -79,7 +89,8 @@ export class BotManager {
     return this.bots.filter((b) => b.isAlive()).length;
   }
 
-  spawnBots(count: number, difficulty: Difficulty): void {
+  /** @param teamOf team modes: which team bot number i (counting from 0) is on */
+  spawnBots(count: number, difficulty: Difficulty, teamOf?: (i: number) => number | null): void {
     for (let i = 0; i < count; i++) {
       const idx = this.bots.length;
       const name = BOTS.names[idx % BOTS.names.length];
@@ -92,8 +103,9 @@ export class BotManager {
         getEnemies,
         listener: this.d.player,
         sampleLight: this.d.map.sampleLampLight,
-      });
-      const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth, findAmmo: this.d.findAmmo });
+      }, teamOf?.(idx) ?? null);
+      const objective = this.d.objective ? () => this.d.objective!(bot) : undefined;
+      const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth, findAmmo: this.d.findAmmo, objective });
       this.bots.push(bot);
       this.brains.push(brain);
       this.combatants.push(bot);
@@ -103,7 +115,7 @@ export class BotManager {
     // Spawn one at a time so they spread out.
     this.bots.forEach((b, j) => {
       if (b.model.root.visible) return;
-      b.spawn(this.pickSpawn());
+      b.spawn(this.pickSpawn(b));
       this.brains[j].reset();
     });
   }
@@ -129,22 +141,31 @@ export class BotManager {
       if (!bot.isAlive() && bot.respawnTimer <= 0 && bot.model.root.visible) {
         bot.hide();
         if (this.d.autoRespawn !== false) {
-          bot.spawn(this.pickSpawn());
+          bot.spawn(this.pickSpawn(bot));
           this.brains[i].reset();
         }
       }
       // Fell out of the map somehow: put it back.
       if (bot.isAlive() && bot.position.y < -20) {
-        bot.spawn(this.pickSpawn());
+        bot.spawn(this.pickSpawn(bot));
         this.brains[i].reset();
       }
     }
   }
 
-  /** A spawn point far from everyone else and out of their sight. */
-  pickSpawn(): SpawnPoint {
+  /**
+   * A spawn point far from everyone else and out of their sight. In team
+   * modes: on the bot's own side, away from enemies (teammates don't count).
+   */
+  pickSpawn(bot?: Bot): SpawnPoint {
     const def = this.d.map.def;
-    const spawns = this.d.freeForAll ? [...def.botSpawns, ...def.playerSpawns] : def.botSpawns;
+    const team = this.d.teams && bot ? bot.team : null;
+    let spawns = team !== null && this.d.sides ? this.d.sides[team] : this.d.freeForAll ? [...def.botSpawns, ...def.playerSpawns] : def.botSpawns;
+    if (team !== null) {
+      // Every spot on our side has an enemy right there: use any spot instead.
+      const safe = spawns.filter((s) => !this.combatants.some((c) => c.isAlive() && c.team !== team && Math.hypot(c.position.x - s.x, c.position.z - s.z) < 8));
+      if (!safe.length) spawns = [...def.botSpawns, ...def.playerSpawns];
+    }
     let best = spawns[0];
     let bestScore = -Infinity;
     for (const s of spawns) {
@@ -152,6 +173,7 @@ export class BotManager {
       let seen = false;
       for (const c of this.combatants) {
         if (!c.isAlive() || (c instanceof Bot && !c.model.root.visible)) continue;
+        if (team !== null && c.team === team) continue;
         const p = c.position;
         nearest = Math.min(nearest, Math.hypot(p.x - s.x, p.z - s.z));
         if (c === this.d.player && this.world.hasLineOfSight(p.x, p.y + 1.6, p.z, s.x, s.y + 1.6, s.z)) seen = true;

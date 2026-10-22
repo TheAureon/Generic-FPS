@@ -44,6 +44,7 @@ export class Game {
   private lampTimer = 0;
   private lampColor = new THREE.Color();
   private _eye = new THREE.Vector3();
+  private _mk = new THREE.Vector3();
   /** Testing aid: lets automated checks play without pointer lock. */
   private forcePlay = false;
 
@@ -157,7 +158,7 @@ export class Game {
     const result = m.mode.result!;
     audio.play(result.win ? 'win' : 'lose');
     const accuracy = m.shotsFired ? Math.round((100 * m.shotsHit) / m.shotsFired) : 0;
-    this.menus.showEnd({ ...result, stats: [...result.stats, `Accuracy: ${accuracy}%`] }, m.mode.scoreboard());
+    this.menus.showEnd({ ...result, stats: [...result.stats, `Accuracy: ${accuracy}%`] }, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() });
   }
 
   private onPointerLockChange(): void {
@@ -224,7 +225,9 @@ export class Game {
     this.hud.update(playing ? dt : 0, m.player.position.x, m.player.position.z, m.controller.yaw);
     this.hud.setStatus(m.mode.status());
     this.hud.minimap.draw(m.player.position.x, m.player.position.y, m.player.position.z, m.controller.yaw, m.radarBlips(dt));
-    this.hud.showScoreboard(playing && this.input.isDown('Tab') ? m.mode.scoreboard() : null, m.mode.name);
+    this.hud.showScoreboard(playing && this.input.isDown('Tab') ? m.mode.scoreboard() : null, m.mode.name, { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() });
+    this.hud.setObjective(m.mode.progress?.() ?? null);
+    this.updateMarkers(m);
     audio.updateListener(this.camera);
 
     // The gun in your hands picks up the color of nearby lamps.
@@ -245,6 +248,37 @@ export class Game {
     ]);
 
     if (playing && m.mode.result) this.endMatch();
+  }
+
+  /** Objectives and teammates, projected onto the screen. Objectives off screen stick to the edge. */
+  private updateMarkers(m: Match): void {
+    const W = window.innerWidth, H = window.innerHeight, margin = 48;
+    const camPos = this.camera.getWorldPosition(this._eye);
+    const out: Parameters<Hud['setMarkers']>[0] = [];
+    for (const mk of m.screenMarkers()) {
+      const v = this._mk.set(mk.x, mk.y + (mk.ally ? 0 : 1.2), mk.z);
+      const dist = v.distanceTo(camPos);
+      v.project(this.camera);
+      const behind = v.z > 1;
+      if (behind) { v.x = -v.x; v.y = -v.y; }
+      let sx = ((v.x + 1) / 2) * W, sy = ((1 - v.y) / 2) * H;
+      const onScreen = !behind && sx > margin && sx < W - margin && sy > margin && sy < H - margin;
+      if (mk.ally) {
+        if (onScreen && dist < 70) out.push({ sx, sy, label: mk.label, sub: '', color: mk.color, ally: true });
+        continue;
+      }
+      if (!onScreen) {
+        // Pin to the screen edge, in the marker's direction.
+        const dx = sx - W / 2, dy = sy - H / 2;
+        const k = Math.min((W / 2 - margin) / Math.max(1e-3, Math.abs(dx)), (H / 2 - margin) / Math.max(1e-3, Math.abs(dy)));
+        sx = W / 2 + dx * (behind ? Math.max(k, 1) : Math.min(k, 1));
+        sy = H / 2 + dy * (behind ? Math.max(k, 1) : Math.min(k, 1));
+        sx = Math.min(W - margin, Math.max(margin, sx));
+        sy = Math.min(H - margin, Math.max(margin, sy));
+      }
+      out.push({ sx, sy, label: mk.label, sub: `${Math.round(dist)} m`, color: mk.color, edge: !onScreen });
+    }
+    this.hud.setMarkers(out);
   }
 
   /** Behind the title screen and menus: the arena at dusk with a slow camera. */

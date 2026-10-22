@@ -33,7 +33,10 @@ export type SoundId =
   | 'ui_click'
   | 'title_start'
   | 'step'
-  | 'land';
+  | 'land'
+  | 'objective_good'
+  | 'objective_bad'
+  | 'objective_info';
 
 export const SAMPLE_FILES: Partial<Record<SoundId, string>> = {};
 
@@ -186,6 +189,17 @@ export const SYNTHS: Record<SoundId, Synth> = {
   },
   lose: (s) => {
     [392, 330, 262].forEach((f, i) => tone(s, { type: 'triangle', from: f, to: f * 0.97, gain: 0.2, decay: 0.45, delay: i * 0.22 }));
+  },
+  // Game-mode cues: your team did something good / the enemy did / something changed.
+  objective_good: (s) => {
+    [587, 784, 988].forEach((f, i) => tone(s, { type: 'triangle', from: f, to: f, gain: 0.16, decay: 0.18, delay: i * 0.08 }));
+  },
+  objective_bad: (s) => {
+    [494, 392, 311].forEach((f, i) => tone(s, { type: 'square', from: f, to: f * 0.98, gain: 0.07, decay: 0.2, delay: i * 0.1 }));
+  },
+  objective_info: (s) => {
+    tone(s, { type: 'sine', from: 880, to: 880, gain: 0.14, decay: 0.12 });
+    tone(s, { type: 'sine', from: 660, to: 660, gain: 0.14, decay: 0.2, delay: 0.12 });
   },
   ui_click: (s) => {
     tone(s, { type: 'sine', from: 900, to: 700, gain: 0.12, decay: 0.04 });

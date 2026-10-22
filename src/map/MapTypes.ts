@@ -208,6 +208,16 @@ export interface MapDef {
    * around it, and bots only plan routes inside it.
    */
   playArea?: { x0: number; z0: number; x1: number; z1: number };
+  /**
+   * Where game-mode objectives go (optional: if left out they're placed
+   * automatically between the two ends of the map). Points are [x, y, z]
+   * on the floor. `flags`: Blue's base, then Red's.
+   */
+  objectives?: {
+    hills?: [number, number, number][];
+    zones?: [number, number, number][];
+    flags?: [[number, number, number], [number, number, number]];
+  };
   /** Hilly ground (optional). */
   terrain?: TerrainDef;
   /** Trees, bushes, rocks and logs (optional). */

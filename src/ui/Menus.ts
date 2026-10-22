@@ -1,9 +1,9 @@
-import { DIFFICULTIES, MATCH } from '../config';
+import { DIFFICULTIES, MATCH, MODES } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
-import type { MatchConfig, MatchResult, ScoreRow } from '../modes/GameMode';
-import { scoreTableHtml } from './Hud';
+import { modeLimit, type MatchConfig, type MatchResult, type ModeId, type ScoreRow } from '../modes/GameMode';
+import { scoreTableHtml, type ScoreExtras } from './Hud';
 
 export interface MenuActions {
   startMatch(config: MatchConfig): void;
@@ -16,10 +16,18 @@ type Screen = 'title' | 'main' | 'controls' | 'setup' | 'pause' | 'settings' | '
 
 const CONFIG_KEY = 'generic-fps-match';
 
-const MODE_INFO = {
-  deathmatch: 'Everyone for themselves. First to the kill limit wins. Everyone respawns.',
-  survival: 'Waves of bots hunt you, each wave bigger and tougher. One life. Clearing a wave heals you a bit.',
-};
+/** The match menu's mode cards: name, description, icon, and what the "to win" setting means. */
+const MODE_LIST: { id: ModeId; name: string; info: string; icon: keyof typeof ICONS; limit?: string }[] = [
+  { id: 'deathmatch', name: 'Free for All', info: 'Everyone for themselves. First to the kill limit wins. Everyone respawns.', icon: 'crosshair', limit: 'Kill limit' },
+  { id: 'tdm', name: 'Team Deathmatch', info: 'You and your bots (Blue) against Red. First team to the kill limit wins.', icon: 'team', limit: 'Team kills' },
+  { id: 'koh', name: 'King of the Hill', info: 'Stand in the hill alone to score a point a second. The hill moves every minute. Free for all.', icon: 'crown', limit: 'Seconds to win' },
+  { id: 'coh', name: 'Court of the Hill', info: 'King of the Hill in teams: your team scores while only your team is in the hill.', icon: 'hill', limit: 'Team seconds' },
+  { id: 'ctf', name: 'Capture the Flag', info: 'Grab the Red flag and bring it to your base while yours is safe at home.', icon: 'flag', limit: 'Captures' },
+  { id: 'control', name: 'Control', info: 'Capture zones A, B and C. Each zone your team holds scores a point a second.', icon: 'zones', limit: 'Points' },
+  { id: 'br', name: 'Battle Royale', info: 'One life each, a shrinking safe zone. Last one standing wins.', icon: 'circle' },
+  { id: 'survival', name: 'Survival', info: 'Waves of bots hunt you, each wave bigger and tougher. One life. Clearing a wave heals you a bit.', icon: 'waves' },
+];
+const TEAM_MODES: ModeId[] = ['tdm', 'coh', 'ctf', 'control'];
 
 /** All the menu screens (plain HTML on top of the game). */
 export class Menus {
@@ -28,7 +36,7 @@ export class Menus {
   /** Where "Back" in settings goes. */
   private settingsReturn: Screen = 'main';
   private config: MatchConfig;
-  private lastResult: { result: MatchResult; rows: ScoreRow[] } | null = null;
+  private lastResult: { result: MatchResult; rows: ScoreRow[]; extra: ScoreExtras } | null = null;
   /** Shown on the pause screen, e.g. when the mouse couldn't be captured. */
   private pauseHint = '';
 
@@ -86,6 +94,7 @@ export class Menus {
       // Older saves used 'normal' for what's now 'medium'.
       if (saved.difficulty === 'normal') saved.difficulty = 'medium';
       if (!DIFFICULTIES.some((d) => d.id === saved.difficulty)) delete saved.difficulty;
+      if (!MODE_LIST.some((m) => m.id === saved.mode)) delete saved.mode;
       return { ...def, ...saved };
     } catch {
       return def;
@@ -131,8 +140,8 @@ export class Menus {
     }
   }
 
-  showEnd(result: MatchResult, rows: ScoreRow[]): void {
-    this.lastResult = { result, rows };
+  showEnd(result: MatchResult, rows: ScoreRow[], extra: ScoreExtras = {}): void {
+    this.lastResult = { result, rows, extra };
     this.show('end');
   }
 
@@ -145,7 +154,7 @@ export class Menus {
     div('title-tagline', center).textContent = 'Outthink them. Outaim them. Outlast them.';
     div('title-prompt', wrap).textContent = 'Click or press any key to start';
     const foot = div('title-footer', wrap);
-    foot.innerHTML = '<span>Singleplayer · AI bots · Deathmatch & Survival</span><span>v1.0</span>';
+    foot.innerHTML = '<span>Singleplayer · AI bots · 8 game modes</span><span>v1.1</span>';
     wrap.addEventListener('click', () => this.leaveTitle());
   }
 
@@ -158,7 +167,7 @@ export class Menus {
       const b = button(nav, '', onClick, `nav-item ${featured ? 'featured' : ''}`);
       b.innerHTML = `<span class="nav-label">${label}</span><span class="nav-hint">${hint}</span>`;
     };
-    item('Play', 'Deathmatch or Survival against bots', () => this.show('setup'), true);
+    item('Play', 'Free for all, team modes, objectives, Battle Royale', () => this.show('setup'), true);
     item('How to play', 'Controls and tips', () => this.show('controls'));
     item('Settings', 'Mouse, field of view, sound, graphics', () => this.openSettings('main'));
     const aim = { both: 'right click or Q', mouse: 'right click', q: 'Q' }[settings.get().aimKey] ?? 'right click';
@@ -200,13 +209,10 @@ export class Menus {
     head(p, 'Ready up', 'New match');
 
     div('section-title', p).textContent = 'Mode';
-    choiceCards(p, [
-      ['deathmatch', 'Deathmatch', MODE_INFO.deathmatch, ICONS.crosshair],
-      ['survival', 'Survival', MODE_INFO.survival, ICONS.waves],
-    ], c.mode, (v) => {
+    choiceCards(p, MODE_LIST.map((m) => [m.id, m.name, m.info, ICONS[m.icon]] as [string, string, string, string]), c.mode, (v) => {
       c.mode = v as MatchConfig['mode'];
       this.show('setup');
-    });
+    }, 'small modes');
 
     div('section-title', p).textContent = 'Map';
     choiceCards(p, MAPS.map((m) => [m.id, m.name, m.description, ICONS.map] as [string, string, string, string]), c.map, (v) => (c.map = v), 'small');
@@ -232,15 +238,21 @@ export class Menus {
 
     const pair = div('field-pair', p);
     const bots = div('pair-item', pair);
+    const team = TEAM_MODES.includes(c.mode);
     div('section-title', bots).textContent = c.mode === 'survival' ? 'Bots in wave 1' : 'Bots';
-    slider(div('menu-control', bots), MATCH.minBots, MATCH.maxBots, 1, c.botCount, (v) => String(v), (v) => {
+    // Team modes: you're on Blue with half the bots (rounded down); Red gets the rest.
+    const split = (n: number) => `${n}  ·  you + ${Math.floor(n / 2)} vs ${n - Math.floor(n / 2)}`;
+    slider(div('menu-control', bots), MATCH.minBots, MATCH.maxBots, 1, c.botCount, (v) => (team ? split(v) : String(v)), (v) => {
       c.botCount = v;
     });
-    if (c.mode === 'deathmatch') {
+    const mode = MODE_LIST.find((m) => m.id === c.mode)!;
+    if (mode.limit) {
       const kl = div('pair-item', pair);
-      div('section-title', kl).textContent = 'Kill limit';
-      segmented(div('menu-control', kl), MATCH.killLimits.map((k) => [String(k), String(k)] as [string, string]), String(c.killLimit), (v) => {
-        c.killLimit = Number(v);
+      div('section-title', kl).textContent = mode.limit;
+      const choices = c.mode === 'deathmatch' ? MATCH.killLimits : MODES[c.mode as keyof typeof MODES & ('tdm' | 'koh' | 'coh' | 'ctf' | 'control')].limits;
+      segmented(div('menu-control', kl), choices.map((k) => [String(k), String(k)] as [string, string]), String(modeLimit(c)), (v) => {
+        if (c.mode === 'deathmatch') c.killLimit = Number(v);
+        else c.limits = { ...c.limits, [c.mode]: Number(v) };
       });
     }
 
@@ -310,7 +322,7 @@ export class Menus {
     const stats = div('end-stats', p);
     for (const line of r.result.stats) div('end-stat', stats).textContent = line;
     const table = div('end-table', p);
-    table.innerHTML = scoreTableHtml(r.rows, '');
+    table.innerHTML = scoreTableHtml(r.rows, '', r.extra);
     const row = div('menu-buttons row', p);
     button(row, 'Main menu', () => this.actions.quitToMenu());
     button(row, 'Play again', () => this.actions.restart(), 'primary');
@@ -319,6 +331,12 @@ export class Menus {
 
 /** Small line icons for the menus. */
 const ICONS = {
+  team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 20c0-4 3-6 6-6s6 2 6 6M12 20c0-4 2-6 4-6 3 0 6 2 6 6"/></svg>',
+  crown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 18h18l-2-11-5 5-2-7-2 7-5-5z"/></svg>',
+  hill: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 20l7-10 4 5 3-3 6 8z"/><path d="M9 10V3l4 2-4 2"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M5 22V3"/><path d="M5 4h13l-3 4 3 4H5"/></svg>',
+  zones: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="17" r="3"/><circle cx="12" cy="7" r="3"/><circle cx="19" cy="17" r="3"/></svg>',
+  circle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.5"><circle cx="12" cy="12" r="9"/><circle cx="14" cy="11" r="4" stroke-dasharray="none"/></svg>',
   crosshair: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>',
   waves: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 8c3-3 5 3 8 0s5 3 8 0 3-1 4 0"/><path d="M2 13c3-3 5 3 8 0s5 3 8 0 3-1 4 0"/><path d="M2 18c3-3 5 3 8 0s5 3 8 0 3-1 4 0"/></svg>',
   map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>',

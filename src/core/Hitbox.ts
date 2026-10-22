@@ -8,7 +8,8 @@ export interface DamageInfo {
   part: HitPart;
   /** Who dealt the damage (an entity name like 'player' or 'Bot 3'). */
   attacker: string;
-  weapon: WeaponId;
+  /** The gun, or 'zone' (Battle Royale: outside the safe zone). */
+  weapon: WeaponId | 'zone';
   /** Where the shot came from (world position), for damage indicators. */
   from: THREE.Vector3;
 }

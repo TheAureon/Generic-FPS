@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOT_DIFFICULTY, BOTS, type Difficulty } from '../config';
+import { BOT_DIFFICULTY, BOTS, TEAMS, type Difficulty } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
 import { createCharacterModel, type CharacterModel } from '../assets/characterModel';
@@ -87,10 +87,13 @@ export class Bot implements Damageable, Trackable {
     readonly name: string,
     difficulty: Difficulty,
     private ctx: BotContext,
+    /** Team modes: 0 = Blue (your side), 1 = Red; null = no teams. */
+    readonly team: number | null = null,
   ) {
     this.skill = BOT_DIFFICULTY[difficulty];
     this.body = new CharacterBody(ctx.world, BOTS.height, BOTS.radius, 0.45, 20);
-    this.model = createCharacterModel(0xb8402f, 0x3f444c);
+    // Uniforms: red trim normally; team colors (and a slightly tinted uniform) in team modes.
+    this.model = team === null ? createCharacterModel(0xb8402f, 0x3f444c) : createCharacterModel(TEAMS.colors[team], team === 0 ? 0x36404f : 0x4a3e3a);
     this.weaponModel = createWorldWeaponModel(BOTS.weapon);
     // Slightly oversized so it reads clearly at a distance.
     this.weaponModel.scale.setScalar(1.1);

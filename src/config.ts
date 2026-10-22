@@ -368,7 +368,7 @@ export const BOT_DIFFICULTY: Record<Difficulty, {
  * =========================================================================== */
 export const MATCH = {
   /** What the match menu starts with (your last choices are remembered after that). */
-  defaultMode: 'deathmatch' as 'deathmatch' | 'survival',
+  defaultMode: 'deathmatch' as 'deathmatch' | 'tdm' | 'koh' | 'coh' | 'ctf' | 'control' | 'br' | 'survival',
   defaultMap: 'foundry',
   defaultDifficulty: 'medium' as Difficulty,
   defaultBotCount: 4,
@@ -376,10 +376,48 @@ export const MATCH = {
   minBots: 1,
   maxBots: 10,
 
-  /** Deathmatch: kills needed to win (menu choices), and the time limit. */
+  /** Free for All: kills needed to win (menu choices). Every mode ends at the time limit. */
   killLimits: [10, 20, 30],
   defaultKillLimit: 20,
   timeLimitMinutes: 10,
+};
+
+/** Team modes: you're always on Blue. */
+export const TEAMS = {
+  names: ['Blue', 'Red'],
+  /** Uniform accent colors (3D) and text colors (HUD). */
+  colors: [0x2f78d6, 0xc8402f],
+  css: ['#5aa6ff', '#ff6152'],
+};
+
+/**
+ * Settings for each game mode. `limits` are the choices in the match menu
+ * (what it takes to win), `defaultLimit` the starting choice. Every mode
+ * also ends at MATCH.timeLimitMinutes (most points wins).
+ */
+export const MODES = {
+  /** Team Deathmatch: team kills to win. */
+  tdm: { limits: [25, 50, 75], defaultLimit: 50 },
+  /** King of the Hill: seconds in the hill (alone) to win. The hill moves every `moveEvery` seconds. */
+  koh: { limits: [30, 60, 90], defaultLimit: 60, hillRadius: 5, moveEvery: 60 },
+  /** Court of the Hill (teams): team seconds in the hill to win. */
+  coh: { limits: [60, 100, 150], defaultLimit: 100, hillRadius: 5, moveEvery: 60 },
+  /** Capture the Flag: captures to win; a dropped flag goes home after `returnTime` seconds. */
+  ctf: { limits: [1, 3, 5], defaultLimit: 3, returnTime: 20, touchRadius: 1.5 },
+  /** Control: points to win (each zone your team holds scores 1 point a second); seconds for one player to capture. */
+  control: { limits: [150, 250, 400], defaultLimit: 250, zoneRadius: 5, captureTime: 8 },
+  /**
+   * Battle Royale: one life each, last one standing wins. A safe zone shrinks
+   * in stages (wait, then shrink); outside it you lose health every second.
+   */
+  br: {
+    stages: [
+      { wait: 40, shrink: 30, size: 0.6, damage: 3 },
+      { wait: 30, shrink: 25, size: 0.35, damage: 5 },
+      { wait: 25, shrink: 20, size: 0.15, damage: 8 },
+      { wait: 20, shrink: 20, size: 0.03, damage: 12 },
+    ],
+  },
 };
 
 export const SURVIVAL = {

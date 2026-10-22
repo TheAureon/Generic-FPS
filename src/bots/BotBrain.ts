@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BOTS } from '../config';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { Trackable } from '../player/Player';
+import type { BotObjective } from '../modes/GameMode';
 import type { Bot } from './Bot';
 import { angleDiff } from './BotAim';
 import type { NavGraph } from './NavGraph';
@@ -16,6 +17,8 @@ export interface BrainContext {
   findHealth?: (from: THREE.Vector3) => THREE.Vector3 | null;
   /** Optional: where to find ammo (`includeTaken`: also spots where it will come back). */
   findAmmo?: (from: THREE.Vector3, maxDist?: number, includeTaken?: boolean) => THREE.Vector3 | null;
+  /** Optional: what the game mode wants this bot to do (hold a hill, take a flag...). */
+  objective?: () => BotObjective | null;
 }
 
 /**
@@ -61,6 +64,8 @@ export class BotBrain {
   private searchPoints: THREE.Vector3[] = [];
   private searchIndex = 0;
   private searchTimer = 0;
+  /** What the game mode wants us to do right now (checked every frame). */
+  private obj: BotObjective | null = null;
 
   /** How the bot moves this frame: along a path, straight to a point, or not at all. */
   private moveMode: 'nav' | 'direct' | 'stop' = 'stop';
@@ -176,6 +181,8 @@ export class BotBrain {
     this.stateTime += dt;
 
     this.scanForTargets(dt);
+    this.obj = this.ctx.objective?.() ?? null;
+    const urgent = !!this.obj?.urgent;
     const p = bot.perception;
     p.update(dt, bot.eyePosition(), bot.aim.yaw, this.target, this.ctx.world);
 
@@ -185,7 +192,7 @@ export class BotBrain {
     const dist = this.target ? this.flatDist(this.target.position) : Infinity;
     const retreatAt = 0.35 - bot.skill.aggression * 0.15;
     if (
-      hp <= retreatAt && this.state !== 'retreat' && this.now > this.retreatCooldown &&
+      hp <= retreatAt && !urgent && this.state !== 'retreat' && this.now > this.retreatCooldown &&
       (p.canSee || underFire) && !(p.canSee && dist < 5)
     ) {
       this.enter('retreat');
@@ -218,8 +225,22 @@ export class BotBrain {
 
   private patrol(dt: number): void {
     const p = this.bot.perception;
-    if (p.hasNoise) return this.enter('investigate');
+    const obj = this.obj;
+    if (p.hasNoise && !obj?.urgent) return this.enter('investigate');
     const nav = this.navigator;
+    if (obj) {
+      // On the way to the objective: go straight there.
+      if (this.flatDist(obj.pos) > obj.radius) {
+        this.dest.copy(obj.pos);
+        this.moveAlongPath(this.dest, obj.run ? BOTS.runSpeed : BOTS.walkSpeed);
+        return;
+      }
+      // There: keep moving between spots inside the area (re-pick if the area moved).
+      if (Math.hypot(this.dest.x - obj.pos.x, this.dest.z - obj.pos.z) > obj.radius + 0.5) {
+        this.pickPatrolGoal();
+        nav.clear();
+      }
+    }
     // Low on spare ammo and there's some nearby? Go get it.
     if (this.bot.lowOnAmmo && this.stateTime < 0.1 && this.ctx.findAmmo?.(this.bot.position, 35)) return this.enter('resupply');
     // Hurt and there's health nearby? Go get it.
@@ -230,7 +251,7 @@ export class BotBrain {
     if (nav.hasGoal && (nav.arrived || nav.failed)) {
       // Got there (or can't): pause and look around a moment, then pick another spot.
       if (this.pauseTimer <= 0) {
-        this.pauseTimer = rand(0.6, 1.8);
+        this.pauseTimer = obj ? rand(0.3, 1.0) : rand(0.6, 1.8);
         this.lookBaseYaw = this.bot.aim.yaw;
       }
       this.pauseTimer -= dt;
@@ -247,6 +268,7 @@ export class BotBrain {
 
   private investigate(dt: number): void {
     const p = this.bot.perception;
+    if (this.obj?.urgent) return this.enter('patrol');
     if (!p.hasNoise) return this.enter('search');
     if (this.lookTimer > 0) {
       // Turn toward the sound before walking over.
@@ -266,6 +288,15 @@ export class BotBrain {
     const p = bot.perception;
     const target = this.target;
     if (!target || !target.isAlive()) return this.enter('patrol');
+
+    // The objective can't wait: shoot while moving toward it.
+    if (this.obj?.urgent) {
+      if (p.canSee) this.engage(dt, true);
+      else if (p.timeSinceSeen > 0.5) return this.enter('patrol');
+      this.moveAlongPath(this.obj.pos, this.obj.run ? BOTS.runSpeed : BOTS.walkSpeed);
+      if (p.canSee) this.look = { kind: 'none' };
+      return;
+    }
 
     if (!p.canSee) {
       // Lost sight: keep looking where it was for a moment, then go after it.
@@ -321,6 +352,7 @@ export class BotBrain {
     const bot = this.bot;
     const p = bot.perception;
     const nav = this.navigator;
+    if (this.obj?.urgent) return this.enter(p.canSee ? 'attack' : 'patrol');
     if (this.holdTimer < 0) {
       // Running to cover; shoot back if the enemy is in view.
       this.moveAlongPath(this.dest, BOTS.runSpeed);
@@ -349,6 +381,7 @@ export class BotBrain {
     const bot = this.bot;
     const p = bot.perception;
     const nav = this.navigator;
+    if (this.obj?.urgent) return this.enter(p.canSee ? 'attack' : 'patrol');
     if (this.holdTimer < 0) {
       this.moveAlongPath(this.dest, BOTS.runSpeed);
       if (p.canSee) {
@@ -407,6 +440,7 @@ export class BotBrain {
 
   private chase(): void {
     const p = this.bot.perception;
+    if (this.obj?.urgent) return this.enter('patrol');
     const aggressive = this.bot.skill.aggression >= 0.5;
     this.moveAlongPath(this.dest, aggressive ? BOTS.runSpeed : BOTS.walkSpeed * 1.2);
     if (this.flatDist(this.dest) < 7) this.look = { kind: 'point', p: this._v.copy(this.dest).setY(this.dest.y + 1.4) };
@@ -415,6 +449,7 @@ export class BotBrain {
 
   private search(dt: number): void {
     const p = this.bot.perception;
+    if (this.obj?.urgent) return this.enter('patrol');
     if (p.hasNoise && this.stateTime > 1) return this.enter('investigate');
     this.searchTimer -= dt;
     if (this.searchTimer <= 0 || this.searchIndex >= this.searchPoints.length) return this.enter('patrol');
@@ -563,6 +598,15 @@ export class BotBrain {
 
   private pickPatrolGoal(): void {
     const pos = this.bot.position;
+    const obj = this.obj;
+    if (obj) {
+      // Somewhere inside the objective's area.
+      const spots = this.ctx.nav.nodesWithin(obj.pos, obj.radius);
+      const n = spots.length ? spots[Math.floor(Math.random() * spots.length)] : null;
+      if (n) this.dest.set(n.x, n.y, n.z);
+      else this.dest.copy(obj.pos);
+      return;
+    }
     for (let i = 0; i < 12; i++) {
       const n = this.ctx.nav.randomNode();
       const d = Math.hypot(n.x - pos.x, n.z - pos.z);

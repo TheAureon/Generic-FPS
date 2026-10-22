@@ -413,6 +413,11 @@ export const museum: MapDef = {
   indoorShading: 0.6,
   levels: [0, U],
   navSpacing: 0.75,
+  // Game modes: Control zones in the three main rooms; the hill moves around the building and the garden.
+  objectives: {
+    zones: [[-22.5, F, -0.5], [0, F, 6.5], [24, F, -0.5]],
+    hills: [[0, F, 6.5], [0, U, -10.7], [-4, F, -15], [-22.5, F, -0.5], [0, P, 31], [24, F, -0.5], [-20, U, -15]],
+  },
   boxes: k.boxes,
   ramps: k.ramps,
   lamps: k.lamps,

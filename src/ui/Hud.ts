@@ -1,4 +1,4 @@
-import { CONFIG, WEAPONS, type WeaponId } from '../config';
+import { CONFIG, TEAMS, WEAPONS, type WeaponId } from '../config';
 import { settings } from '../core/Settings';
 import type { PickupType } from '../map/MapTypes';
 import type { ScoreRow } from '../modes/GameMode';
@@ -76,6 +76,12 @@ export class Hud {
   private pickupEl: HTMLDivElement;
   private pickupTimer = 0;
   private scoreboardEl: HTMLDivElement;
+  private markersEl: HTMLDivElement;
+  private markerEls: HTMLDivElement[] = [];
+  private objectiveEl: HTMLDivElement;
+  private objectiveLabel: HTMLDivElement;
+  private objectiveFill: HTMLDivElement;
+  private lastObjective = '';
   readonly minimap: Minimap;
 
   private hitTimer = 0;
@@ -155,7 +161,13 @@ export class Hud {
     this.deathCount = el('div', 'death-count', timer);
     this.deathTimer = el('div', 'death-timer', this.deathScreen);
 
+    this.markersEl = el('div', 'markers', this.root);
     this.statusEl = el('div', 'match-status', this.root);
+    this.objectiveEl = el('div', 'objective-bar', this.root);
+    this.objectiveLabel = el('div', 'ob-label', this.objectiveEl);
+    const obTrack = el('div', 'ob-track', this.objectiveEl);
+    this.objectiveFill = el('div', 'ob-fill', obTrack);
+    this.objectiveEl.style.display = 'none';
     this.announceEl = el('div', 'announce', this.root);
     this.announceTitle = el('div', 'announce-title', this.announceEl);
     this.announceSub = el('div', 'announce-sub', this.announceEl);
@@ -184,6 +196,47 @@ export class Hud {
     for (const ind of this.indicators) ind.life = 0;
     this.setDeath(null);
     this.showScoreboard(null);
+    this.setMarkers([]);
+    this.setObjective(null);
+  }
+
+  /**
+   * Markers on screen (already projected to pixels): objectives (with their
+   * distance) and teammates' names. `edge`: pinned to the screen edge
+   * because it's off screen.
+   */
+  setMarkers(list: { sx: number; sy: number; label: string; sub: string; color: string; ally?: boolean; edge?: boolean }[]): void {
+    while (this.markerEls.length < list.length) this.markerEls.push(el('div', 'marker', this.markersEl));
+    this.markerEls.forEach((m, i) => {
+      const it = list[i];
+      if (!it) {
+        setStyle(m, 'display', 'none');
+        return;
+      }
+      setStyle(m, 'display', '');
+      const cls = `marker${it.ally ? ' ally' : ''}${it.edge ? ' edge' : ''}`;
+      if (m.className !== cls) m.className = cls;
+      const html = it.ally ? `<span class="mk-name">${esc(it.label)}</span><span class="mk-chev"></span>` : `<span class="mk-icon">${esc(it.label)}</span><span class="mk-dist">${esc(it.sub)}</span>`;
+      if (m.dataset.html !== html) {
+        m.dataset.html = html;
+        m.innerHTML = html;
+      }
+      m.style.setProperty('--mk', it.color);
+      m.style.transform = `translate(${it.sx.toFixed(0)}px, ${it.sy.toFixed(0)}px)`;
+    });
+  }
+
+  /** The bar under the status line ("Capturing B"); null hides it. */
+  setObjective(info: { label: string; value: number | null; color: string } | null): void {
+    const key = info ? `${info.label}|${info.value === null ? '-' : info.value.toFixed(2)}|${info.color}` : '';
+    if (key === this.lastObjective) return;
+    this.lastObjective = key;
+    setStyle(this.objectiveEl, 'display', info ? '' : 'none');
+    if (!info) return;
+    this.objectiveLabel.textContent = info.label;
+    this.objectiveEl.style.setProperty('--ob', info.color);
+    this.objectiveEl.classList.toggle('no-bar', info.value === null);
+    setStyle(this.objectiveFill, 'width', `${Math.max(0, Math.min(1, info.value ?? 0)) * 100}%`);
   }
 
   /** The match status bar: "A  ·  B  ·  C" becomes separate segments; a time like 9:59 gets its own style. */
@@ -192,7 +245,10 @@ export class Hud {
     this.lastStatus = text;
     const parts = text.split(/\s+·\s+/).filter(Boolean);
     this.statusEl.innerHTML = parts
-      .map((t) => `<span class="seg-part${/^\d+:\d\d$/.test(t) ? ' time' : ''}">${esc(t)}</span>`)
+      .map((t) => {
+        const team = /^Blue \d/.test(t) ? ' team-blue' : /^Red \d/.test(t) ? ' team-red' : '';
+        return `<span class="seg-part${/^\d+:\d\d$/.test(t) ? ' time' : ''}${team}">${esc(t)}</span>`;
+      })
       .join('<span class="seg-sep">  ·  </span>');
   }
 
@@ -217,13 +273,13 @@ export class Hud {
   }
 
   /** Score table (hold Tab). Pass null to hide. */
-  showScoreboard(rows: ScoreRow[] | null, title = ''): void {
+  showScoreboard(rows: ScoreRow[] | null, title = '', extra: ScoreExtras = {}): void {
     if (!rows) {
       this.scoreboardEl.style.display = 'none';
       return;
     }
     this.scoreboardEl.style.display = 'block';
-    this.scoreboardEl.innerHTML = scoreTableHtml(rows, title);
+    this.scoreboardEl.innerHTML = scoreTableHtml(rows, title, extra);
   }
 
   updateVitals(health: number, armor: number): void {
@@ -271,15 +327,17 @@ export class Hud {
     }
   }
 
-  addKill(killer: string, victim: string, weapon: WeaponId, headshot: boolean): void {
+  /** @param killerColor, victimColor team colors (team modes) */
+  addKill(killer: string, victim: string, weapon: WeaponId | 'zone', headshot: boolean, killerColor?: string, victimColor?: string): void {
     const row = document.createElement('div');
     const mine = killer === 'You' ? ' mine' : victim === 'You' ? ' died' : '';
     row.className = `kf-row${mine}`;
     const you = (n: string) => (n === 'You' ? ' you' : '');
+    const color = (c?: string) => (c ? ` style="color:${c}"` : '');
     row.innerHTML =
-      `<span class="kf-name${you(killer)}">${esc(killer)}</span>` +
-      `<span class="kf-weapon">${esc(SHORT[weapon])}${headshot ? `<span class="kf-head">${ICON.head}</span>` : ''}</span>` +
-      `<span class="kf-name${you(victim)}">${esc(victim)}</span>`;
+      `<span class="kf-name${you(killer)}"${color(killerColor)}>${esc(killer)}</span>` +
+      `<span class="kf-weapon">${esc(weapon === 'zone' ? 'Zone' : SHORT[weapon])}${headshot ? `<span class="kf-head">${ICON.head}</span>` : ''}</span>` +
+      `<span class="kf-name${you(victim)}"${color(victimColor)}>${esc(victim)}</span>`;
     this.killFeed.prepend(row);
     while (this.killFeed.children.length > 5) this.killFeed.lastElementChild!.remove();
     setTimeout(() => row.classList.add('fade'), 5000);
@@ -287,7 +345,7 @@ export class Hud {
   }
 
   /** Death screen; pass null to hide. `seconds` < 0 means no respawn. */
-  setDeath(info: { killer: string; seconds: number } | null): void {
+  setDeath(info: { killer: string; seconds: number; note?: string } | null): void {
     this.deathScreen.style.display = info ? 'flex' : 'none';
     this.root.classList.toggle('dead', !!info);
     if (!info) return;
@@ -295,7 +353,7 @@ export class Hud {
     const noRespawn = info.seconds < 0;
     this.deathScreen.classList.toggle('final', noRespawn);
     if (noRespawn) {
-      this.deathTimer.textContent = 'No respawns in Survival';
+      this.deathTimer.textContent = info.note ?? 'No respawns';
       return;
     }
     const total = CONFIG.player.respawnDelay;
@@ -411,16 +469,35 @@ function esc(t: string): string {
   return t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
+export interface ScoreExtras {
+  /** Name of the objective score column (e.g. "Caps"). */
+  scoreLabel?: string;
+  /** Team modes: Blue's and Red's scores (rows are then grouped by team). */
+  teamScores?: [number, number];
+}
+
 /** HTML table of scores (used by the Tab scoreboard and the end screen). */
-export function scoreTableHtml(rows: ScoreRow[], title: string): string {
-  const body = rows
-    .map((r, i) => {
-      const kd = r.deaths === 0 ? r.kills.toFixed(1) : (r.kills / r.deaths).toFixed(2);
-      const cls = [r.isPlayer ? 'me' : '', i === 0 ? 'first' : ''].filter(Boolean).join(' ');
-      return `<tr class="${cls}"><td class="rank">${i + 1}</td><td>${esc(r.name)}</td><td>${r.kills}</td><td>${r.deaths}</td><td class="kd">${kd}</td></tr>`;
-    })
-    .join('');
-  return `${title ? `<div class="sb-title">${esc(title)}</div>` : ''}<table class="score-table"><thead><tr><th>#</th><th>Name</th><th>Kills</th><th>Deaths</th><th>K/D</th></tr></thead><tbody>${body}</tbody></table>`;
+export function scoreTableHtml(rows: ScoreRow[], title: string, extra: ScoreExtras = {}): string {
+  const hasScore = rows.some((r) => r.score !== undefined);
+  const cols = 5 + (hasScore ? 1 : 0);
+  const row = (r: ScoreRow, i: number) => {
+    const kd = r.deaths === 0 ? r.kills.toFixed(1) : (r.kills / r.deaths).toFixed(2);
+    const cls = [r.isPlayer ? 'me' : '', i === 0 ? 'first' : ''].filter(Boolean).join(' ');
+    const team = r.team !== undefined ? ` style="--team:${TEAMS.css[r.team]}"` : '';
+    return `<tr class="${cls}${r.team !== undefined ? ' teamed' : ''}"${team}><td class="rank">${i + 1}</td><td>${esc(r.name)}</td>${hasScore ? `<td class="obj">${r.score ?? 0}</td>` : ''}<td>${r.kills}</td><td>${r.deaths}</td><td class="kd">${kd}</td></tr>`;
+  };
+  let body: string;
+  if (extra.teamScores && rows.some((r) => r.team !== undefined)) {
+    body = [0, 1]
+      .map((t) => {
+        const members = rows.filter((r) => r.team === t);
+        const head = `<tr class="team-head" style="--team:${TEAMS.css[t]}"><td colspan="${cols - 1}">${esc(TEAMS.names[t])}${t === 0 ? ' (your team)' : ''}</td><td class="team-score">${Math.floor(extra.teamScores![t])}</td></tr>`;
+        return head + members.map(row).join('');
+      })
+      .join('');
+  } else body = rows.map(row).join('');
+  const scoreHead = hasScore ? `<th>${esc(extra.scoreLabel ?? 'Score')}</th>` : '';
+  return `${title ? `<div class="sb-title">${esc(title)}</div>` : ''}<table class="score-table"><thead><tr><th>#</th><th>Name</th>${scoreHead}<th>Kills</th><th>Deaths</th><th>K/D</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
 /** Set an inline style only if it changed (avoids needless page work). */

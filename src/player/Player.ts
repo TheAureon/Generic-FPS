@@ -21,6 +21,8 @@ export interface Trackable {
 /** The player as a combatant: health, armor, dying, respawning. */
 export class Player implements Damageable, Trackable {
   readonly name = 'You';
+  /** Team modes: 0 (Blue, always you) — null otherwise. */
+  team: number | null = null;
   readonly hitbox = new CharacterHitbox(P.height, 0.3, 0.16);
   health = P.maxHealth;
   armor = P.startingArmor;

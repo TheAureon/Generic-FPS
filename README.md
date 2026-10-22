@@ -88,7 +88,7 @@ Chrome is recommended. Safari and Firefox also work.
 
 The game opens on the title screen. Click or press any key to reach the main menu, where you can **Play**, read **How to play**, or open **Settings**. Click **Play**, choose your match, and click **Start**. Your choices are remembered for next time.
 
-- **Mode**: Deathmatch or Survival (below)
+- **Mode**: one of eight (below)
 - **Map**:
   - **Foundry**: the main arena: two yards with raised decks around a two-story building
   - **Office**: a two-story office building with a parking lot. Ground floor: glass-fronted double-height lobby, corridor, private offices, meeting room, cubicle workspace, break room. Upper floor (two staircases): open office, executive office (armor), conference room, and a walkway with a glass railing over the lobby. Windows all round; you can see and shoot through glass, but not walk through it. The minimap shows the floor you're on.
@@ -98,12 +98,20 @@ The game opens on the title screen. Click or press any key to reach the main men
   - **Flatlands**: a huge (200 × 200 m), flat dusty plain with scattered cover, eight outposts (shipping containers, crates, low walls) and four corner towers with ramps. Long sightlines: good for the sniper rifle.
   - **Test Room**: a small room for trying out movement
 - **Difficulty**: seven levels, easiest first: Novice, Beginner, Easy, Medium, Advanced, Hard, Insane. This changes how fast bots react, how accurately they aim, how fast they turn, how long their bursts are, how aggressive they are, and how much their bullets hurt (from about a third of yours on Novice up to the same as yours on Hard and Insane). Bots never get more health, speed or ammo than you on any level.
-- **Bots**: 1–10
-- **Kill limit** (Deathmatch): 10, 20, or 30
+- **Bots**: 1–10. In team modes you're on Blue with half of them (rounded down); Red gets the rest (e.g. 6 bots: you + 3 vs 3).
+- **To win** (depends on the mode): Free for All kills (10/20/30), Team Deathmatch team kills (25/50/75), King of the Hill seconds (30/60/90), Court of the Hill team seconds (60/100/150), Capture the Flag captures (1/3/5), Control points (150/250/400)
 
 ### Game modes
 
-- **Deathmatch**: everyone for themselves, bots included. First to the kill limit wins. If the 10-minute timer runs out first, the most kills wins. Everyone respawns a few seconds after dying.
+Every mode has a 10-minute time limit (then the highest score wins). In team modes you're on **Blue**: your teammates wear blue, show their names above their heads and appear as blue dots on the radar; Red's wear red. There's no friendly fire (your bullets pass through teammates, and theirs through you). Each team spawns on its own side of the map. Hills, zones and flags are marked on screen (with their distance, pinned to the edge of the screen when they're out of view) and on the radar, and a bar under the score shows what's happening where you stand ("Capturing B", "You have the flag!").
+
+- **Free for All**: everyone for themselves, bots included. First to the kill limit wins. Everyone respawns a few seconds after dying.
+- **Team Deathmatch**: Blue against Red. Every kill scores for the killer's team; first team to the limit wins.
+- **King of the Hill**: free for all around a glowing ring (the hill). While you're the only one in it, you score a point a second; if anyone else is in it too, it's contested and nobody scores. The hill moves to a new spot every minute.
+- **Court of the Hill**: King of the Hill in teams: your team scores while only your team is in the hill.
+- **Capture the Flag**: each team has a flag at its base. Walk into the Red flag to grab it, then bring it to your own base while your flag is safe at home. If the carrier dies, the flag drops: touch your own dropped flag to send it home (it also goes home by itself after 20 seconds). Bots attack, defend, escort carriers and chase yours down.
+- **Control**: three zones, A, B and C. Stand in one with only your team in it to capture it (faster with more of you; an enemy zone has to be neutralized first). Each zone your team holds scores a point a second.
+- **Battle Royale**: last one standing. Everyone has one life, and a safe zone (the blue wall) shrinks in four stages: outside it you lose health every second, more each stage. If you're eliminated you see where you placed.
 - **Survival**: waves of bots hunt you. Wave 1 has the number of bots you chose, and each wave adds one (up to 12). Bots get faster and more accurate each wave until wave 6. You have one life, and clearing a wave gives you back 30 health. Your score is how many waves you survive.
 
 When a match ends, the scoreboard shows the result, your kills, deaths, and accuracy, with buttons to play again or return to the main menu.
@@ -201,7 +209,9 @@ Each bot runs a state machine (`src/bots/BotBrain.ts`). Press **B** to see each 
 | `COMBAT`         | Aiming slowdown, crouch accuracy bonus |
 | `BOTS`           | Bot speed, health, vision range and angle, memory, preferred fighting distance, names |
 | `BOT_DIFFICULTY` | Novice … Insane: reaction time, aim error, turn speed, bursts, aggression, damage (`DIFFICULTIES` holds the names and menu descriptions) |
-| `MATCH`          | Menu defaults, kill limits, Deathmatch time limit |
+| `MATCH`          | Menu defaults, Free for All kill limits, the time limit |
+| `TEAMS`          | Team names and colors |
+| `MODES`          | Each mode's win targets, hill size and how often it moves, flag return time, zone capture time, the Battle Royale zone stages |
 | `SURVIVAL`       | Wave growth, break between waves, health on wave clear |
 | `PICKUPS`        | How much pickups give and how long they take to come back |
 | `CONFIG.quality` | What Low / Medium / High graphics mean |
@@ -221,6 +231,7 @@ Maps are plain data in [`src/map/maps/`](src/map/maps/). Each map is a list of b
    Buildings you can enter: set `indoorShading` (rooms get darker and are lit by their lamps and the windows) and `levels` (the floor heights, for the minimap). See `museum.ts`, which uses the helpers in `src/map/kit.ts` (walls with doors and windows cut in, floor slabs, stairs, lamps).
    Hills: give the map a `terrain` (made with `makeTerrain` from a height function; `src/map/terrain.ts` has noise helpers for natural hills) and `props` (trees, bushes, rocks, logs, stumps, placed on the ground automatically). Steep slopes become rock and can't be walked up. `hidden: true` on a box makes an invisible wall; `decor: true` on a box or ramp makes it see-only (e.g. water you wade through). Terrain `snowLine` puts snow on high ground. For far-off scenery (mountains you can see but not reach), make the terrain bigger and set `playArea`: invisible walls go around it and bots stay inside. See `forest.ts` and `mountains.ts`.
    For a very big map, set `navSpacing: 2` so the bots' navigation grid is coarser and the map loads quickly (see `flatlands.ts`, which also shows how to place cover with a fixed random seed).
+   Game-mode objectives (hills, Control zones, flag bases) are placed automatically between the two ends of the map; to choose them yourself, set `objectives` (see `office.ts` and `museum.ts`).
 3. Add it to the list in `src/map/maps/index.ts`.
 
 It appears in the match menu automatically, and bots can navigate it without any extra work.
@@ -260,7 +271,8 @@ src/
   weapons/        Weapon stats/state, bullet tracing (hitscan), firing and switching
                   (WeaponSystem), the gun and arms in your hands (Viewmodel, ViewmodelArms),
                   and all their animation settings (animations.ts)
-  modes/          Deathmatch and Survival rules
+  modes/          The game modes' rules (one file each), plus objectives.ts: where hills,
+                  zones and flags go, and how they look
   pickups/        Health, armor, and ammo pickups
   map/            Map format, map builder (incl. baked lighting), 3D detail (bricks, panels,
                   crates, barriers), and maps/ (the map data)
