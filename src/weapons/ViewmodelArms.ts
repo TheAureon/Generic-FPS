@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { markerPosition } from '../assets/weaponModels';
 import type { WeaponId } from '../config';
 import {
@@ -85,11 +86,16 @@ export class ViewmodelArms {
   private bolt: MovingPart | null = null;
 
   constructor(parent: THREE.Object3D) {
-    const sleeve = new THREE.MeshStandardMaterial({ color: 0x4a5040, roughness: 0.9 });
-    const cuff = new THREE.MeshStandardMaterial({ color: 0x2c3036, roughness: 0.85 });
-    const glove = new THREE.MeshStandardMaterial({ color: 0x6e5a44, roughness: 0.75 });
-    this.right = makeArm(sleeve, cuff, glove);
-    this.left = makeArm(sleeve, cuff, glove);
+    const mats: ArmMaterials = {
+      sleeve: new THREE.MeshStandardMaterial({ color: 0x4a5040, roughness: 0.9 }),
+      // Tactical gloves: dark fabric, a molded knuckle guard, and grippy palm and finger pads.
+      glove: new THREE.MeshStandardMaterial({ color: 0x2b2e33, roughness: 0.85 }),
+      guard: new THREE.MeshStandardMaterial({ color: 0x3d4248, roughness: 0.45, metalness: 0.1 }),
+      pad: new THREE.MeshStandardMaterial({ color: 0x1c1e21, roughness: 0.95 }),
+      strap: new THREE.MeshStandardMaterial({ color: 0x56584f, roughness: 0.8 }),
+    };
+    this.right = makeArm(mats, 1);
+    this.left = makeArm(mats, -1);
     this.shell = new THREE.Mesh(
       new THREE.CylinderGeometry(0.011, 0.011, 0.05, 8),
       new THREE.MeshStandardMaterial({ color: 0xb3302a, roughness: 0.5 }),
@@ -228,17 +234,51 @@ export class ViewmodelArms {
   }
 }
 
-/** One arm: glove at the origin, sleeve running back along +Z. */
-function makeArm(sleeve: THREE.Material, cuff: THREE.Material, glove: THREE.Material): THREE.Group {
+interface ArmMaterials {
+  sleeve: THREE.Material;
+  glove: THREE.Material;
+  guard: THREE.Material;
+  pad: THREE.Material;
+  strap: THREE.Material;
+}
+
+/**
+ * One arm: a gloved hand at the origin (fingers curled forward along -Z, as
+ * if gripping), sleeve running back along +Z. `side` is 1 for the right
+ * hand, -1 for the left (the thumb is on the side toward the middle).
+ */
+function makeArm(m: ArmMaterials, side: 1 | -1): THREE.Group {
   const g = new THREE.Group();
-  const part = (w: number, h: number, len: number, z: number, mat: THREE.Material) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, len), mat);
-    mesh.position.z = z;
+  const part = (w: number, h: number, len: number, x: number, y: number, z: number, mat: THREE.Material, r = 0.006, rx = 0, ry = 0) => {
+    const radius = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, len / 2 - 1e-4);
+    const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, len, 2, radius), mat);
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(rx, ry, 0);
     mesh.renderOrder = 1;
     g.add(mesh);
   };
-  part(0.05, 0.055, 0.1, 0.01, glove); // hand
-  part(0.066, 0.066, 0.05, 0.08, cuff); // glove cuff
-  part(0.075, 0.075, 0.6, 0.39, sleeve); // sleeve, off the bottom of the screen
+  // Back of the hand and palm.
+  part(0.05, 0.042, 0.07, 0, 0.004, 0.018, m.glove, 0.012);
+  // Molded knuckle guard across the back, and a vent strip behind it.
+  part(0.046, 0.01, 0.024, 0, 0.026, -0.006, m.guard, 0.004);
+  part(0.03, 0.006, 0.022, 0, 0.026, 0.026, m.guard, 0.003);
+  // Four fingers curled down around the grip (two segments each), with grip pads.
+  for (let i = 0; i < 4; i++) {
+    const x = (i - 1.5) * 0.0118 * -side + side * 0.001;
+    const len = i === 0 || i === 3 ? 0.022 : 0.026;
+    part(0.0105, 0.016, len, x, 0.008, -0.026, m.glove, 0.0045);
+    part(0.0105, 0.024, 0.014, x, -0.012, -0.036, m.glove, 0.0045, -0.35);
+    part(0.0095, 0.012, 0.004, x, -0.016, -0.0435, m.pad, 0.002, -0.35);
+  }
+  // Thumb, along the inner side and wrapped forward.
+  part(0.015, 0.015, 0.042, -side * 0.026, 0.004, -0.004, m.glove, 0.006, 0, side * 0.45);
+  part(0.012, 0.004, 0.02, -side * 0.031, 0.012, -0.016, m.pad, 0.002, 0, side * 0.45);
+  // Palm pad underneath.
+  part(0.044, 0.006, 0.05, 0, -0.018, 0.016, m.pad, 0.003);
+  // Cuff with a hook-and-loop strap, then the sleeve (off the bottom of the screen).
+  part(0.062, 0.06, 0.05, 0, 0.002, 0.075, m.glove, 0.012);
+  part(0.064, 0.024, 0.032, side * 0.004, 0.012, 0.078, m.strap, 0.006);
+  part(0.08, 0.08, 0.06, 0, 0, 0.115, m.sleeve, 0.016);
+  part(0.075, 0.075, 0.56, 0, 0, 0.41, m.sleeve, 0.012);
   return g;
 }
