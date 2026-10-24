@@ -3,6 +3,7 @@ import { audio } from '../audio/AudioEngine';
 import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
 import { modeLimit, type MatchConfig, type MatchResult, type ModeId, type ScoreRow } from '../modes/GameMode';
+import { matchReport, playerCard, type EndReport } from './Career';
 import { scoreTableHtml, type ScoreExtras } from './Hud';
 
 export interface MenuActions {
@@ -36,7 +37,9 @@ export class Menus {
   /** Where "Back" in settings goes. */
   private settingsReturn: Screen = 'main';
   private config: MatchConfig;
-  private lastResult: { result: MatchResult; rows: ScoreRow[]; extra: ScoreExtras } | null = null;
+  private lastResult: { result: MatchResult; rows: ScoreRow[]; extra: ScoreExtras; report?: EndReport } | null = null;
+  /** Stops the end screen's animation when leaving it. */
+  private stopReport: (() => void) | null = null;
   /** Shown on the pause screen, e.g. when the mouse couldn't be captured. */
   private pauseHint = '';
 
@@ -110,6 +113,8 @@ export class Menus {
   }
 
   hide(): void {
+    this.stopReport?.();
+    this.stopReport = null;
     this.screen = null;
     this.root.innerHTML = '';
     this.root.style.display = 'none';
@@ -117,6 +122,8 @@ export class Menus {
 
   show(screen: Exclude<Screen, null>, hint = ''): void {
     if (screen === 'pause') this.pauseHint = hint;
+    this.stopReport?.();
+    this.stopReport = null;
     this.screen = screen;
     this.root.style.display = 'flex';
     const cinematic = screen === 'title' || screen === 'main';
@@ -140,8 +147,8 @@ export class Menus {
     }
   }
 
-  showEnd(result: MatchResult, rows: ScoreRow[], extra: ScoreExtras = {}): void {
-    this.lastResult = { result, rows, extra };
+  showEnd(result: MatchResult, rows: ScoreRow[], extra: ScoreExtras = {}, report?: EndReport): void {
+    this.lastResult = { result, rows, extra, report };
     this.show('end');
   }
 
@@ -170,6 +177,7 @@ export class Menus {
     item('Play', 'Free for all, team modes, objectives, Battle Royale', () => this.show('setup'), true);
     item('How to play', 'Controls and tips', () => this.show('controls'));
     item('Settings', 'Mouse, field of view, sound, graphics', () => this.openSettings('main'));
+    wrap.appendChild(playerCard());
     const aim = { both: 'right click or Q', mouse: 'right click', q: 'Q' }[settings.get().aimKey] ?? 'right click';
     div('main-foot', left).textContent = `Tip: hold ${aim} to aim down sights — bots miss more when you keep moving.`;
   }
@@ -316,12 +324,23 @@ export class Menus {
   private buildEnd(p: HTMLElement): void {
     const r = this.lastResult;
     if (!r) return;
-    const h = head(p, 'Match over', r.result.title);
+    const rep = r.report;
+    p.classList.add('end');
+    const h = head(p, rep ? `Match over · ${rep.mode} · ${rep.map}` : 'Match over', r.result.title);
     h.classList.add(r.result.win ? 'win' : 'lose');
     div('menu-sub', p).textContent = r.result.subtitle;
-    const stats = div('end-stats', p);
-    for (const line of r.result.stats) div('end-stat', stats).textContent = line;
-    const table = div('end-table', p);
+    if (r.result.stats.length) {
+      const stats = div('end-stats', p);
+      for (const line of r.result.stats) div('end-stat', stats).textContent = line;
+    }
+    if (rep) this.stopReport = matchReport(p, rep);
+    // The full scoreboard, folded away under the report.
+    const box = document.createElement('details');
+    box.className = 'end-board';
+    box.open = !rep;
+    box.innerHTML = '<summary>Scoreboard</summary>';
+    p.appendChild(box);
+    const table = div('end-table', box);
     table.innerHTML = scoreTableHtml(r.rows, '', r.extra);
     const row = div('menu-buttons row', p);
     button(row, 'Main menu', () => this.actions.quitToMenu());

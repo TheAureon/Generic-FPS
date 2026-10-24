@@ -445,3 +445,40 @@ export const PICKUPS = {
   /** How close you need to be to grab one (meters). */
   radius: 1.1,
 };
+
+/* ===========================================================================
+ *  REWARDS — score, medals, streaks, XP and levels
+ * =========================================================================== */
+export const REWARDS = {
+  /** Points (and XP) for each kill, and the bonuses on top. */
+  points: {
+    kill: 100,
+    headshot: 50,
+    longshot: 50,
+    pointBlank: 25,
+    closeCall: 50,
+    revenge: 50,
+    firstBlood: 75,
+    comeback: 75,
+    buzzkill: 100,
+    collateral: 100,
+    avenger: 50,
+    /** Multikills: double, triple, quad, and 5 or more. */
+    multikill: [0, 0, 100, 200, 350, 500],
+    /** Kill streaks (without dying) and their bonuses. */
+    streak: { 3: 100, 5: 200, 8: 350, 12: 500, 16: 750 } as Record<number, number>,
+    /** For winning, and for playing a match to the end. */
+    win: 500,
+    finish: 200,
+  },
+  /** Kills this close together (seconds) count as a multikill. */
+  multikillWindow: 4.5,
+  /** Distances (meters) for a longshot and a point-blank kill. */
+  longshotDistance: 35,
+  pointBlankDistance: 3.5,
+  /** Health at or below this when you get a kill = close call. */
+  closeCallHealth: 25,
+  /** XP needed for the first level-up; each level after needs `perLevel` more. */
+  levelBaseXp: 1000,
+  perLevel: 250,
+};

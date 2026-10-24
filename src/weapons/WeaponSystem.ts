@@ -32,6 +32,8 @@ export interface WeaponSystemDeps {
   ownerName: string;
   /** The first-person gun view (shared between matches). */
   viewmodel: Viewmodel;
+  /** Called for each target hit by a shot (where, how much, head, killed), for damage numbers. */
+  onHit?: (point: THREE.Vector3, damage: number, head: boolean, killed: boolean) => void;
 }
 
 /** The player's guns: input, firing, reloading, switching, aiming. */
@@ -249,7 +251,7 @@ export class WeaponSystem {
     this.viewmodel.muzzleWorldPosition(camera, this._muzzle);
 
     // Add up damage per target so a shotgun blast shows one hit marker.
-    const hits = new Map<Damageable, { damage: number; part: HitPart }>();
+    const hits = new Map<Damageable, { damage: number; part: HitPart; point: THREE.Vector3 }>();
     const targets = this.d.getTargets();
     for (let p = 0; p < w.stats.pellets; p++) {
       applySpread(this._dir, spread, this._pellet);
@@ -257,7 +259,7 @@ export class WeaponSystem {
       // Tracers: every bullet, but only a few shotgun pellets to avoid clutter.
       if (p < 3) effects.tracer(this._muzzle, r.point);
       if (r.target && r.part) {
-        const h = hits.get(r.target) ?? { damage: 0, part: 'body' as HitPart };
+        const h = hits.get(r.target) ?? { damage: 0, part: 'body' as HitPart, point: r.point.clone() };
         h.damage += shotDamage(w.stats, r.distance, r.part);
         if (r.part === 'head') h.part = 'head';
         hits.set(r.target, h);
@@ -277,6 +279,7 @@ export class WeaponSystem {
         weapon: w.id,
         from: this._origin.clone(),
       });
+      this.d.onHit?.(h.point, h.damage, h.part === 'head', killed);
       const kind = killed ? 'kill' : h.part === 'head' ? 'head' : 'hit';
       if (!marker || kind === 'kill' || (kind === 'head' && marker === 'hit')) marker = kind;
     }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { CONFIG, MATCH } from '../config';
+import { CONFIG, MATCH, REWARDS } from '../config';
+import { progress } from './Progress';
 import { audio } from '../audio/AudioEngine';
 import { getMap } from '../map/maps';
 import type { MatchConfig } from '../modes/GameMode';
@@ -159,7 +160,20 @@ export class Game {
     const result = m.mode.result!;
     audio.play(result.win ? 'win' : 'lose');
     const accuracy = m.shotsFired ? Math.round((100 * m.shotsHit) / m.shotsFired) : 0;
-    this.menus.showEnd({ ...result, stats: [...result.stats, `Accuracy: ${accuracy}%`] }, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() });
+    // XP: everything you scored, plus a bonus for finishing (and more for winning).
+    const s = m.rewards.summary;
+    const xpLines: [string, number][] = [
+      ['Kills', s.breakdown.kills],
+      ['Headshots', s.breakdown.headshots],
+      ['Medals & streaks', s.breakdown.medals],
+      ['Match completed', REWARDS.points.finish],
+    ];
+    if (result.win) xpLines.push(['Victory', REWARDS.points.win]);
+    const xp = xpLines.reduce((a, [, v]) => a + v, 0);
+    const career = progress.record({ xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, medals: s.medals });
+    this.menus.showEnd(result, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() }, {
+      summary: s, accuracy, xpLines, xp, before: career.before, after: career.after, mode: m.mode.name, map: m.map.def.name, time: m.time,
+    });
   }
 
   private onPointerLockChange(): void {
@@ -226,6 +240,7 @@ export class Game {
     // HUD.
     this.hud.updateVitals(m.player.health, m.player.armor);
     this.hud.update(playing ? dt : 0, m.player.position.x, m.player.position.z, m.controller.yaw);
+    this.hud.fx.update(playing ? dt : 0, this.camera);
     this.hud.setStatus(m.mode.status());
     this.hud.minimap.draw(m.player.position.x, m.player.position.y, m.player.position.z, m.controller.yaw, m.radarBlips(dt));
     this.hud.showScoreboard(playing && this.input.isDown('Tab') ? m.mode.scoreboard() : null, m.mode.name, { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() });

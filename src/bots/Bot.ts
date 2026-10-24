@@ -176,6 +176,7 @@ export class Bot implements Damageable, Trackable {
 
   takeDamage(info: DamageInfo): boolean {
     if (!this.isAlive()) return false;
+    const dealt = Math.min(info.amount, this.health);
     this.health -= info.amount;
     this.flash = 1;
     this.anim.hit();
@@ -184,7 +185,7 @@ export class Bot implements Damageable, Trackable {
     // Getting shot tells the bot roughly where the shooter is.
     this.perception.alertFrom(info.from);
     const killed = this.health <= 0;
-    events.emit('damage', { attacker: info.attacker, victim: this.name, amount: info.amount, part: info.part, killed });
+    events.emit('damage', { attacker: info.attacker, victim: this.name, amount: dealt, part: info.part, killed });
     if (killed) {
       this.health = 0;
       this.respawnTimer = BOTS.respawnDelay;

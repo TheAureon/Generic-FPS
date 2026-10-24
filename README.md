@@ -127,6 +127,30 @@ When a match ends, the scoreboard shows the result, your kills, deaths, and accu
 - **When you die**: who killed you and a countdown ring until you respawn
 - **Hold Tab**: the scoreboard, with kills, deaths and K/D
 
+### Score, medals, streaks and levels
+
+Every hit shows a **damage number** rising from where the bullet landed (gold for a headshot, red for the killing blow). Every kill flashes the screen edges gold and pops up your points next to the crosshair: +100 for the kill, plus any bonuses:
+
+| Bonus | For | Points |
+|-------|-----|--------|
+| Headshot | Killing with a shot to the head | +50 |
+| First Blood | The first kill of the match | +75 |
+| Longshot / Point Blank | A kill from 35 m or more / at arm's length | +50 / +25 |
+| Close Call | A kill while you're on 25 health or less | +50 |
+| Revenge | Killing whoever last killed you | +50 |
+| Comeback | A kill after dying 3 times in a row | +75 |
+| Buzzkill | Ending an enemy's streak of 3 or more | +100 |
+| Collateral | Two kills with one shot | +100 |
+| Avenger | Killing an enemy who just killed a teammate | +50 |
+| Double / Triple / Quad Kill / Rampage | 2 / 3 / 4 / 5+ kills, each within 4.5 seconds of the last | +100 / +200 / +350 / +500 |
+| On a Roll / Killing Spree / Unstoppable / Godlike / Legendary | 3 / 5 / 8 / 12 / 16 kills without dying | +100 / +200 / +350 / +500 / +750 |
+
+Bonuses also pop up as **medals** (bronze, silver, gold and purple), and the big ones (multikills, streaks, First Blood, Collateral, Buzzkill) get a call-out across the screen with its own sound. Above your health, a badge shows your score this match and, from 2 kills in a row, your streak (it catches fire at 5).
+
+At the end of a match, the **match report** counts up your score, kills, deaths, K/D, accuracy, headshot kills, damage, best streak, longest kill and time, lists your medals, shows XP earned (your score, plus 200 for finishing and 500 for winning) and kills by weapon, then fills your **XP bar**, with a fanfare for each level you gain. The full scoreboard is folded underneath.
+
+Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank every 3 levels) and career stats show on a card on the main menu. They're saved in your browser, so they're still there next time (unless you use a private window or clear the browser's site data). The numbers are in `REWARDS` in `src/config.ts`.
+
 ### Pickups
 
 Walk over a pickup to grab it. Each one comes back 20–30 seconds after it's taken.
@@ -219,6 +243,7 @@ Each bot runs a state machine (`src/bots/BotBrain.ts`). Press **B** to see each 
 | `SURVIVAL`       | Wave growth, break between waves, health on wave clear |
 | `PICKUPS`        | How much pickups give and how long they take to come back |
 | `CONFIG.quality` | What Low / Medium / High graphics mean |
+| `REWARDS` | Points for kills and medals, multikill time window, longshot distance, XP per level |
 
 Examples:
 - To make bots slower to react on Medium, raise `BOT_DIFFICULTY.medium.reactionTime`, for example to `0.7`.

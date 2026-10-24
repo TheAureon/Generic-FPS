@@ -25,6 +25,7 @@ import type { RadarBlip } from '../ui/Minimap';
 import type { Viewmodel } from '../weapons/Viewmodel';
 import { WeaponSystem } from '../weapons/WeaponSystem';
 import { events } from './events';
+import { Rewards } from './Rewards';
 import type { Damageable } from './Hitbox';
 import type { Input } from './Input';
 
@@ -52,6 +53,8 @@ export class Match {
   readonly pickups: Pickups;
   readonly mode: GameMode;
   readonly dummies: TargetDummy[] = [];
+  /** Your score, medals and streaks this match. */
+  readonly rewards: Rewards;
 
   readonly kills = new Map<string, number>();
   readonly deaths = new Map<string, number>();
@@ -134,6 +137,14 @@ export class Match {
       getTargets: () => this.targets(),
       ownerName: this.player.name,
       viewmodel: d.viewmodel,
+      onHit: (point, damage, head, killed) => hud.fx.damageNumber(point, damage, head, killed),
+    });
+    this.rewards = new Rewards({
+      player: this.player,
+      combatants: () => this.combatants(),
+      teams: !!this.mode.teams,
+      time: () => this.time,
+      display: hud.fx,
     });
 
     this.player.respawn(this.pickPlayerSpawn());
@@ -165,6 +176,7 @@ export class Match {
         if (e.attacker === this.player.name) this.shotsHit++;
       }),
       () => this.bots.dispose(),
+      () => this.rewards.dispose(),
     );
 
     // Who can grab pickups.

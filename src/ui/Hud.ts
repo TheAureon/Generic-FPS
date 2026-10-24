@@ -1,3 +1,4 @@
+import { RewardsHud } from './RewardsHud';
 import { CONFIG, TEAMS, WEAPONS, type WeaponId } from '../config';
 import { settings } from '../core/Settings';
 import type { PickupType } from '../map/MapTypes';
@@ -83,6 +84,8 @@ export class Hud {
   private objectiveFill: HTMLDivElement;
   private lastObjective = '';
   readonly minimap: Minimap;
+  /** Damage numbers, score popups, medals, call-outs. */
+  readonly fx: RewardsHud;
 
   private hitTimer = 0;
   private frames = 0;
@@ -105,6 +108,7 @@ export class Hud {
     for (let i = 0; i < 4; i++) el('div', 'hm-line', this.hitmarker);
 
     this.notice = el('div', 'notice', this.root);
+    this.fx = new RewardsHud(this.root);
 
     // ---- Weapon + ammo, bottom right ----
     this.weaponPanel = el('div', 'weapon-panel glass', this.root);
@@ -186,6 +190,7 @@ export class Hud {
   /** Clear everything from the last match. */
   reset(): void {
     this.killFeed.innerHTML = '';
+    this.fx.reset();
     this.announceTimer = 0;
     this.announceEl.style.opacity = '0';
     this.pickupTimer = 0;
