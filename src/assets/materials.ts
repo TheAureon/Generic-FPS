@@ -14,7 +14,9 @@ import { addBakedLighting } from '../render/shaders';
  */
 export type SurfaceId = MaterialId | 'brick' | 'mortar' | 'panel' | 'seam' | 'concreteWall' | 'crateFrame' | 'tread' | 'steel'
   // Neutral (light) surfaces for models, colored by each part's tint:
-  | 'fabric' | 'chrome' | 'plastic' | 'rubber' | 'corrugated';
+  | 'fabric' | 'chrome' | 'plastic' | 'rubber' | 'corrugated'
+  // Cut-out pictures on flat cards (leaf clusters, pine branches, grass tufts and flowers):
+  | 'leafCard' | 'needleCard' | 'grassCard';
 
 interface MaterialStyle {
   base: string;
@@ -44,6 +46,9 @@ const BUMP: Partial<Record<SurfaceId, number>> = {
 const BUMP_DEFAULT = 1.0;
 
 const STYLES: Record<SurfaceId, MaterialStyle> = {
+  leafCard: { base: '#5a7a34', line: '#3d5a22', tileSize: 1, pattern: 'plain', roughness: 0.9, metalness: 0, bump: 0 },
+  needleCard: { base: '#34563a', line: '#203a26', tileSize: 1, pattern: 'plain', roughness: 0.95, metalness: 0, bump: 0 },
+  grassCard: { base: '#5f8a3a', line: '#42662a', tileSize: 1, pattern: 'plain', roughness: 1, metalness: 0, bump: 0 },
   // Industrial concrete floor: 2 x 2 m slabs (the texture covers 8 x 8 m, each slab a bit different).
   floor: { base: '#686d72', line: '#3d4044', tileSize: 8, pattern: 'slabs', roughness: 0.85, metalness: 0, pixels: 1024 },
   // Brick walls on Low graphics (flat texture); Medium/High use real bricks + mortar.
@@ -86,7 +91,7 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   forest: { base: '#566b36', line: '#3e4f26', tileSize: 6, pattern: 'forestFloor', roughness: 1, metalness: 0, pixels: 512 },
   rock: { base: '#7d7b74', line: '#4f4d48', tileSize: 4, pattern: 'rock', roughness: 0.92, metalness: 0, pixels: 512 },
   bark: { base: '#5a4433', line: '#2f231a', tileSize: 1.5, pattern: 'bark', roughness: 1, metalness: 0 },
-  needles: { base: '#2c4a30', line: '#1c3020', tileSize: 2, pattern: 'leaves', roughness: 1, metalness: 0 },
+  needles: { base: '#38593b', line: '#253f29', tileSize: 2, pattern: 'leaves', roughness: 1, metalness: 0 },
   foliage: { base: '#4c6d2c', line: '#34501c', tileSize: 2, pattern: 'leaves', roughness: 1, metalness: 0 },
   // Log cabin walls: stacked round logs.
   timber: { base: '#8a6440', line: '#4a331d', tileSize: 1.2, pattern: 'logs', roughness: 0.9, metalness: 0 },
@@ -109,13 +114,13 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   dirt: { base: '#857a66', line: '#5e5546', tileSize: 6, pattern: 'dirt', roughness: 1, metalness: 0, pixels: 512 },
   // Shipping containers: corrugated, painted steel.
   container: { base: '#8a3b2c', line: '#5e271d', tileSize: 1, pattern: 'ribs', roughness: 0.6, metalness: 0.3 },
-  metal: { base: '#5f6e7a', line: '#4a5661', tileSize: 2, pattern: 'plates', roughness: 0.5, metalness: 0.4 },
+  metal: { base: '#66737e', line: '#48535d', tileSize: 2, pattern: 'plates', roughness: 0.55, metalness: 0.25 },
   // Diamond-plate steel on top of ramps and metal floors.
   tread: { base: '#6f777e', line: '#4c5359', tileSize: 1, pattern: 'diamond', roughness: 0.42, metalness: 0.6, pixels: 256 },
   // Painted steel for ramp rails, beams and posts.
   steel: { base: '#3f474e', line: '#30363b', tileSize: 1, pattern: 'speckle', roughness: 0.55, metalness: 0.5 },
   // Jersey barriers: yellow paint over concrete, chipped and dirty.
-  trim: { base: '#c9a23a', line: '#8a8378', tileSize: 1, pattern: 'chipped', roughness: 0.75, metalness: 0 },
+  trim: { base: '#c9a23a', line: '#8a8378', tileSize: 1, pattern: 'chipped', roughness: 0.6, metalness: 0, bump: 0.25 },
 };
 
 function makeTexture(style: MaterialStyle): THREE.Texture {
@@ -149,6 +154,8 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
 
   const concrete = style.pattern === 'concrete' || style.pattern === 'concretePanels' || style.pattern === 'slabs';
   if (concrete || style.pattern === 'chipped') blotches(40, 0.06);
+  // Painted steel: weathered in patches.
+  if (style.pattern === 'plates') blotches(36, 0.07);
 
   // Fine noise so surfaces don't look perfectly flat.
   const noise = style.pattern === 'speckle' || concrete ? 26 : 14;
@@ -742,6 +749,135 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
   return tex;
 }
 
+/**
+ * Cut-out pictures (transparent around the shape) for leaves, pine branches
+ * and grass: drawn once, then shown on flat cards.
+ */
+const CARDS = new Set<SurfaceId>(['leafCard', 'needleCard', 'grassCard']);
+
+function makeCardTexture(id: SurfaceId): THREE.Texture {
+  const size = 512;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d')!;
+  const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+  const green = (h0: number, h1: number, l0: number, l1: number) => `hsl(${rnd(h0, h1)},${rnd(38, 58)}%,${rnd(l0, l1)}%)`;
+  // A pointed leaf shape at (x, y), pointing along angle a.
+  const leaf = (x: number, y: number, len: number, wid: number, a: number, color: string) => {
+    g.save();
+    g.translate(x, y);
+    g.rotate(a);
+    g.fillStyle = color;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.quadraticCurveTo(len * 0.45, -wid, len, 0);
+    g.quadraticCurveTo(len * 0.45, wid, 0, 0);
+    g.fill();
+    // Midrib, a little lighter.
+    g.strokeStyle = 'rgba(220,240,180,0.25)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(len * 0.9, 0);
+    g.stroke();
+    g.restore();
+  };
+  if (id === 'leafCard') {
+    // A cluster of leaves on a few twigs, roughly round, with ragged edges.
+    const cx = size / 2, cy = size / 2;
+    g.strokeStyle = '#4a3a28';
+    g.lineCap = 'round';
+    const tips: [number, number][] = [];
+    for (let k = 0; k < 7; k++) {
+      const a = rnd(-Math.PI * 0.95, -Math.PI * 0.05), r = rnd(size * 0.25, size * 0.42);
+      const tx = cx + Math.cos(a) * r, ty = cy + 40 + Math.sin(a) * r;
+      g.lineWidth = rnd(3, 6);
+      g.beginPath();
+      g.moveTo(cx, size * 0.98);
+      g.quadraticCurveTo(cx + rnd(-40, 40), cy + 60, tx, ty);
+      g.stroke();
+      tips.push([tx, ty]);
+    }
+    for (let i = 0; i < 420; i++) {
+      // Leaves crowd toward the middle and thin out at the edge.
+      const a = rnd(0, Math.PI * 2), r = Math.pow(Math.random(), 0.7) * size * 0.43;
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r * 0.92;
+      const out = r / (size * 0.43);
+      leaf(x, y, rnd(26, 42), rnd(8, 13), a + rnd(-0.9, 0.9), green(78, 108, 20 + out * 8, 34 + out * 12));
+    }
+  } else if (id === 'needleCard') {
+    // A drooping pine branch: a stem across the card, tufts of needles along it.
+    g.lineCap = 'round';
+    for (let b = 0; b < 3; b++) {
+      const y0 = size * (0.3 + b * 0.2) + rnd(-20, 20);
+      g.strokeStyle = '#3e3022';
+      g.lineWidth = 4;
+      g.beginPath();
+      g.moveTo(4, y0);
+      g.quadraticCurveTo(size * 0.5, y0 + rnd(10, 30), size - 10, y0 + rnd(30, 60));
+      g.stroke();
+      for (let i = 0; i < 300; i++) {
+        const t = Math.random(), x = 4 + t * (size - 14);
+        const y = y0 + t * t * 45 + rnd(-3, 3);
+        const len = (1 - t * 0.6) * rnd(30, 70), a = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 1.4) + 0.3;
+        g.strokeStyle = green(110, 140, 16, 30);
+        g.lineWidth = rnd(1.5, 3);
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + Math.cos(a) * len * 0.5, y + Math.sin(a) * len);
+        g.stroke();
+      }
+    }
+  } else {
+    // 2 x 2 pictures: two kinds of grass tuft, and two of grass with flowers.
+    const half = size / 2;
+    const flowers = [null, null, ['#f4d63a', '#f8e88a'], ['#f4f2ea', '#c9a8e8']];
+    for (let cell = 0; cell < 4; cell++) {
+      const ox = (cell % 2) * half, oy = Math.floor(cell / 2) * half;
+      g.save();
+      g.beginPath();
+      g.rect(ox + 2, oy + 2, half - 4, half - 4);
+      g.clip();
+      const blades = cell < 2 ? 70 : 45;
+      const tops: [number, number][] = [];
+      for (let i = 0; i < blades; i++) {
+        const bx = ox + half * 0.5 + rnd(-half * 0.3, half * 0.3), by = oy + half - 3;
+        const h = rnd(half * 0.45, half * 0.95) * (cell === 1 ? 0.75 : 1), lean = rnd(-half * 0.28, half * 0.28);
+        const w = rnd(3, 6);
+        g.fillStyle = green(70, 105, 22, 42);
+        g.beginPath();
+        g.moveTo(bx - w, by);
+        g.quadraticCurveTo(bx + lean * 0.3, by - h * 0.6, bx + lean, by - h);
+        g.quadraticCurveTo(bx + lean * 0.3 + w * 0.3, by - h * 0.6, bx + w, by);
+        g.fill();
+        tops.push([bx + lean, by - h]);
+      }
+      const f = flowers[cell];
+      if (f) {
+        for (let i = 0; i < 9; i++) {
+          const [x, y] = tops[Math.floor(rnd(0, tops.length))];
+          g.fillStyle = f[i % 2];
+          for (let k = 0; k < 5; k++) {
+            const a = (k / 5) * Math.PI * 2;
+            g.beginPath();
+            g.ellipse(x + Math.cos(a) * 5, y + Math.sin(a) * 5, 5, 3, a, 0, Math.PI * 2);
+            g.fill();
+          }
+          g.fillStyle = '#d89a2a';
+          g.beginPath();
+          g.arc(x, y, 3, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+      g.restore();
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
 const textures = new Map<SurfaceId, THREE.Texture>();
 const cache = new Map<string, THREE.Material>();
 
@@ -756,7 +892,18 @@ export function getMaterial(id: SurfaceId, kind: 'standard' | 'lambert' = 'stand
   if (!m) {
     const s = STYLES[id];
     let tex = textures.get(id);
-    if (!tex) textures.set(id, (tex = makeTexture(s)));
+    if (!tex) textures.set(id, (tex = CARDS.has(id) ? makeCardTexture(id) : makeTexture(s)));
+    if (CARDS.has(id)) {
+      // Cut-out cards: see-through around the shape, visible from both sides,
+      // and lit as if part of a rounded crown (no flipping for the back side).
+      const card =
+        kind === 'lambert'
+          ? new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide })
+          : new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, roughness: s.roughness, metalness: 0 });
+      addBakedLighting(card, true);
+      cache.set(key, (m = card));
+      return m;
+    }
     if (id === 'glass') {
       // See-through glass: no texture, faint tint, shiny.
       const glass =
@@ -782,7 +929,7 @@ export function getMaterial(id: SurfaceId, kind: 'standard' | 'lambert' = 'stand
       mat.transparent = true;
       mat.opacity = kind === 'lambert' ? 0.85 : 0.8;
       if (mat instanceof THREE.MeshStandardMaterial) {
-        mat.roughness = 0.04;
+        mat.roughness = 0.1;
         mat.metalness = 0.15;
       }
     }

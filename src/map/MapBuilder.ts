@@ -7,8 +7,9 @@ import { barrierCollision, BOARDS, BRICKS, CONCRETE_PANELS, crateFrame, faceSamp
 import { buildModel, windowFrameParts, type ModelPart } from './models';
 import { Sky, sunDirection } from '../render/Sky';
 import type { BoxDef, LampDef, MapDef, MaterialId, PropDef, SkyDef, TerrainDef } from './MapTypes';
+import { Tufts } from './grass';
 import { propFoliage, propGeometry, propRadius, propSolids } from './nature';
-import { fbm, smoothstep, terrainRangeUnder } from './terrain';
+import { fbm, seededRandom, smoothstep, terrainHeightAt, terrainRangeUnder } from './terrain';
 
 export interface BuiltMap {
   def: MapDef;
@@ -82,10 +83,10 @@ const bakeCache = new Map<string, { geos: { mat: SurfaceId; geo: THREE.BufferGeo
  * Surfaces with lots of vertices are merged per area (this many meters
  * square), so areas out of view are skipped when drawing.
  */
-const CHUNKED = new Map<SurfaceId, number>([['brick', 14], ['panel', 14], ['needles', 45], ['foliage', 45], ['bark', 45], ['rock', 45]]);
+const CHUNKED = new Map<SurfaceId, number>([['brick', 14], ['panel', 14], ['needles', 45], ['foliage', 45], ['leafCard', 45], ['needleCard', 45], ['grassCard', 24], ['bark', 45], ['rock', 45]]);
 
 /** Detail parts that are too small/thin to be worth drawing into the shadow map. */
-const NO_SHADOW = new Set<SurfaceId>(['brick', 'panel', 'crateFrame', 'glass']);
+const NO_SHADOW = new Set<SurfaceId>(['grassCard', 'brick', 'panel', 'crateFrame', 'glass']);
 
 type V3 = [number, number, number];
 interface Quad {
@@ -122,6 +123,8 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   /** Boxes drawn as detailed models (furniture, cars, statues...). */
   const modelBoxes: BoxDef[] = [];
   const detail = quality.mapDetail;
+  /** Leafy trees and grass tufts. */
+  const leafy = detail && quality.foliage;
 
   // The arena's footprint: faces looking out of it can never be seen.
   const foot = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
@@ -227,7 +230,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   const skyDef = opts.sky ?? def.sky ?? defaultSky(def);
   SUN = detail ? { dir: sunDirection(skyDef), color: new THREE.Color(skyDef.sunColor).multiplyScalar(skyDef.sunIntensity ?? 2.4) } : null;
   // (The sun's position changes the baked bounce light, so it's part of the key.)
-  const cacheKey = `${def.id}:${detail ? 'detail' : 'plain'}:${skyDef.sunElevation}:${skyDef.sunAzimuth}`;
+  const cacheKey = `${def.id}:${detail ? 'detail' : 'plain'}:${leafy ? 'leafy' : ''}:${skyDef.sunElevation}:${skyDef.sunAzimuth}`;
   let baked = bakeCache.get(cacheKey);
   if (!baked) {
     const byMaterial = new Map<SurfaceId, THREE.BufferGeometry[]>();
@@ -302,9 +305,27 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       bakeModelBox(parts, world, aoDirs, lamps, lampPos, indoor);
       for (const part of parts) put(part.material, part.geo);
     }
-    if (terrain) for (const [mat, geo] of buildTerrain(terrain, placed, world, aoDirs, lamps, lampPos, def.playArea)) put(mat, geo);
+    const tufts = leafy ? new Tufts() : null;
+    if (terrain) for (const [mat, geo] of buildTerrain(terrain, placed, world, aoDirs, lamps, lampPos, def.playArea, tufts)) put(mat, geo);
+    if (tufts) {
+      // Lawns (grass on top of boxes, e.g. the museum's gardens).
+      const up = new THREE.Vector3(0, 1, 0), shade = new THREE.Color(), none = new THREE.Color(0, 0, 0);
+      for (const b of def.boxes) {
+        if (b.material !== 'grass' || b.decor || b.model) continue;
+        const rnd = seededRandom(Math.floor(Math.abs(b.x * 131 + b.z * 71)) + 5);
+        const top = b.y + b.h, count = Math.floor(b.w * b.d * 0.9);
+        for (let i = 0; i < count; i++) {
+          const x = b.x + (rnd() - 0.5) * (b.w - 0.4), z = b.z + (rnd() - 0.5) * (b.d - 0.4);
+          // Patchy: thicker in some places, bare in others.
+          if (fbm(x / 6, z / 6, 3, 2) < -0.15 || covered(x, top + 0.1, z) || !world.hasLineOfSight(x, top + 0.1, z, x, top + 6, z)) continue;
+          shade.setScalar(0.85 + rnd() * 0.15);
+          tufts.add(x, top - 0.02, z, up, shade, none, rnd, rnd() < 0.12);
+        }
+      }
+      for (const geo of tufts.build()) put('grassCard', geo);
+    }
     for (const { p, y } of placed) {
-      for (const part of propGeometry(p, y)) {
+      for (const part of propGeometry(p, y, leafy)) {
         if (part.prebaked) part.geo.setAttribute('aLight', new THREE.BufferAttribute(new Float32Array(part.geo.getAttribute('position').count * 3), 3));
         else bake(part.geo, world, aoDirs, lamps, lampPos, true, indoor);
         put(part.material, part.geo);
@@ -395,7 +416,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
  */
 function buildTerrain(
   t: TerrainDef, placed: { p: PropDef; y: number }[], world: CollisionWorld, dirs: THREE.Vector3[], lamps: LampDef[], lampPos: V3[],
-  playArea?: MapDef['playArea'],
+  playArea?: MapDef['playArea'], tufts: Tufts | null = null,
 ): [SurfaceId, THREE.BufferGeometry][] {
   const W = t.cols + 1, n = W * (t.rows + 1), C = t.cell, H = t.heights;
   const pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3);
@@ -451,6 +472,11 @@ function buildTerrain(
     return Math.hypot(ax + dx * u - x, az + dz * u - z) < hw;
   });
   const byMat = new Map<SurfaceId, number[]>();
+  // Grass tufts: on grassy ground where people play (not on paths, rock or snow), and not inside rocks, logs or buildings.
+  const grassy = tufts && (ground === 'forest' || ground === 'grass');
+  const zone = playArea ?? { x0: t.x0 + 20, z0: t.z0 + 20, x1: t.x0 + t.cols * C - 20, z1: t.z0 + t.rows * C - 20 };
+  const stones = placed.filter(({ p }) => p.kind === 'rock' || p.kind === 'log' || p.kind === 'stump').map(({ p }) => [p.x, p.z, propRadius(p) * (p.kind === 'log' ? 0.5 : 1)]);
+  const tn = new THREE.Vector3(), tc = new THREE.Color(), tl = new THREE.Color();
   for (let j = 0; j < t.rows; j++) {
     for (let i = 0; i < t.cols; i++) {
       const a = j * W + i, b = a + 1, c = a + W + 1, d = a + W;
@@ -459,6 +485,24 @@ function buildTerrain(
       const hAvg = (H[a] + H[b] + H[c] + H[d]) / 4;
       const snowy = t.snowLine !== undefined && hAvg > t.snowLine + fbm(cx / 20, cz / 20, 5, 2) * 6;
       const mat: SurfaceId = snowy ? (slope > 1.4 ? 'rock' : 'snow') : slope > 0.85 ? 'rock' : onPath(cx, cz) ? pathMat : ground;
+      if (grassy && mat === ground && cx > zone.x0 - 8 && cx < zone.x1 + 8 && cz > zone.z0 - 8 && cz < zone.z1 + 8) {
+        const rnd = seededRandom(i * 7919 + j * 104729 + 3);
+        // Patches: thick in some places, a few here and there in others.
+        const patch = fbm(cx / 7, cz / 7, 11, 2);
+        const count = Math.round(C * C * (ground === 'grass' ? 0.95 : 0.7) * Math.max(0, 0.5 + patch * 1.6) + rnd() * 0.6);
+        for (let k = 0; k < count; k++) {
+          const x = cx + (rnd() - 0.5) * C, z = cz + (rnd() - 0.5) * C;
+          if (stones.some(([sx, sz, r]) => Math.hypot(x - sx, z - sz) < r)) { rnd(); continue; }
+          const y = terrainHeightAt(t, x, z);
+          if (world.isInsideSolid(x, y + 0.2, z, 0)) continue;
+          // Shading and light from the nearest ground corner.
+          const v = Math.round((x - t.x0) / C) + Math.round((z - t.z0) / C) * W;
+          tn.set(nrm[v * 3], nrm[v * 3 + 1], nrm[v * 3 + 2]);
+          tc.setRGB(col.getX(v), col.getY(v), col.getZ(v));
+          tl.setRGB(light.getX(v), light.getY(v), light.getZ(v));
+          tufts.add(x, y - 0.03, z, tn, tc, tl, rnd, rnd() < (ground === 'grass' ? 0.1 : 0.05), ground === 'forest' ? 0.9 : 0.85);
+        }
+      }
       if (!byMat.has(mat)) byMat.set(mat, []);
       // Same split as the collision: along the (i, j) → (i+1, j+1) diagonal.
       byMat.get(mat)!.push(a, c, b, a, d, c);

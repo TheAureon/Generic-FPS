@@ -136,7 +136,12 @@ export class RenderPipeline {
         this.composer.addPass(gtao);
       }
       // Only really bright things glow (lamp panels, visors, flashes, sparks).
-      if (q.bloom) this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.45, 0.5, 1.0));
+      if (q.bloom) {
+        // Tame impossibly bright pixels first (a sun glint on water can be
+        // brighter than the image can store, and would bloom into a white fog).
+        this.composer.addPass(new ShaderPass(ClampShader));
+        this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.45, 0.5, 1.0));
+      }
       if (q.grade) {
         this.grade = new ShaderPass(GradeShader);
         this.composer.addPass(this.grade);
@@ -151,6 +156,25 @@ export class RenderPipeline {
     }
   }
 }
+
+/** Limits each pixel's brightness (and clears broken pixels) before the bloom. */
+const ClampShader = {
+  uniforms: { tDiffuse: { value: null as THREE.Texture | null } },
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec4 tex = texture2D(tDiffuse, vUv);
+      vec3 c = tex.rgb;
+      if (any(isnan(c)) || any(isinf(c))) c = vec3(0.0);
+      gl_FragColor = vec4(clamp(c, 0.0, 12.0), tex.a);
+    }
+  `,
+};
 
 /**
  * Color grading (in linear light, before tone mapping): a touch more

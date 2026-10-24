@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { BoxDef, MaterialId, PropDef } from './MapTypes';
+import type { SurfaceId } from '../assets/materials';
+import type { BoxDef, PropDef } from './MapTypes';
 import { seededRandom } from './terrain';
 
 /**
@@ -14,7 +15,7 @@ import { seededRandom } from './terrain';
 
 export interface PropPart {
   geo: THREE.BufferGeometry;
-  material: MaterialId;
+  material: SurfaceId;
   /** Shading already painted in (skip the light bake). */
   prebaked: boolean;
 }
@@ -68,8 +69,11 @@ export function propFoliage(p: PropDef, y: number): [number, number, number, num
   return [];
 }
 
-/** The 3D model, in world position. */
-export function propGeometry(p: PropDef, y: number): PropPart[] {
+/**
+ * The 3D model, in world position. `leafy`: leaves made of many leaf
+ * clusters (cut-out cards) around a smaller core, instead of solid shapes.
+ */
+export function propGeometry(p: PropDef, y: number, leafy = false): PropPart[] {
   const s = p.size ?? 1;
   const rnd = seededRandom(Math.floor(Math.abs(p.x * 7919 + p.z * 104729)) + 17);
   const rot = ((p.rot ?? rnd() * 360) * Math.PI) / 180;
@@ -87,6 +91,7 @@ export function propGeometry(p: PropDef, y: number): PropPart[] {
       trunk.translate(0, 4.75 * s - 0.3, 0);
       shadeByHeight(trunk, 0, 9.5 * s, 0.42, 0.75);
       const cones: THREE.BufferGeometry[] = [];
+      const needleCards = new Cards(rnd);
       const tiers = 4;
       for (let i = 0; i < tiers; i++) {
         const r = (2.5 - i * 0.52) * s * (0.9 + rnd() * 0.2);
@@ -104,13 +109,27 @@ export function propGeometry(p: PropDef, y: number): PropPart[] {
         under.translate(0, base + h * 0.2, 0);
         setColor(under, 0.45);
         cones.push(c, under);
+        if (leafy) {
+          // Branches hanging out from under each tier, so the outline is feathery instead of a cone.
+          const n = 9 - i;
+          for (let k = 0; k < n; k++) {
+            const a = ((k + rnd() * 0.6) / n) * Math.PI * 2;
+            const dir = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+            const root = dir.clone().multiplyScalar(r * 0.35).setY(base + h * 0.42);
+            const tip = dir.clone().multiplyScalar(r * (1.12 + rnd() * 0.15)).setY(base - 0.15 * s);
+            const side = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(r * 0.42 + 0.3 * s);
+            needleCards.branch(root, tip, side, new THREE.Vector3(0, base + h * 0.3, 0), 0.4 + i * 0.07, 0.95, tint);
+          }
+        }
       }
       const crown = merge(cones);
       tintColors(crown, tint);
-      return [
+      const parts: PropPart[] = [
         { geo: place(trunk), material: 'bark', prebaked: true },
         { geo: place(crown), material: 'needles', prebaked: true },
       ];
+      if (leafy) parts.push({ geo: place(needleCards.build()), material: 'needleCard', prebaked: true });
+      return parts;
     }
     case 'tree': {
       const H = 4.6 * s;
@@ -130,43 +149,54 @@ export function propGeometry(p: PropDef, y: number): PropPart[] {
       const wood = merge(parts);
       shadeByHeight(wood, 0, H * 1.3, 0.45, 0.72);
       const blobs: THREE.BufferGeometry[] = [];
+      const leaves = new Cards(rnd);
       const n = 3;
       for (let i = 0; i < n; i++) {
         const r = (1.8 + rnd() * 0.9) * s;
-        const b = new THREE.IcosahedronGeometry(r, 1);
+        // With leaf clusters, the solid core is smaller (it only stops you seeing straight through).
+        const b = new THREE.IcosahedronGeometry(r * (leafy ? 0.6 : 1), 1);
         const a = (i / n) * Math.PI * 2 + rnd();
         const off = i === 0 ? 0 : 1.3 * s;
+        const c = new THREE.Vector3(Math.cos(a) * off, H + (i === 0 ? 1.6 : 0.7 + rnd()) * s, Math.sin(a) * off);
         b.scale(1, 0.78, 1);
-        b.translate(Math.cos(a) * off, H + (i === 0 ? 1.6 : 0.7 + rnd()) * s, Math.sin(a) * off);
+        b.translate(c.x, c.y, c.z);
         jitter(b, 0.28 * s, i + 11);
         b.computeVertexNormals();
         blobs.push(b);
+        if (leafy) leaves.cluster(c, r, 0.78, 44, 1.75 * s, H - 1.2 * s, H + 3.6 * s, tint);
       }
       const crown = merge(blobs);
-      shadeByHeight(crown, H - 1.2 * s, H + 3.6 * s, 0.4, 1.0);
+      shadeByHeight(crown, H - 1.2 * s, H + 3.6 * s, leafy ? 0.3 : 0.4, leafy ? 0.75 : 1.0);
       tintColors(crown, tint);
-      return [
+      const out: PropPart[] = [
         { geo: place(wood), material: 'bark', prebaked: true },
         { geo: place(crown), material: 'foliage', prebaked: true },
       ];
+      if (leafy) out.push({ geo: place(leaves.build()), material: 'leafCard', prebaked: true });
+      return out;
     }
     case 'bush': {
       const blobs: THREE.BufferGeometry[] = [];
+      const leaves = new Cards(rnd);
       const n = 4;
       for (let i = 0; i < n; i++) {
         const r = (0.48 + rnd() * 0.28) * s;
-        const b = new THREE.DodecahedronGeometry(r, 0);
+        const b = new THREE.DodecahedronGeometry(r * (leafy ? 0.75 : 1), 0);
         b.scale(1, 0.8, 1);
         const a = (i / n) * Math.PI * 2 + rnd(), off = i === 0 ? 0 : 0.55 * s;
-        b.translate(Math.cos(a) * off, r * (i === 0 ? 1.1 : 0.7), Math.sin(a) * off);
+        const c = new THREE.Vector3(Math.cos(a) * off, r * (i === 0 ? 1.1 : 0.7), Math.sin(a) * off);
+        b.translate(c.x, c.y, c.z);
         jitter(b, 0.22 * s, i + 23);
         b.computeVertexNormals();
         blobs.push(b);
+        if (leafy) leaves.cluster(c, r * 1.05, 0.8, 7, 0.75 * s, 0, 1.3 * s, tint, true);
       }
       const g = merge(blobs);
-      shadeByHeight(g, 0, 1.3 * s, 0.45, 1.1);
+      shadeByHeight(g, 0, 1.3 * s, leafy ? 0.35 : 0.45, leafy ? 0.8 : 1.1);
       tintColors(g, tint);
-      return [{ geo: place(g), material: 'foliage', prebaked: true }];
+      const parts: PropPart[] = [{ geo: place(g), material: 'foliage', prebaked: true }];
+      if (leafy) parts.push({ geo: place(leaves.build()), material: 'leafCard', prebaked: true });
+      return parts;
     }
     case 'rock': {
       const g = new THREE.IcosahedronGeometry(1, 1);
@@ -198,6 +228,82 @@ export function propGeometry(p: PropDef, y: number): PropPart[] {
       shadeByHeight(g, -0.3, 0.6 * s, 0.45, 0.85);
       return [{ geo: place(g), material: 'bark', prebaked: true }];
     }
+  }
+}
+
+/**
+ * Flat cut-out cards (leaf clusters, pine branches), with normals pointing
+ * out of the plant's crown so they light like one soft, rounded shape.
+ */
+class Cards {
+  private pos: number[] = [];
+  private nrm: number[] = [];
+  private col: number[] = [];
+  private uv: number[] = [];
+  constructor(private rnd: () => number) {}
+
+  private quad(c: THREE.Vector3[], center: THREE.Vector3, shade: (p: THREE.Vector3) => number, tint: THREE.Color, flip: boolean): void {
+    const uvs = flip ? [[1, 0], [0, 0], [0, 1], [1, 1]] : [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const n = new THREE.Vector3();
+    for (const k of [0, 1, 2, 0, 2, 3]) {
+      const p = c[k];
+      this.pos.push(p.x, p.y, p.z);
+      n.subVectors(p, center).normalize();
+      n.y = n.y * 0.8 + 0.25;
+      n.normalize();
+      this.nrm.push(n.x, n.y, n.z);
+      const v = shade(p);
+      this.col.push(v * tint.r, v * tint.g, v * tint.b);
+      this.uv.push(uvs[k][0], uvs[k][1]);
+    }
+  }
+
+  /** Leaf clusters spread over an egg-shaped crown (center c, radius r, squashed by sy). */
+  cluster(c: THREE.Vector3, r: number, sy: number, count: number, size: number, y0: number, y1: number, tint: THREE.Color, low = false): void {
+    const rnd = this.rnd;
+    const up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < count; i++) {
+      // A point on (or a little inside) the crown; more of them on top and around than underneath.
+      const u = rnd() * 2 - 1, a = rnd() * Math.PI * 2;
+      const yy = low ? Math.abs(u) * 0.9 + 0.1 : u;
+      const d = new THREE.Vector3(Math.sqrt(1 - yy * yy) * Math.cos(a), yy, Math.sqrt(1 - yy * yy) * Math.sin(a));
+      const k = 0.62 + rnd() * 0.42;
+      const p = new THREE.Vector3(c.x + d.x * r * k, c.y + d.y * r * sy * k, c.z + d.z * r * k);
+      // Facing roughly outward, but each at its own angle.
+      const n = d.clone().add(new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(1.4)).normalize();
+      const t1 = new THREE.Vector3().crossVectors(Math.abs(n.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : up, n).normalize();
+      const t2 = new THREE.Vector3().crossVectors(n, t1);
+      const spin = rnd() * Math.PI * 2, cs = Math.cos(spin), sn = Math.sin(spin);
+      const e1 = t1.clone().multiplyScalar(cs).addScaledVector(t2, sn).multiplyScalar(size * (0.85 + rnd() * 0.3) / 2);
+      const e2 = t2.clone().multiplyScalar(cs).addScaledVector(t1, -sn).multiplyScalar(size * (0.85 + rnd() * 0.3) / 2);
+      const corners = [
+        p.clone().sub(e1).sub(e2), p.clone().add(e1).sub(e2), p.clone().add(e1).add(e2), p.clone().sub(e1).add(e2),
+      ];
+      // Darker deep inside and underneath, brighter on the outside and on top.
+      const shade = (q: THREE.Vector3) => {
+        const h = Math.min(1, Math.max(0, (q.y - y0) / (y1 - y0)));
+        const out = Math.min(1.15, q.distanceTo(c) / r);
+        return (0.5 + 0.5 * h) * (0.6 + 0.4 * out);
+      };
+      this.quad(corners, c, shade, tint, rnd() < 0.5);
+    }
+  }
+
+  /** A hanging branch card from root to tip, `side` = half its width. */
+  branch(root: THREE.Vector3, tip: THREE.Vector3, side: THREE.Vector3, center: THREE.Vector3, dark: number, light: number, tint: THREE.Color): void {
+    const corners = [root.clone().sub(side.clone().multiplyScalar(0.5)), tip.clone().sub(side), tip.clone().add(side), root.clone().add(side.clone().multiplyScalar(0.5))];
+    // Darker where it comes out of the tree. (The texture's stem runs along u, from root to tip.)
+    const shade = (q: THREE.Vector3) => (q === corners[0] || q === corners[3] ? dark : light);
+    this.quad(corners, center, shade, tint, false);
+  }
+
+  build(): THREE.BufferGeometry {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nrm, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+    return g;
   }
 }
 

@@ -12,9 +12,11 @@ import * as THREE from 'three';
  * - vertex colors darken corners and contact areas (ambient occlusion)
  * - `aLight` adds the light from lamp fixtures
  */
-export function addBakedLighting(mat: THREE.MeshStandardMaterial | THREE.MeshLambertMaterial): void {
+export function addBakedLighting(mat: THREE.MeshStandardMaterial | THREE.MeshLambertMaterial, sameBothSides = false): void {
   mat.vertexColors = true;
   mat.onBeforeCompile = (shader) => {
+    // Leaf and grass cards: the back is lit like the front (their normals point out of the whole plant).
+    if (sameBothSides) shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace(/normal \*= faceDirection;/g, ''));
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec3 aLight;\nvarying vec3 vLight;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLight = aLight;');
@@ -23,7 +25,7 @@ export function addBakedLighting(mat: THREE.MeshStandardMaterial | THREE.MeshLam
       // Lamp light lights the surface color (diffuseColor already includes the texture and AO).
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vLight;');
   };
-  mat.customProgramCacheKey = () => `baked-light-${mat.type}`;
+  mat.customProgramCacheKey = () => `baked-light-${mat.type}${sameBothSides ? '-2s' : ''}`;
 }
 
 /**

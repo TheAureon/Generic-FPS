@@ -84,7 +84,7 @@ export const CONFIG = {
     // bloom: glow around bright things (visors, lamps, muzzle flashes);
     // mapDetail: real 3D bricks and concrete panels on walls (Low uses flat textures);
     // grade: color grading and vignette; ao: ambient occlusion (soft shading where things meet);
-    // foliage: leafy trees and grass tufts.
+    // foliage: leafy trees and grass tufts (only together with mapDetail).
     low: { pixelRatio: 1, mapDetail: false, shadows: false, shadowMapSize: 1024, softShadows: false, materials: 'lambert', envMap: false, bloom: false, grade: false, ao: false, foliage: false },
     medium: { pixelRatio: 1.5, mapDetail: true, shadows: true, shadowMapSize: 2048, softShadows: false, materials: 'standard', envMap: true, bloom: false, grade: true, ao: false, foliage: true },
     high: { pixelRatio: 2, mapDetail: true, shadows: true, shadowMapSize: 4096, softShadows: true, materials: 'standard', envMap: true, bloom: true, grade: true, ao: true, foliage: true },
