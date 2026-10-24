@@ -3,9 +3,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { getMaterial, getTileSize, type SurfaceId } from '../assets/materials';
 import { CollisionWorld } from '../core/CollisionWorld';
 import { currentQuality } from '../render/quality';
-import { barrierCollision, BOARDS, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, logRelief, rampDetail, relief, RUIN_STONES, stairSteps, STONE_BLOCKS } from './details';
-import { buildModel, type ModelPart } from './models';
-import { Sky } from '../render/Sky';
+import { barrierCollision, BOARDS, BRICKS, CONCRETE_PANELS, crateFrame, faceSampler, jerseyBarrier, logRelief, rampDetail, relief, RUIN_STONES, skirting, stairSteps, STONE_BLOCKS } from './details';
+import { buildModel, windowFrameParts, type ModelPart } from './models';
+import { Sky, sunDirection } from '../render/Sky';
 import type { BoxDef, LampDef, MapDef, MaterialId, PropDef, SkyDef, TerrainDef } from './MapTypes';
 import { propFoliage, propGeometry, propRadius, propSolids } from './nature';
 import { fbm, smoothstep, terrainRangeUnder } from './terrain';
@@ -20,6 +20,8 @@ export interface BuiltMap {
   sky: Sky;
   /** How much lamp light reaches a point (for lighting characters). */
   sampleLampLight(p: THREE.Vector3, out: THREE.Color): THREE.Color;
+  /** Keep the sun's shadows centered on the viewer (call each frame with the camera position). */
+  updateShadows(p: THREE.Vector3): void;
 }
 
 /** Size of the lighting "tiles" baked onto surfaces (meters). Smaller = finer, slower to load. */
@@ -33,7 +35,42 @@ const AO_STRENGTH = 0.85;
 /** How far indoor-shading rays look for a ceiling or wall (meters). */
 const INDOOR_DISTANCE = 18;
 /** Overall brightness of baked lamp light. */
-const LAMP_STRENGTH = 0.75;
+const LAMP_STRENGTH = 0.95;
+/**
+ * Bounced sunlight: sunlit floors and walls light up what's around them
+ * (warm light spilling into rooms through windows, under roofs, onto the
+ * shady side of walls). How strong, how far it reaches, rays per corner.
+ */
+const BOUNCE_STRENGTH = 0.32;
+const BOUNCE_DISTANCE = 9;
+/** The sun, for bounced light while baking (set by buildMap). */
+let SUN: { dir: THREE.Vector3; color: THREE.Color } | null = null;
+/** Bounce rays: every other AO direction. */
+const BOUNCE_EVERY = 2;
+
+/** Sunlight bounced onto point p (facing n) from sunlit surfaces nearby, added into `out`. */
+function bounceAt(world: CollisionWorld, px: number, py: number, pz: number, n: THREE.Vector3, t1: THREE.Vector3, t2: THREE.Vector3, dirs: THREE.Vector3[], out: THREE.Color): void {
+  if (!SUN) return;
+  const sd = SUN.dir;
+  let acc = 0, count = 0;
+  for (let k = 0; k < dirs.length; k += BOUNCE_EVERY) {
+    const dir = dirs[k];
+    count++;
+    const dx = t1.x * dir.x + t2.x * dir.y + n.x * dir.z, dy = t1.y * dir.x + t2.y * dir.y + n.y * dir.z, dz = t1.z * dir.x + t2.z * dir.y + n.z * dir.z;
+    const hit = world.raycast(px, py, pz, dx, dy, dz, BOUNCE_DISTANCE);
+    if (!hit) continue;
+    const ndl = hit.nx * sd.x + hit.ny * sd.y + hit.nz * sd.z;
+    if (ndl <= 0.05) continue;
+    const hx = px + dx * hit.distance + hit.nx * 0.03, hy = py + dy * hit.distance + hit.ny * 0.03, hz = pz + dz * hit.distance + hit.nz * 0.03;
+    if (world.raycast(hx, hy, hz, sd.x, sd.y, sd.z, 120)) continue; // that spot is in shadow
+    acc += ndl * (1 - 0.6 * (hit.distance / BOUNCE_DISTANCE));
+  }
+  if (!count || acc <= 0) return;
+  const k = (BOUNCE_STRENGTH * acc) / count;
+  out.r += SUN.color.r * k;
+  out.g += SUN.color.g * k * 0.93;
+  out.b += SUN.color.b * k * 0.82;
+}
 
 /**
  * Baking takes a moment, so results are kept per map and reused (by the
@@ -128,6 +165,13 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       world.addBox(b, true);
       continue;
     }
+    if (!b.model && b.material === 'container' && b.h >= 2.2 && b.h <= 3.2 && Math.max(b.w, b.d) >= 4.5) {
+      // Shipping containers get the real thing (corrugated walls, doors, frame), each in a different color.
+      world.addBox(b);
+      const palette = [0x8a3b2c, 0x2f5f8a, 0x3f6f3f, 0xc0782a, 0x7a7f86, 0xa8925a, 0x6a2f5a];
+      modelBoxes.push({ ...b, model: 'shippingContainer', rot: b.w > b.d ? 90 : 0, tint: palette[Math.abs(Math.floor(b.x * 7 + b.z * 13)) % palette.length] });
+      continue;
+    }
     if (b.model) {
       // Drawn as a model; the box is still the solid part.
       if (!b.decor) world.addBox(b, b.material === 'glass');
@@ -160,10 +204,30 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     if (m === 'metal') for (const g of rampDetail(r)) props.push({ geo: g, material: 'steel' });
   }
 
+  // ---- Window frames and sills around every pane of glass in a wall ---------------
+  const frames: ModelPart[][] = [];
+  for (const g of def.boxes) {
+    if (g.material !== 'glass' || g.model || g.h < 0.5 || Math.min(g.w, g.d) > 0.12 || Math.max(g.w, g.d) < 0.4) continue;
+    const along = g.w >= g.d;
+    // The wall piece just below (for the sill, and to pick materials).
+    const below = def.boxes.find((o) => o !== g && !o.decor && !o.model && o.material !== 'glass' && Math.abs(o.y + o.h - g.y) < 0.03 &&
+      Math.abs(o.x - g.x) < o.w / 2 && Math.abs(o.z - g.z) < o.d / 2);
+    const wm = below?.material ?? 'glass';
+    const wood = wm === 'timber' || wm === 'planks' || wm === 'barnwood' || wm === 'ruin';
+    const stone = wm === 'stone' || wm === 'marble';
+    const frame: SurfaceId = wood ? 'planks' : stone ? 'paint' : 'chrome';
+    const frameTint = wood ? 0xf2eee6 : stone ? 0x2e3236 : below ? 0x5a6068 : 0x9aa1a8;
+    const sill: SurfaceId = wood ? 'planks' : stone ? 'marble' : wm === 'concrete' ? 'concrete' : 'paint';
+    frames.push(windowFrameParts(g, below ? (along ? below.d : below.w) : null, frame, frameTint, sill, wood ? 0xf2eee6 : undefined));
+  }
+
   // ---- Tessellate, bake, and group by material (or reuse an earlier bake) -----
   const lamps = def.lamps ?? [];
   const lampPos = lamps.map((l) => lightOrigin(l));
-  const cacheKey = `${def.id}:${detail ? 'detail' : 'plain'}`;
+  const skyDef = opts.sky ?? def.sky ?? defaultSky(def);
+  SUN = detail ? { dir: sunDirection(skyDef), color: new THREE.Color(skyDef.sunColor).multiplyScalar(skyDef.sunIntensity ?? 2.4) } : null;
+  // (The sun's position changes the baked bounce light, so it's part of the key.)
+  const cacheKey = `${def.id}:${detail ? 'detail' : 'plain'}:${skyDef.sunElevation}:${skyDef.sunAzimuth}`;
   let baked = bakeCache.get(cacheKey);
   if (!baked) {
     const byMaterial = new Map<SurfaceId, THREE.BufferGeometry[]>();
@@ -207,6 +271,14 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
         // Round logs stacked up the wall (the flat wall behind only shows in the gaps).
         for (const g of logRelief(q.corners, n, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv))) put('timber', g);
         mat = 'seam';
+      } else if (detail && wall && q.material === 'drywall') {
+        // A baseboard along the bottom, if the wall stands on a floor.
+        const ys = q.corners.map((c) => c[1]), y0 = Math.min(...ys);
+        const cx = (q.corners[0][0] + q.corners[2][0]) / 2 + n.x * 0.1, cz = (q.corners[0][2] + q.corners[2][2]) / 2 + n.z * 0.1;
+        if (covered(cx, y0 - 0.05, cz) && !covered(cx, y0 + 0.05, cz)) {
+          const sk = skirting(q.corners, n, faceSampler(q.corners, geo, geo.userData.nu, geo.userData.nv));
+          if (sk) put('paint', sk);
+        }
       } else if (!detail && q.material === 'concrete' && wall) {
         mat = 'concreteWall';
       } else if (detail && q.material === 'concrete' && wall) {
@@ -219,6 +291,10 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     for (const p of props) {
       bake(p.geo, world, aoDirs, lamps, lampPos, true, indoor);
       put(p.material, p.geo);
+    }
+    for (const parts of frames) {
+      bakeModelBox(parts, world, aoDirs, lamps, lampPos, indoor);
+      for (const part of parts) put(part.material, part.geo);
     }
     for (const b of modelBoxes) {
       const parts = buildModel(b);
@@ -274,7 +350,6 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   }
 
   if (lamps.length) group.add(buildLampFixtures(lamps));
-  const skyDef = opts.sky ?? def.sky ?? defaultSky(def);
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
   const sky = new Sky(skyDef, center, Math.max(size.x, size.z) * 0.6);
@@ -288,7 +363,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     playBounds.min.z = Math.max(bounds.min.z, a.z0);
     playBounds.max.z = Math.min(bounds.max.z, a.z1);
   }
-  addSunAndSky(group, playBounds, quality.shadowMapSize, skyDef, sky.sunDir);
+  const updateShadows = addSunAndSky(group, playBounds, quality.shadowMapSize, skyDef, sky.sunDir);
   scene.background = new THREE.Color(skyDef.horizon);
   const [fogNear, fogFar] = opts.fog ?? [def.fogNear, def.fogFar];
   scene.fog = new THREE.Fog(skyDef.horizon, fogNear, fogFar);
@@ -309,7 +384,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     return out;
   };
 
-  return { def, group, world, bounds, playBounds, sky, sampleLampLight };
+  return { def, group, world, bounds, playBounds, sky, sampleLampLight, updateShadows };
 }
 
 /**
@@ -341,7 +416,7 @@ function buildTerrain(
   // Far scenery (well outside the play area) doesn't need measured shading.
   const area = playArea;
   const far = area ? (x: number, z: number) => x < area.x0 - 15 || x > area.x1 + 15 || z < area.z0 - 15 || z > area.z1 + 15 : undefined;
-  bake(grid, world, dirs, lamps, lampPos, false, 0, far);
+  bake(grid, world, dirs, lamps, lampPos, false, 0, far, false);
   const col = grid.getAttribute('color') as THREE.BufferAttribute;
   const light = grid.getAttribute('aLight') as THREE.BufferAttribute;
 
@@ -515,6 +590,8 @@ function hemisphereDirections(n: number): THREE.Vector3[] {
   return out;
 }
 
+const _bounce = new THREE.Color();
+
 const falloff = (d: number, range: number) => {
   const k = 1 - (d / range) * (d / range);
   return k * k;
@@ -545,6 +622,8 @@ function bake(
   indoor = 0,
   /** Corners to leave unlit-by-rays (fully open), e.g. far scenery nobody can get close to. */
   skip?: (x: number, z: number) => boolean,
+  /** Add bounced sunlight (off for big open terrain: lots of corners, little to gain). */
+  bounce = true,
 ): void {
   const pos = geo.getAttribute('position');
   const nrm = geo.getAttribute('normal');
@@ -585,6 +664,7 @@ function bake(
       if (hit) occlusion += 1 - hit.distance / AO_DISTANCE;
     }
     let ao = Math.max(0.3, 1 - (AO_STRENGTH * occlusion) / dirs.length);
+    let enclosed = 1;
     // Indoors: long rays toward the sky; the more are blocked (by ceilings,
     // walls), the darker it gets. Rooms end up lit mostly by their lamps and
     // by sunlight through the windows.
@@ -599,12 +679,20 @@ function bake(
       }
       // Ceilings get light bounced up from the room below, so they darken much less.
       const facingDown = n.y < -0.5;
-      ao *= 1 - indoor * (facingDown ? 0.3 : 1) * (blocked / Math.ceil(dirs.length / 2));
+      enclosed = 1 - indoor * (facingDown ? 0.3 : 1) * (blocked / Math.ceil(dirs.length / 2));
+      ao *= enclosed;
     }
     colors.set([ao, ao, ao], i * 3);
 
-    // Lamp light, if the lamp can "see" this spot.
+    // Lamp light, if the lamp can "see" this spot; plus bounced sunlight.
     let r = 0, g = 0, b = 0;
+    if (bounce) {
+      _bounce.setRGB(0, 0, 0);
+      bounceAt(world, px, py, pz, n, t1, t2, dirs, _bounce);
+      r += _bounce.r;
+      g += _bounce.g;
+      b += _bounce.b;
+    }
     lamps.forEach((l, k) => {
       const o = lampPos[k];
       const lx = o[0] - px, ly = o[1] - py, lz = o[2] - pz;
@@ -612,12 +700,15 @@ function bake(
       if (dist >= l.range) return;
       const ndl = (n.x * lx + n.y * ly + n.z * lz) / dist;
       if (ndl <= 0 || !world.hasLineOfSight(px, py, pz, o[0], o[1], o[2])) return;
-      const a = falloff(dist, l.range) * ndl * l.intensity * LAMP_STRENGTH;
+      // A little "wrap" so walls beside a ceiling lamp still catch its light.
+      const a = falloff(dist, l.range) * (0.25 + 0.75 * ndl) * l.intensity * LAMP_STRENGTH;
       r += lampColors[k].r * a;
       g += lampColors[k].g * a;
       b += lampColors[k].b * a;
     });
-    light.set([r, g, b], i * 3);
+    // Lamp and bounced light aren't dimmed by being indoors (only the sky's light is): undo that part of the shading.
+    const comp = 1 / Math.max(0.25, enclosed);
+    light.set([r * comp, g * comp, b * comp], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.setAttribute('aLight', new THREE.BufferAttribute(light, 3));
@@ -655,6 +746,7 @@ function bakeModelBox(parts: ModelPart[], world: CollisionWorld, dirs: THREE.Vec
       if (hit) occ += 1 - hit.distance / (AO_DISTANCE * 1.4);
     }
     let ao = Math.max(0.4, 1 - (AO_STRENGTH * 0.8 * occ) / aoDirs.length);
+    let enclosed = 1;
     if (indoor > 0) {
       let blocked = 0;
       for (const dir of skyDirs) {
@@ -663,9 +755,12 @@ function bakeModelBox(parts: ModelPart[], world: CollisionWorld, dirs: THREE.Vec
         d.normalize();
         if (world.raycast(px, py, pz, d.x, d.y, d.z, INDOOR_DISTANCE)) blocked++;
       }
-      ao *= 1 - indoor * (blocked / skyDirs.length);
+      enclosed = 1 - indoor * (blocked / skyDirs.length);
+      ao *= enclosed;
     }
-    let r = 0, g = 0, b = 0;
+    _bounce.setRGB(0, 0, 0);
+    bounceAt(world, px, py, pz, n, t1, t2, dirs, _bounce);
+    let r = _bounce.r, g = _bounce.g, b = _bounce.b;
     lamps.forEach((l, i) => {
       const o = lampPos[i];
       const dist = Math.hypot(o[0] - px, o[1] - py, o[2] - pz);
@@ -675,7 +770,8 @@ function bakeModelBox(parts: ModelPart[], world: CollisionWorld, dirs: THREE.Vec
       g += lampColors[i].g * a;
       b += lampColors[i].b * a;
     });
-    corners.push([ao, r, g, b]);
+    const comp = 1 / Math.max(0.25, enclosed);
+    corners.push([ao, r * comp, g * comp, b * comp]);
   }
   const size = bb.getSize(new THREE.Vector3()).max(new THREE.Vector3(1e-3, 1e-3, 1e-3));
   for (const part of parts) {
@@ -734,6 +830,21 @@ function buildLampFixtures(lamps: LampDef[]): THREE.Group {
   }
   const g = new THREE.Group();
   g.name = 'lamps';
+  // A soft glow around each lamp (always facing you; brighter for stronger lamps).
+  const glowPos: number[] = [], glowCol: number[] = [];
+  for (const l of lamps) {
+    const o = lightOrigin(l);
+    glowPos.push(o[0], o[1] + (l.facing === 'down' ? 0.25 : 0), o[2]);
+    const c = new THREE.Color(l.color).multiplyScalar(0.28 + 0.12 * l.intensity);
+    glowCol.push(c.r, c.g, c.b);
+  }
+  const glowGeo = new THREE.BufferGeometry();
+  glowGeo.setAttribute('position', new THREE.Float32BufferAttribute(glowPos, 3));
+  glowGeo.setAttribute('color', new THREE.Float32BufferAttribute(glowCol, 3));
+  const glow = new THREE.Points(glowGeo, new THREE.PointsMaterial({ size: 2.2, map: glowTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
+  glow.renderOrder = 12;
+  glow.frustumCulled = false;
+  g.add(glow);
   const housing = new THREE.Mesh(mergeGeometries(housings), new THREE.MeshStandardMaterial({ color: 0x2a2d31, roughness: 0.6, metalness: 0.4 }));
   const panelGeo = mergeGeometries(panels);
   panelGeo.setAttribute('color', new THREE.Float32BufferAttribute(panelColors, 3));
@@ -743,8 +854,32 @@ function buildLampFixtures(lamps: LampDef[]): THREE.Group {
   return g;
 }
 
-/** Sky light + the sun (with shadows sized for the graphics setting). */
-function addSunAndSky(group: THREE.Group, bounds: THREE.Box3, shadowMapSize: number, sky: SkyDef, sunDir: THREE.Vector3): void {
+let glowTex: THREE.Texture | null = null;
+/** A round soft glow (bright middle fading to nothing). */
+function glowTexture(): THREE.Texture {
+  if (glowTex) return glowTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.18, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  glowTex = new THREE.CanvasTexture(c);
+  glowTex.colorSpace = THREE.SRGBColorSpace;
+  return glowTex;
+}
+
+/**
+ * Sky light + the sun. Shadows cover the whole map if it's small; on bigger
+ * maps they cover a square around the viewer that moves along (in whole
+ * shadow-map pixels, so edges don't shimmer), which keeps them sharp.
+ * Returns the function that moves them.
+ */
+function addSunAndSky(group: THREE.Group, bounds: THREE.Box3, shadowMapSize: number, sky: SkyDef, sunDir: THREE.Vector3): (p: THREE.Vector3) => void {
   // Light from the whole sky: tinted like the sky above, and like the ground below.
   const skyTint = new THREE.Color(sky.zenith).lerp(new THREE.Color(0xffffff), 0.55);
   const groundTint = new THREE.Color(sky.ground ?? 0x4a4036).lerp(new THREE.Color(sky.sunColor), 0.2);
@@ -754,18 +889,37 @@ function addSunAndSky(group: THREE.Group, bounds: THREE.Box3, shadowMapSize: num
   const sun = new THREE.DirectionalLight(sky.sunColor, sky.sunIntensity ?? 2.4);
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
-  const radius = Math.max(size.x, size.z) * 0.62;
-  sun.position.copy(center).addScaledVector(sunDir, radius * 2);
-  sun.target.position.copy(center);
+  const mapRadius = Math.max(size.x, size.z) * 0.62;
+  const FOLLOW = 48;
+  const follow = mapRadius > FOLLOW * 1.15;
+  const radius = follow ? FOLLOW : mapRadius;
+  const height = Math.max(size.y, 30);
+  const place = (c: THREE.Vector3) => {
+    sun.position.copy(c).addScaledVector(sunDir, radius * 2 + height);
+    sun.target.position.copy(c);
+    sun.target.updateMatrixWorld();
+  };
+  place(center);
   sun.castShadow = true;
   sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
   const cam = sun.shadow.camera;
   cam.left = -radius; cam.right = radius; cam.top = radius; cam.bottom = -radius;
-  cam.near = 1; cam.far = radius * 4;
-  sun.shadow.bias = -0.0004;
-  sun.shadow.normalBias = 0.03;
+  cam.near = 1; cam.far = radius * 4 + height * 2;
+  sun.shadow.bias = -0.00035;
+  sun.shadow.normalBias = 0.025;
   sun.shadow.radius = 3;
   group.add(sun, sun.target);
+  if (!follow) return () => {};
+  // Snap to whole shadow-map pixels (in the light's own view) so shadow edges stay still as you move.
+  const texel = (radius * 2) / shadowMapSize;
+  const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), sunDir).normalize();
+  const up = new THREE.Vector3().crossVectors(sunDir, right).normalize();
+  const c = new THREE.Vector3();
+  return (p: THREE.Vector3) => {
+    const a = Math.round(p.dot(right) / texel) * texel, b = Math.round(p.dot(up) / texel) * texel, d = p.dot(sunDir);
+    c.copy(right).multiplyScalar(a).addScaledVector(up, b).addScaledVector(sunDir, d);
+    place(c);
+  };
 }
 
 /**

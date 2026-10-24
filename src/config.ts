@@ -82,13 +82,15 @@ export const CONFIG = {
     // softShadows: blurred shadow edges; materials: 'lambert' is cheaper, 'standard'
     // looks better (reflections); envMap: subtle reflections of the sky;
     // bloom: glow around bright things (visors, lamps, muzzle flashes);
-    // mapDetail: real 3D bricks and concrete panels on walls (Low uses flat textures).
-    low: { pixelRatio: 1, mapDetail: false, shadows: false, shadowMapSize: 1024, softShadows: false, materials: 'lambert', envMap: false, bloom: false },
-    medium: { pixelRatio: 1.5, mapDetail: true, shadows: true, shadowMapSize: 2048, softShadows: false, materials: 'standard', envMap: true, bloom: false },
-    high: { pixelRatio: 2, mapDetail: true, shadows: true, shadowMapSize: 4096, softShadows: true, materials: 'standard', envMap: true, bloom: true },
+    // mapDetail: real 3D bricks and concrete panels on walls (Low uses flat textures);
+    // grade: color grading and vignette; ao: ambient occlusion (soft shading where things meet);
+    // foliage: leafy trees and grass tufts.
+    low: { pixelRatio: 1, mapDetail: false, shadows: false, shadowMapSize: 1024, softShadows: false, materials: 'lambert', envMap: false, bloom: false, grade: false, ao: false, foliage: false },
+    medium: { pixelRatio: 1.5, mapDetail: true, shadows: true, shadowMapSize: 2048, softShadows: false, materials: 'standard', envMap: true, bloom: false, grade: true, ao: false, foliage: true },
+    high: { pixelRatio: 2, mapDetail: true, shadows: true, shadowMapSize: 4096, softShadows: true, materials: 'standard', envMap: true, bloom: true, grade: true, ao: true, foliage: true },
   } as Record<'low' | 'medium' | 'high', {
     pixelRatio: number; mapDetail: boolean; shadows: boolean; shadowMapSize: number; softShadows: boolean;
-    materials: 'lambert' | 'standard'; envMap: boolean; bloom: boolean;
+    materials: 'lambert' | 'standard'; envMap: boolean; bloom: boolean; grade: boolean; ao: boolean; foliage: boolean;
   }>,
 
   render: {

@@ -21,7 +21,7 @@ interface MaterialStyle {
   line: string;
   /** Texture tiles every N meters. */
   tileSize: number;
-  pattern: 'forestFloor' | 'rock' | 'oldBlocks' | 'bark' | 'logs' | 'marble' | 'blocks' | 'grass' | 'leaves' | 'water' | 'art' | 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
+  pattern: 'forestFloor' | 'rock' | 'oldBlocks' | 'plaster' | 'bark' | 'logs' | 'marble' | 'blocks' | 'grass' | 'leaves' | 'water' | 'art' | 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
   /** Texture resolution (pixels); bigger for textures covering a large area. */
   pixels?: number;
   roughness: number;
@@ -35,7 +35,7 @@ interface MaterialStyle {
 
 /** Relief per material (anything not listed gets BUMP_DEFAULT). */
 const BUMP: Partial<Record<SurfaceId, number>> = {
-  glass: 0, paint: 0.15, carpaint: 0, gold: 0.2, marble: 0.35, tile: 0.6, ceiling: 0.6, drywall: 0.4, art: 0,
+  glass: 0, paint: 0.15, carpaint: 0, gold: 0.2, marble: 0.35, tile: 0.6, ceiling: 0.6, drywall: 0.7, art: 0,
   rock: 2.6, bark: 3, ruin: 2.2, stone: 1.6, timber: 2.2, planks: 1.6, barnwood: 1.6, crate: 1.4, crateFrame: 1.2,
   brick: 1.4, mortar: 1.2, concrete: 1.2, panel: 1.1, concreteWall: 1.4, floor: 1.0, asphalt: 1.4, dirt: 1.8,
   forest: 1.6, grass: 1.3, hedge: 2.4, needles: 2.2, foliage: 2.2, hay: 2.4, canvas: 1.0, carpet: 1.4, velvet: 0.8,
@@ -58,9 +58,10 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   crate: { base: '#9a7446', line: '#5e4326', tileSize: 1.5, pattern: 'planks', roughness: 0.8, metalness: 0 },
   crateFrame: { base: '#7d5a33', line: '#5a3f22', tileSize: 1, pattern: 'grain', roughness: 0.8, metalness: 0 },
   // ---- Indoors ----
-  carpet: { base: '#4b5664', line: '#3c4552', tileSize: 2, pattern: 'speckle', roughness: 1, metalness: 0 },
+  carpet: { base: '#66707c', line: '#555e6a', tileSize: 2, pattern: 'speckle', roughness: 1, metalness: 0 },
   tile: { base: '#cfccc3', line: '#a9a69e', tileSize: 1.2, pattern: 'tiles', roughness: 0.35, metalness: 0 },
-  drywall: { base: '#d9d5cc', line: '#c9c4ba', tileSize: 2, pattern: 'plain', roughness: 0.9, metalness: 0 },
+  // Painted plaster: warm off-white with a faint orange-peel texture.
+  drywall: { base: '#e3ddd1', line: '#d2cbbd', tileSize: 1.5, pattern: 'plaster', roughness: 0.85, metalness: 0 },
   ceiling: { base: '#f2f1ed', line: '#d3d1ca', tileSize: 1.2, pattern: 'ceiling', roughness: 1, metalness: 0 },
   desk: { base: '#8a6a48', line: '#6b5136', tileSize: 1, pattern: 'grain', roughness: 0.55, metalness: 0 },
   partition: { base: '#5d6876', line: '#4f5965', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
@@ -99,7 +100,7 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   chrome: { base: '#d4d8dc', line: '#b0b6bc', tileSize: 1, pattern: 'plain', roughness: 0.25, metalness: 0.75, bump: 0 },
   plastic: { base: '#d0d0d0', line: '#c0c0c0', tileSize: 1, pattern: 'plain', roughness: 0.5, metalness: 0, bump: 0 },
   rubber: { base: '#3a3a3a', line: '#303030', tileSize: 1, pattern: 'speckle', roughness: 0.9, metalness: 0, bump: 0.4 },
-  corrugated: { base: '#c9ced3', line: '#9aa1a8', tileSize: 1, pattern: 'ribs', roughness: 0.45, metalness: 0.5, bump: 1.6 },
+  corrugated: { base: '#c9ced3', line: '#9aa1a8', tileSize: 1, pattern: 'ribs', roughness: 0.6, metalness: 0.15, bump: 1.6 },
   // Hay bales: dry yellow straw.
   hay: { base: '#c9a95a', line: '#a3843e', tileSize: 1, pattern: 'grain', roughness: 1, metalness: 0 },
   // Old weathered stone blocks with moss.
@@ -354,6 +355,24 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
       for (let i = 0; i < 2; i++) {
         g.fillRect((i * size) / 2, 0, 4, size);
         g.fillRect(0, (i * size) / 2, size, 4);
+      }
+      break;
+    }
+    case 'plaster': {
+      // Faint blotches and fine bumps (orange peel), as on painted walls.
+      for (let i = 0; i < 30; i++) {
+        const x = rnd(0, size), y = rnd(0, size), r = rnd(size * 0.05, size * 0.2);
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, Math.random() < 0.5 ? 'rgba(0,0,0,0.016)' : 'rgba(255,255,255,0.022)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      for (let i = 0; i < 2500; i++) {
+        g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)';
+        g.beginPath();
+        g.arc(rnd(0, size), rnd(0, size), rnd(0.6, 1.6), 0, Math.PI * 2);
+        g.fill();
       }
       break;
     }

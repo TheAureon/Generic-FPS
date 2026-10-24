@@ -218,6 +218,7 @@ export class Game {
       m.update(dt);
     }
     m.controller.updateCamera();
+    m.map.updateShadows(this.camera.position);
     // Weapons after the camera moves, so shots go exactly where you see.
     m.weapons.update(playing ? dt : 0, this.input, playing && alive);
     this.viewmodel.visible = this.viewmodel.visible && alive;

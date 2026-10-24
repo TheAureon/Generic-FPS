@@ -18,7 +18,7 @@ export type ModelKind =
   | 'bench' | 'ottoman' | 'dumpster' | 'acUnit' | 'vending' | 'fridge' | 'bookshelf' | 'sofa' | 'column'
   | 'statue' | 'sculpture' | 'painting' | 'displayCase' | 'sarcophagus' | 'obelisk' | 'hedge' | 'fountain' | 'fallenColumn'
   | 'cafeTable' | 'cafeChair' | 'picnicTable' | 'tent' | 'woodpile' | 'stove' | 'bed' | 'hayBale' | 'roundBale'
-  | 'silo' | 'fuelTank' | 'boat' | 'post' | 'gate' | 'shelf' | 'counter' | 'trough' | 'radio';
+  | 'silo' | 'fuelTank' | 'boat' | 'post' | 'gate' | 'shelf' | 'counter' | 'trough' | 'radio' | 'shippingContainer';
 
 export interface ModelPart {
   geo: THREE.BufferGeometry;
@@ -89,6 +89,35 @@ class Builder {
     g.translate(o.x ?? 0, o.y ?? 0, z - depth / 2 + bevel);
     return this.add(m, g, o.tint);
   }
+}
+
+/**
+ * A window's frame (around a pane of glass in a wall): frame bars, mullions
+ * splitting wide windows, and a sill under it if it sits in a wall.
+ * `wallT`: thickness of the wall it's in (null = no sill, e.g. a glass railing).
+ */
+export function windowFrameParts(g: BoxDef, wallT: number | null, frame: SurfaceId, frameTint: number, sill: SurfaceId, sillTint?: number): ModelPart[] {
+  const m = new Builder(seeded(g.x * 31 + g.z * 17));
+  const along = g.w >= g.d;
+  const L = along ? g.w : g.d, H = g.h;
+  const f = Math.min(0.07, L * 0.08), depth = Math.max(0.09, (along ? g.d : g.w) + 0.05);
+  // Built along X, centered; turned afterwards if the window runs along Z.
+  m.box(frame, L, f, depth, 0, f / 2, 0, { tint: frameTint });
+  m.box(frame, L, f, depth, 0, H - f / 2, 0, { tint: frameTint });
+  for (const s of [-1, 1]) m.box(frame, f, H, depth, s * (L / 2 - f / 2), H / 2, 0, { tint: frameTint });
+  const panes = Math.max(1, Math.round(L / 1.25));
+  for (let i = 1; i < panes; i++) m.box(frame, f * 0.7, H - f, depth * 0.85, -L / 2 + (L / panes) * i, H / 2, 0, { tint: frameTint });
+  // A transom bar on tall windows.
+  if (H > 1.8 && wallT !== null) m.box(frame, L - f, f * 0.7, depth * 0.85, 0, H * 0.72, 0, { tint: frameTint });
+  if (wallT !== null && wallT >= 0.12) {
+    // Sill: sticks out a little on both sides of the wall, slightly wider than the window.
+    m.box(sill, L + 0.12, 0.05, wallT + 0.1, 0, -0.025, 0, { tint: sillTint });
+  }
+  for (const p of m.parts) {
+    if (!along) p.geo.rotateY(Math.PI / 2);
+    p.geo.translate(g.x, g.y, g.z);
+  }
+  return m.parts;
 }
 
 /** Repeatable random numbers from a position. */
@@ -792,6 +821,60 @@ const MODELS: Record<Exclude<ModelKind, 'none'>, Make> = {
     }
     m.cyl('chrome', 0.08, 0.08, 0.15, 0, H - 0.02, 0, { seg: 8, tint: 0x9aa1a8 });
     m.box('paint', along ? 0.6 : 0.01, 0.25, along ? 0.01 : 0.6, along ? 0 : r + 0.005, cy, along ? r + 0.005 : 0, { tint: 0xc0392b });
+  },
+  shippingContainer(m, W, H, D, _v, tint) {
+    // A 20/40-foot container: corrugated steel walls (real ridges), a frame
+    // with corner castings, and cargo doors with locking bars at one end.
+    const paint = tint ?? 0x8a3b2c;
+    const frame = 0.12, rib = 0.3, depth = 0.04;
+    // Corrugated side walls: a zigzag profile along the length, extruded up.
+    const side = (s: number) => {
+      const pts: [number, number][] = [];
+      const len = D - frame * 2;
+      const n = Math.floor(len / rib);
+      for (let i = 0; i <= n; i++) {
+        const z = -len / 2 + (i / n) * len;
+        pts.push([z, 0], [z + (len / n) * 0.3, depth], [z + (len / n) * 0.7, depth], [z + (len / n), 0]);
+      }
+      const shape = new THREE.Shape();
+      shape.moveTo(pts[0][0], -0.02);
+      for (const [z, d] of pts) shape.lineTo(z, d);
+      shape.lineTo(pts[pts.length - 1][0], -0.02);
+      const g = new THREE.ExtrudeGeometry(shape, { depth: H - frame * 2, bevelEnabled: false, curveSegments: 1 });
+      // Shape is in (z, out) and extruded along "up".
+      g.rotateX(-Math.PI / 2);
+      g.rotateY(-Math.PI / 2);
+      if (s < 0) g.rotateY(Math.PI); // (turned, not mirrored: mirroring would turn it inside out)
+      g.translate(s * (W / 2 - depth), frame, 0);
+      m.add('corrugated', g, paint);
+    };
+    side(1);
+    side(-1);
+    // Roof, floor edge and the closed (front) end panel.
+    m.span('corrugated', -W / 2 + 0.02, W / 2 - 0.02, H - frame, H - 0.02, -D / 2 + 0.02, D / 2 - 0.02, paint);
+    m.span('corrugated', -W / 2 + frame, W / 2 - frame, frame, H - frame, D / 2 - 0.06, D / 2 - 0.02, paint);
+    // Doors (back end): two leaves with vertical ribs, four locking bars, handles.
+    for (const s of [-1, 1]) {
+      m.span('corrugated', s > 0 ? 0.01 : -W / 2 + frame, s > 0 ? W / 2 - frame : -0.01, frame, H - frame, -D / 2 + 0.02, -D / 2 + 0.06, paint);
+      for (let k = 0; k < 4; k++) m.box('corrugated', 0.06, H - frame * 2 - 0.1, 0.03, s * (0.25 + k * 0.27), H / 2, -D / 2, { tint: paint });
+      for (const x of [s * 0.18, s * (W / 2 - 0.35)]) {
+        m.cyl('chrome', 0.022, 0.022, H - 0.25, x, 0.12, -D / 2 - 0.035, { seg: 6, tint: 0x9aa1a8 });
+        m.box('chrome', 0.04, 0.25, 0.04, x + s * 0.06, H * 0.45, -D / 2 - 0.06, { tint: 0x8a9096 });
+      }
+    }
+    // Frame rails and corner posts (darker), corner castings.
+    const dark: [number, number, number] = [0.55, 0.55, 0.55];
+    const fr = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => m.span('corrugated', x0, x1, y0, y1, z0, z1, paint);
+    for (const y of [0, H - frame]) {
+      fr(-W / 2, W / 2, y, y + frame, -D / 2, -D / 2 + frame);
+      fr(-W / 2, W / 2, y, y + frame, D / 2 - frame, D / 2);
+      fr(-W / 2, -W / 2 + frame, y, y + frame, -D / 2, D / 2);
+      fr(W / 2 - frame, W / 2, y, y + frame, -D / 2, D / 2);
+    }
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      fr(sx * W / 2 - (sx > 0 ? frame : 0), sx * W / 2 + (sx < 0 ? frame : 0), 0, H, sz * D / 2 - (sz > 0 ? frame : 0), sz * D / 2 + (sz < 0 ? frame : 0));
+      for (const y of [0.09, H - 0.09]) m.box('steel', 0.18, 0.18, 0.18, sx * (W / 2 - 0.08), y, sz * (D / 2 - 0.08), { tint: dark });
+    }
   },
   boat(m, W, H, D) {
     // An upturned rowing boat: a hull that narrows to a point at the bow.

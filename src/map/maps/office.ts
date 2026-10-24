@@ -1,4 +1,5 @@
 import type { BoxDef, LampDef, MapDef, MaterialId, PickupDef, RampDef, SpawnPoint } from '../MapTypes';
+import { doorTrim } from '../kit';
 
 /**
  * OFFICE — a two-story office building (48 x 28 m) with a parking lot.
@@ -61,10 +62,13 @@ function wall(axis: 'x' | 'z', at: number, o: WallOpts): void {
   };
   const ops = [...(o.openings ?? [])].sort((p, q) => p.at[0] - q.at[0]);
   let cur = o.from;
-  for (const op of ops) {
+  for (const [i, op] of ops.entries()) {
     const [a, b] = op.at;
     piece(cur, a, o.y0, o.y1);
-    if (op.kind === 'door') piece(a, b, o.y0 + DOOR, o.y1);
+    if (op.kind === 'door') {
+      piece(a, b, o.y0 + DOOR, o.y1);
+      doorTrim(boxes, axis, at, t, a, b, o.y0, o.y0 + DOOR, mat, a - cur, (ops[i + 1]?.at[0] ?? o.to) - b);
+    }
     if (op.kind === 'window') {
       piece(a, b, o.y0, o.y0 + SILL);
       piece(a, b, o.y0 + SILL, o.y0 + HEAD, 'glass', 0.06);

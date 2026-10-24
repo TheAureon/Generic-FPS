@@ -287,6 +287,35 @@ export function logRelief(corners: Corners, normal: THREE.Vector3, sample: Light
   return chunks.map((c) => c?.build()).filter((g): g is THREE.BufferGeometry => !!g);
 }
 
+/**
+ * A baseboard (skirting) along the bottom of an interior wall face: a strip
+ * 10 cm tall standing slightly proud of the wall, lit from the wall's bake.
+ */
+export function skirting(corners: Corners, normal: THREE.Vector3, sample: LightSampler): THREE.BufferGeometry | null {
+  if (Math.abs(normal.y) > 0.1) return null;
+  const alongX = Math.abs(normal.z) > Math.abs(normal.x);
+  const us = corners.map((c) => (alongX ? c[0] : c[2]));
+  const ys = corners.map((c) => c[1]);
+  const u0 = Math.min(...us), u1 = Math.max(...us), y0 = Math.min(...ys);
+  const plane = alongX ? corners[0][2] : corners[0][0];
+  const H = 0.1, T = 0.014;
+  const at = (u: number, y: number, out: number, v: THREE.Vector3) => (alongX ? v.set(u, y, plane + normal.z * out) : v.set(plane + normal.x * out, y, u));
+  const qb = new QuadBuilder();
+  const P = [0, 1, 2, 3].map(() => new THREE.Vector3());
+  const ao = [0, 1, 2, 3].map(() => new THREE.Color()), li = [0, 1, 2, 3].map(() => new THREE.Color());
+  const tmp = new THREE.Vector3();
+  const light = (pts: THREE.Vector3[], k: number) => pts.forEach((p, i) => { sample(at(alongX ? p.x : p.z, Math.max(y0 + 0.05, p.y), 0, tmp), ao[i], li[i]); ao[i].multiplyScalar(k); });
+  // Front face.
+  at(u0, y0, T, P[0]); at(u1, y0, T, P[1]); at(u1, y0 + H, T, P[2]); at(u0, y0 + H, T, P[3]);
+  light(P, 0.95);
+  qb.quad(P, normal, ao, li);
+  // Top edge (a small rounded-off lip, as one sloped quad).
+  at(u0, y0 + H, T, P[0]); at(u1, y0 + H, T, P[1]); at(u1, y0 + H + 0.008, 0, P[2]); at(u0, y0 + H + 0.008, 0, P[3]);
+  light(P, 1.0);
+  qb.quad(P, new THREE.Vector3(normal.x * 0.5, 0.86, normal.z * 0.5).normalize(), ao, li);
+  return qb.build();
+}
+
 /** Bilinear lookup into a baked face grid (made by MapBuilder's tessellate). */
 export function faceSampler(corners: Corners, geo: THREE.BufferGeometry, nu: number, nv: number): LightSampler {
   const [a, b, , d] = corners;
