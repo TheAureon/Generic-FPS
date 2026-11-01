@@ -174,7 +174,10 @@ export class Game {
     const multiplier = REWARDS.xpMultiplier[m.config.difficulty] ?? 1;
     const xp = Math.round(baseXp * multiplier);
     const difficulty = DIFFICULTIES.find((d) => d.id === m.config.difficulty)?.name ?? m.config.difficulty;
-    const career = progress.record({ xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, medals: s.medals });
+    // Novice and Beginner are practice: nothing goes on your career (no XP, no stats).
+    const career = multiplier > 0
+      ? progress.record({ xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, medals: s.medals })
+      : { before: structuredClone(progress.get()), after: structuredClone(progress.get()) };
     this.menus.showEnd(result, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() }, {
       summary: s, accuracy, xpLines, xp, baseXp, multiplier, difficulty, before: career.before, after: career.after, mode: m.mode.name, map: m.map.def.name, time: m.time,
     });

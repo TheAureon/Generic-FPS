@@ -480,7 +480,8 @@ export const REWARDS = {
   closeCallHealth: 25,
   /**
    * XP is multiplied by this for the difficulty you played on: none on
-   * Novice and Beginner, more the harder the bots.
+   * Novice and Beginner, more the harder the bots. A difficulty set to 0
+   * is practice: its matches don't count toward career stats either.
    */
   xpMultiplier: { novice: 0, beginner: 0, easy: 1, medium: 1.25, advanced: 1.5, hard: 2, insane: 3 } as Record<Difficulty, number>,
   /** XP needed for the first level-up; each level after needs `perLevel` more. */

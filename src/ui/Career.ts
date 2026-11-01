@@ -126,7 +126,7 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
   xpList.innerHTML = `<div class="section-title">XP earned</div>` +
     r.xpLines.map(([l, v]) => `<div class="rb-line"><span>${l}</span><span class="rb-v">+${v.toLocaleString('en-US')}</span></div>`).join('') +
     (r.multiplier === 1 ? '' : r.multiplier === 0
-      ? `<div class="rb-line none"><span>${r.difficulty} difficulty: no XP</span><span class="rb-v">×0</span></div><div class="rb-note">Play on Easy or harder to earn XP (the harder the bots, the more you get).</div>`
+      ? `<div class="rb-line none"><span>${r.difficulty} difficulty: no XP</span><span class="rb-v">×0</span></div><div class="rb-note">${r.difficulty} is practice: this match doesn't count toward your XP or career stats. Play on Easy or harder to earn XP (the harder the bots, the more you get).</div>`
       : `<div class="rb-line bonus"><span>${r.difficulty} difficulty ×${r.multiplier}</span><span class="rb-v">+${(r.xp - r.baseXp).toLocaleString('en-US')}</span></div>`) +
     `<div class="rb-line total"><span>Total</span><span class="rb-v">+${r.xp.toLocaleString('en-US')} XP</span></div>`;
   const wl = add(cols, 'report-weapons');

@@ -149,7 +149,7 @@ Bonuses also pop up as **medals** (bronze, silver, gold and purple), and the big
 
 At the end of a match, the **match report** counts up your score, kills, deaths, K/D, accuracy, headshot kills, damage, best streak, longest kill and time, lists your medals, shows XP earned (your score, plus 200 for finishing and 500 for winning, then multiplied by the difficulty) and kills by weapon, then fills your **XP bar**, with a fanfare for each level you gain. The full scoreboard is folded underneath.
 
-**XP depends on the difficulty**: none on Novice and Beginner (practice freely), ×1 on Easy, ×1.25 on Medium, ×1.5 on Advanced, ×2 on Hard and ×3 on Insane. The match setup screen shows each level's multiplier next to its description. Your career stats (matches, kills, medals) still count on every difficulty.
+**XP depends on the difficulty**: none on Novice and Beginner (practice freely), ×1 on Easy, ×1.25 on Medium, ×1.5 on Advanced, ×2 on Hard and ×3 on Insane. The match setup screen shows each level's multiplier next to its description. Novice and Beginner are practice: matches played on them don't count toward your career stats either (matches, wins, kills, medals, best streak).
 
 Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank every 3 levels) and career stats show on a card on the main menu. They're saved in your browser, so they're still there next time (unless you use a private window or clear the browser's site data). The numbers are in `REWARDS` in `src/config.ts`.
 
