@@ -2121,3 +2121,23 @@ body {
   .rm-item { width: 100%; }
   .report-cols { grid-template-columns: 1fr; }
 }
+
+/* Difficulty's XP multiplier (match setup) and on the end screen. */
+.diff-xp {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.diff-xp.more { color: #16120a; background: var(--accent); border-color: var(--accent); }
+.diff-xp.none { color: #ff9a8e; background: rgba(255, 90, 70, 0.12); border-color: rgba(255, 90, 70, 0.4); }
+.rb-line.bonus span:first-child { color: var(--accent-hi); opacity: 1; }
+.rb-line.none .rb-v, .rb-line.none span:first-child { color: #ff9a8e; opacity: 1; }
+.rb-note { font-size: 12px; opacity: 0.6; padding: 4px 0 2px; }

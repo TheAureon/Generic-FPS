@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, MATCH, REWARDS } from '../config';
+import { CONFIG, DIFFICULTIES, MATCH, REWARDS } from '../config';
 import { progress } from './Progress';
 import { audio } from '../audio/AudioEngine';
 import { getMap } from '../map/maps';
@@ -169,10 +169,14 @@ export class Game {
       ['Match completed', REWARDS.points.finish],
     ];
     if (result.win) xpLines.push(['Victory', REWARDS.points.win]);
-    const xp = xpLines.reduce((a, [, v]) => a + v, 0);
+    const baseXp = xpLines.reduce((a, [, v]) => a + v, 0);
+    // Harder bots, more XP (none on the two easiest levels).
+    const multiplier = REWARDS.xpMultiplier[m.config.difficulty] ?? 1;
+    const xp = Math.round(baseXp * multiplier);
+    const difficulty = DIFFICULTIES.find((d) => d.id === m.config.difficulty)?.name ?? m.config.difficulty;
     const career = progress.record({ xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, medals: s.medals });
     this.menus.showEnd(result, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() }, {
-      summary: s, accuracy, xpLines, xp, before: career.before, after: career.after, mode: m.mode.name, map: m.map.def.name, time: m.time,
+      summary: s, accuracy, xpLines, xp, baseXp, multiplier, difficulty, before: career.before, after: career.after, mode: m.mode.name, map: m.map.def.name, time: m.time,
     });
   }
 

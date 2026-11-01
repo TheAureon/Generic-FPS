@@ -1,4 +1,4 @@
-import { DIFFICULTIES, MATCH, MODES } from '../config';
+import { DIFFICULTIES, MATCH, MODES, REWARDS } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
@@ -234,7 +234,13 @@ export class Menus {
       const i = DIFFICULTIES.findIndex((d) => d.id === c.difficulty);
       bars.forEach((b, k) => b.classList.toggle('on', k <= i));
       meter.dataset.level = String(i);
-      diffInfo.textContent = DIFFICULTIES[i]?.info ?? '';
+      // How much XP this difficulty gives.
+      const mult = REWARDS.xpMultiplier[c.difficulty] ?? 1;
+      diffInfo.innerHTML = '';
+      const xp = document.createElement('span');
+      xp.className = `diff-xp ${mult === 0 ? 'none' : mult > 1 ? 'more' : ''}`;
+      xp.textContent = mult === 0 ? 'No XP' : `XP ×${mult}`;
+      diffInfo.append(xp, DIFFICULTIES[i]?.info ?? '');
     };
     segmented(diffWrap, DIFFICULTIES.map((d) => [d.id, d.name] as [string, string]), c.difficulty, (v) => {
       c.difficulty = v as MatchConfig['difficulty'];

@@ -147,7 +147,9 @@ Every hit shows a **damage number** rising from where the bullet landed (gold fo
 
 Bonuses also pop up as **medals** (bronze, silver, gold and purple), and the big ones (multikills, streaks, First Blood, Collateral, Buzzkill) get a call-out across the screen with its own sound. Above your health, a badge shows your score this match and, from 2 kills in a row, your streak (it catches fire at 5).
 
-At the end of a match, the **match report** counts up your score, kills, deaths, K/D, accuracy, headshot kills, damage, best streak, longest kill and time, lists your medals, shows XP earned (your score, plus 200 for finishing and 500 for winning) and kills by weapon, then fills your **XP bar**, with a fanfare for each level you gain. The full scoreboard is folded underneath.
+At the end of a match, the **match report** counts up your score, kills, deaths, K/D, accuracy, headshot kills, damage, best streak, longest kill and time, lists your medals, shows XP earned (your score, plus 200 for finishing and 500 for winning, then multiplied by the difficulty) and kills by weapon, then fills your **XP bar**, with a fanfare for each level you gain. The full scoreboard is folded underneath.
+
+**XP depends on the difficulty**: none on Novice and Beginner (practice freely), ×1 on Easy, ×1.25 on Medium, ×1.5 on Advanced, ×2 on Hard and ×3 on Insane. The match setup screen shows each level's multiplier next to its description. Your career stats (matches, kills, medals) still count on every difficulty.
 
 Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank every 3 levels) and career stats show on a card on the main menu. They're saved in your browser, so they're still there next time (unless you use a private window or clear the browser's site data). The numbers are in `REWARDS` in `src/config.ts`.
 
@@ -243,7 +245,7 @@ Each bot runs a state machine (`src/bots/BotBrain.ts`). Press **B** to see each 
 | `SURVIVAL`       | Wave growth, break between waves, health on wave clear |
 | `PICKUPS`        | How much pickups give and how long they take to come back |
 | `CONFIG.quality` | What Low / Medium / High graphics mean |
-| `REWARDS` | Points for kills and medals, multikill time window, longshot distance, XP per level |
+| `REWARDS` | Points for kills and medals, multikill time window, longshot distance, XP per difficulty, XP per level |
 
 Examples:
 - To make bots slower to react on Medium, raise `BOT_DIFFICULTY.medium.reactionTime`, for example to `0.7`.
