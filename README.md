@@ -180,6 +180,18 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 
 **Bots** carry an assault rifle, SMG or LMG (they take turns through the list in `BOTS.weapons`), and each has one grenade per life, which it may lob at you from 9 to 26 m away. Bots that notice a grenade near them run from it; on the easier levels they're slower to notice. Grenade kills earn the **Frag Out** medal.
 
+### Daily challenges
+
+Every day you get three new challenges, one each of **Easy (+400 XP)**, **Medium (+800 XP)** and **Hard (+1,500 XP)**, for example "Get 8 kills with the SMG", "Win a King of the Hill match", "Get 3 grenade kills" or "Get an 8-kill streak in one match". Everyone gets the same three on the same day, and they change at midnight.
+
+- The **main menu** shows today's challenges, your progress, and how long until new ones.
+- **During a match** a small tracker on the right shows your progress live (it pulses when it goes up), and a banner pops up with a chime when you complete one.
+- The **match report** shows how far the match moved each challenge, and their bonus XP is added to your XP (it isn't multiplied by the difficulty).
+- Progress builds up over several matches and is kept if you quit or restart a match early. It's saved in your browser.
+- Matches on Novice and Beginner (practice) don't count.
+
+The XP per challenge is in `CHALLENGES` in `src/config.ts`; the list of challenges is in `src/core/Challenges.ts`.
+
 ### Pickups
 
 Walk over a pickup to grab it. Each one comes back 20–30 seconds after it's taken.
@@ -265,6 +277,7 @@ Each bot runs a state machine (`src/bots/BotBrain.ts`). Press **B** to see each 
 | `WEAPONS`        | Each gun's damage, headshot bonus, fire rate, magazine, reload time, spread, recoil, zoom, range, walking speed |
 | `COMBAT`         | Aiming slowdown, crouch accuracy bonus |
 | `BOTS`           | Bot speed, health, vision range and angle, memory, preferred fighting distance, names, and the guns they carry (`weapons`) |
+| `CHALLENGES`     | Bonus XP for easy, medium and hard daily challenges |
 | `GRENADES`       | How many grenades you carry, fuse time, throw strength, blast damage and radius |
 | `BOT_DIFFICULTY` | Novice … Insane: reaction time, aim error, turn speed, bursts, aggression, damage (`DIFFICULTIES` holds the names and menu descriptions) |
 | `MATCH`          | Menu defaults, Free for All kill limits, the time limit |

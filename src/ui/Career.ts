@@ -1,5 +1,6 @@
 import { WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
+import { daily, tierName, type ChallengeStatus } from '../core/Challenges';
 import { levelInfo, progress, type Career } from '../core/Progress';
 import { MEDALS, type MatchSummary } from '../core/Rewards';
 import { medalHtml } from './RewardsHud';
@@ -19,6 +20,9 @@ export interface EndReport {
   baseXp: number;
   multiplier: number;
   difficulty: string;
+  /** Daily challenges after this match, and the bonus XP from ones completed in it. */
+  challenges?: ChallengeStatus[];
+  challengeXp?: number;
   before: Career;
   after: Career;
   mode: string;
@@ -57,6 +61,21 @@ export function playerCard(): HTMLElement {
     <div class="pc-stats">
       ${stat('Matches', c.matches)}${stat('Wins', c.wins)}${stat('Kills', c.kills)}${stat('K/D', kd)}${stat('Best streak', c.bestStreak)}${stat('Medals', medals)}
     </div>`;
+  return el;
+}
+
+/** The main menu's daily challenges card. */
+export function dailyCard(): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'daily-card glass-card';
+  const list = daily.get();
+  const doneCount = list.filter((c) => c.done).length;
+  el.innerHTML = `<div class="dc-head"><span>Daily challenges</span><span class="dc-left">${doneCount}/3 · New in ${daily.timeLeft()}</span></div>` +
+    list.map((c) => `<div class="dc-row tier-${c.challenge.tier}${c.done ? ' done' : ''}">
+      <div class="dc-top"><span class="dc-text">${c.challenge.text}</span><span class="dc-xp">${c.done ? '✓' : `+${c.xp.toLocaleString('en-US')} XP`}</span></div>
+      <div class="ch-bar"><div class="ch-fill" style="width:${((100 * (c.done ? c.challenge.target : c.progress)) / c.challenge.target).toFixed(1)}%"></div></div>
+      <div class="dc-count">${tierName(c.challenge.tier)} · ${c.done ? 'Complete' : `${Math.floor(c.progress).toLocaleString('en-US')} / ${c.challenge.target.toLocaleString('en-US')}`}</div></div>`).join('') +
+    `<div class="dc-note">Play on Easy or harder to make progress.</div>`;
   return el;
 }
 
@@ -120,6 +139,21 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
     m.style.animationDelay = `${0.9 + i * 0.12}s`;
   });
 
+  // ---- Daily challenges: how far this match took each one ----
+  if (r.challenges?.length) {
+    const box = add(wrap, 'report-challenges');
+    box.innerHTML = `<div class="section-title">Daily challenges</div>`;
+    const grid = add(box, 'rc-list');
+    r.challenges.forEach((c, i) => {
+      const row = add(grid, `rc-item tier-${c.tier}${c.done ? ' done' : ''}${c.justDone ? ' just' : ''}`);
+      const pct = (v: number) => `${((100 * v) / c.target).toFixed(1)}%`;
+      row.innerHTML = `<div class="rc-top"><span class="rc-tier">${tierName(c.tier)}</span><span class="rc-xp">${c.justDone ? `+${c.xp.toLocaleString('en-US')} XP` : c.done ? 'Done' : `${c.xp.toLocaleString('en-US')} XP`}</span></div>
+        <div class="rc-text">${c.text}</div>
+        <div class="rc-bar"><div class="rc-was" style="width:${pct(c.start)}"></div><div class="rc-now" style="--from:${pct(c.start)};--to:${pct(c.current)};animation-delay:${1.2 + i * 0.25}s"></div></div>
+        <div class="rc-count">${c.done ? 'Complete' : `${Math.floor(c.current).toLocaleString('en-US')} / ${c.target.toLocaleString('en-US')}`}${c.current > c.start && !c.done ? ` <b>(+${Math.floor(c.current - c.start).toLocaleString('en-US')})</b>` : ''}</div>`;
+    });
+  }
+
   // ---- XP breakdown + weapons ----
   const cols = add(wrap, 'report-cols');
   const xpList = add(cols, 'report-breakdown');
@@ -127,7 +161,8 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
     r.xpLines.map(([l, v]) => `<div class="rb-line"><span>${l}</span><span class="rb-v">+${v.toLocaleString('en-US')}</span></div>`).join('') +
     (r.multiplier === 1 ? '' : r.multiplier === 0
       ? `<div class="rb-line none"><span>${r.difficulty} difficulty: no XP</span><span class="rb-v">×0</span></div><div class="rb-note">${r.difficulty} is practice: this match doesn't count toward your XP or career stats. Play on Easy or harder to earn XP (the harder the bots, the more you get).</div>`
-      : `<div class="rb-line bonus"><span>${r.difficulty} difficulty ×${r.multiplier}</span><span class="rb-v">+${(r.xp - r.baseXp).toLocaleString('en-US')}</span></div>`) +
+      : `<div class="rb-line bonus"><span>${r.difficulty} difficulty ×${r.multiplier}</span><span class="rb-v">+${(r.xp - (r.challengeXp ?? 0) - r.baseXp).toLocaleString('en-US')}</span></div>`) +
+    (r.challengeXp ? `<div class="rb-line bonus"><span>Daily challenges</span><span class="rb-v">+${r.challengeXp.toLocaleString('en-US')}</span></div>` : '') +
     `<div class="rb-line total"><span>Total</span><span class="rb-v">+${r.xp.toLocaleString('en-US')} XP</span></div>`;
   const wl = add(cols, 'report-weapons');
   const wk = Object.entries(s.weaponKills) as [WeaponId | 'grenade', number][];

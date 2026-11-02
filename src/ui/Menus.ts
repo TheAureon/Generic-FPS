@@ -3,7 +3,7 @@ import { audio } from '../audio/AudioEngine';
 import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
 import { modeLimit, type MatchConfig, type MatchResult, type ModeId, type ScoreRow } from '../modes/GameMode';
-import { matchReport, playerCard, type EndReport } from './Career';
+import { dailyCard, matchReport, playerCard, type EndReport } from './Career';
 import { scoreTableHtml, type ScoreExtras } from './Hud';
 
 export interface MenuActions {
@@ -177,7 +177,9 @@ export class Menus {
     item('Play', 'Free for all, team modes, objectives, Battle Royale', () => this.show('setup'), true);
     item('How to play', 'Controls and tips', () => this.show('controls'));
     item('Settings', 'Mouse, field of view, sound, graphics', () => this.openSettings('main'));
-    wrap.appendChild(playerCard());
+    // Career and today's challenges, on the right.
+    const side = div('main-side', wrap);
+    side.append(playerCard(), dailyCard());
     const aim = { both: 'right click or Q', mouse: 'right click', q: 'Q' }[settings.get().aimKey] ?? 'right click';
     div('main-foot', left).textContent = `Tip: hold ${aim} to aim down sights — bots miss more when you keep moving.`;
   }

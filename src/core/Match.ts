@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, GRENADES, PICKUPS, TEAMS } from '../config';
+import { CONFIG, GRENADES, PICKUPS, REWARDS, TEAMS } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { BotDebugView } from '../bots/BotDebugView';
 import { BotManager } from '../bots/BotManager';
@@ -26,6 +26,8 @@ import type { Viewmodel } from '../weapons/Viewmodel';
 import { Grenades, type GrenadeVictim } from '../weapons/Grenades';
 import { WeaponSystem } from '../weapons/WeaponSystem';
 import { events } from './events';
+import { ChallengeTracker, type ChallengeStatus, type MatchView } from './Challenges';
+import { progress } from './Progress';
 import { Rewards } from './Rewards';
 import type { Damageable } from './Hitbox';
 import type { Input } from './Input';
@@ -58,6 +60,11 @@ export class Match {
   readonly rewards: Rewards;
   /** Live grenades (yours and the bots'). */
   readonly grenades: Grenades;
+  /** Today's daily challenges, tracked live. */
+  readonly challenges: ChallengeTracker;
+  /** Your career when the match started (the end screen animates from here). */
+  readonly careerAtStart = structuredClone(progress.get());
+  private challengeTimer = 0;
 
   readonly kills = new Map<string, number>();
   readonly deaths = new Map<string, number>();
@@ -168,6 +175,11 @@ export class Match {
       time: () => this.time,
       display: hud.fx,
     });
+    // Daily challenges (nothing counts on practice difficulties).
+    this.challenges = new ChallengeTracker(REWARDS.xpMultiplier[config.difficulty] === 0, (s) => {
+      hud.challenges.complete(s);
+      audio.play('challenge');
+    });
 
     this.player.respawn(this.pickPlayerSpawn());
     this.effects.precompile(d.renderer, d.camera);
@@ -190,6 +202,7 @@ export class Match {
         hud.addKill(e.killer, e.victim, e.weapon, e.headshot, this.teamColor(e.killer), this.teamColor(e.victim));
         if (e.victim === this.player.name) audio.play('death');
       }),
+      events.on('kill', () => this.updateChallenges()),
       events.on('shot', (e) => {
         if (e.shooter === this.player.name) this.shotsFired++;
         this.lastShotAt.set(e.shooter, this.time);
@@ -212,6 +225,22 @@ export class Match {
     for (const bot of this.bots.bots) this.addBotCollector(bot);
 
     this.mode.start();
+  }
+
+  /** How the match is going, for daily challenges. */
+  view(finished = false, win = false): MatchView {
+    return {
+      summary: this.rewards.summary, finished, win,
+      mode: this.config.mode, map: this.config.map, difficulty: this.config.difficulty,
+      accuracy: this.shotsFired ? (100 * this.shotsHit) / this.shotsFired : 0,
+    };
+  }
+
+  /** Update daily challenge progress (and the HUD's tracker). */
+  updateChallenges(finished = false, win = false): ChallengeStatus[] {
+    const s = this.challenges.update(this.view(finished, win));
+    this.d.hud.challenges.set(s, this.challenges.practice);
+    return s;
   }
 
   /** Player + bots. */
@@ -289,6 +318,11 @@ export class Match {
     this.pickups.update(dt, this.collectors);
     this.grenades.update(dt);
     this.effects.update(dt);
+    this.challengeTimer -= dt;
+    if (this.challengeTimer <= 0) {
+      this.challengeTimer = 0.5;
+      this.updateChallenges();
+    }
     this.updateDeath(dt);
     this.mode.update(dt);
     this.botDebug.update();

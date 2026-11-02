@@ -45,7 +45,8 @@ export type SoundId =
   | 'stat_slam'
   | 'grenade_throw'
   | 'grenade_bounce'
-  | 'explosion';
+  | 'explosion'
+  | 'challenge';
 
 export const SAMPLE_FILES: Partial<Record<SoundId, string>> = {};
 
@@ -265,6 +266,15 @@ export const SYNTHS: Record<SoundId, Synth> = {
     noiseBurst(s, { type: 'lowpass', freq: 900, gain: 1.0, decay: 0.7 });
     noiseBurst(s, { type: 'lowpass', freq: 250, gain: 0.8, decay: 1.6, attack: 0.04 });
     noiseBurst(s, { type: 'bandpass', freq: 3500, q: 1, gain: 0.12, decay: 0.8, attack: 0.2, delay: 0.25 });
+  },
+  challenge: (s) => {
+    // A bright rising run and a shimmering chord: something special.
+    [784, 988, 1175, 1568].forEach((f, i) => tone(s, { type: 'triangle', from: f, to: f, gain: 0.14, decay: 0.16, delay: i * 0.06 }));
+    [1175, 1480, 1760].forEach((f) => {
+      tone(s, { type: 'sine', from: f, to: f, gain: 0.07, decay: 1.2, attack: 0.02, delay: 0.26 });
+      tone(s, { type: 'sawtooth', from: f, to: f, gain: 0.02, decay: 1.0, attack: 0.02, delay: 0.26 });
+    });
+    noiseBurst(s, { type: 'highpass', freq: 6000, gain: 0.05, decay: 0.8, attack: 0.1, delay: 0.26 });
   },
   stat_slam: (s) => {
     tone(s, { type: 'sine', from: 160, to: 60, gain: 0.35, decay: 0.15 });

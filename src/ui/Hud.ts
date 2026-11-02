@@ -1,3 +1,4 @@
+import { ChallengeHud } from './ChallengeHud';
 import { RewardsHud } from './RewardsHud';
 import { CONFIG, TEAMS, WEAPONS, type DamageSource, type WeaponId } from '../config';
 import { settings } from '../core/Settings';
@@ -91,6 +92,8 @@ export class Hud {
   readonly minimap: Minimap;
   /** Damage numbers, score popups, medals, call-outs. */
   readonly fx: RewardsHud;
+  /** Daily challenge tracker and "complete" banner. */
+  readonly challenges: ChallengeHud;
 
   private hitTimer = 0;
   private frames = 0;
@@ -114,6 +117,7 @@ export class Hud {
 
     this.notice = el('div', 'notice', this.root);
     this.fx = new RewardsHud(this.root);
+    this.challenges = new ChallengeHud(this.root);
 
     // ---- Weapon + ammo, bottom right ----
     this.weaponPanel = el('div', 'weapon-panel glass', this.root);
@@ -197,6 +201,7 @@ export class Hud {
   reset(): void {
     this.killFeed.innerHTML = '';
     this.fx.reset();
+    this.challenges.reset();
     this.announceTimer = 0;
     this.announceEl.style.opacity = '0';
     this.pickupTimer = 0;

@@ -103,6 +103,7 @@ export class Game {
   // ---- Flow between screens -------------------------------------------------
 
   startMatch(cfg: MatchConfig): void {
+    this.leaveMatch();
     this.match?.dispose();
     this.lastConfig = cfg;
     this.match = new Match(cfg, {
@@ -143,7 +144,16 @@ export class Game {
     }, 600);
   }
 
+  /** Leaving a match before it ends: keep daily challenge progress (and XP from any completed). */
+  private leaveMatch(): void {
+    const m = this.match;
+    if (!m || this.state === 'ended') return;
+    m.challenges.save(m.updateChallenges());
+    if (m.challenges.xpEarned > 0) progress.addXp(m.challenges.xpEarned);
+  }
+
   private quitToMenu(): void {
+    this.leaveMatch();
     this.match?.dispose();
     this.match = null;
     this.state = 'menu';
@@ -172,14 +182,18 @@ export class Game {
     const baseXp = xpLines.reduce((a, [, v]) => a + v, 0);
     // Harder bots, more XP (none on the two easiest levels).
     const multiplier = REWARDS.xpMultiplier[m.config.difficulty] ?? 1;
-    const xp = Math.round(baseXp * multiplier);
+    // Daily challenges completed this match: their XP isn't multiplied.
+    const challenges = m.updateChallenges(true, result.win);
+    m.challenges.save(challenges);
+    const xp = Math.round(baseXp * multiplier) + m.challenges.xpEarned;
     const difficulty = DIFFICULTIES.find((d) => d.id === m.config.difficulty)?.name ?? m.config.difficulty;
     // Novice and Beginner are practice: nothing goes on your career (no XP, no stats).
     const career = multiplier > 0
       ? progress.record({ xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, medals: s.medals })
-      : { before: structuredClone(progress.get()), after: structuredClone(progress.get()) };
+      : { before: m.careerAtStart, after: structuredClone(progress.get()) };
     this.menus.showEnd(result, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() }, {
-      summary: s, accuracy, xpLines, xp, baseXp, multiplier, difficulty, before: career.before, after: career.after, mode: m.mode.name, map: m.map.def.name, time: m.time,
+      summary: s, accuracy, xpLines, xp, baseXp, multiplier, difficulty, before: m.careerAtStart, after: career.after,
+      challenges, challengeXp: m.challenges.xpEarned, mode: m.mode.name, map: m.map.def.name, time: m.time,
     });
   }
 
@@ -248,6 +262,7 @@ export class Game {
     this.hud.updateVitals(m.player.health, m.player.armor);
     this.hud.update(playing ? dt : 0, m.player.position.x, m.player.position.z, m.controller.yaw);
     this.hud.fx.update(playing ? dt : 0, this.camera);
+    this.hud.challenges.update(playing ? dt : 0);
     this.hud.setStatus(m.mode.status());
     this.hud.minimap.draw(m.player.position.x, m.player.position.y, m.player.position.z, m.controller.yaw, m.radarBlips(dt));
     this.hud.showScoreboard(playing && this.input.isDown('Tab') ? m.mode.scoreboard() : null, m.mode.name, { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() });

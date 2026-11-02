@@ -550,3 +550,11 @@ export const REWARDS = {
   levelBaseXp: 1000,
   perLevel: 250,
 };
+
+/* ===========================================================================
+ *  DAILY CHALLENGES
+ * =========================================================================== */
+export const CHALLENGES = {
+  /** Bonus XP for completing an easy, medium and hard challenge. */
+  xp: [400, 800, 1500] as [number, number, number],
+};

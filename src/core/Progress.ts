@@ -60,6 +60,16 @@ class Progress {
     return this.data;
   }
 
+  /** Add XP on its own (daily challenges finished in a match you left early). */
+  addXp(xp: number): void {
+    this.data.xp += xp;
+    try {
+      localStorage.setItem(KEY, JSON.stringify(this.data));
+    } catch {
+      // Couldn't save; keep going.
+    }
+  }
+
   /** Add a finished match. Returns the career before and after. */
   record(m: { xp: number; win: boolean; kills: number; deaths: number; headshots: number; bestStreak: number; medals: Record<string, number> }): { before: Career; after: Career } {
     const before = structuredClone(this.data);

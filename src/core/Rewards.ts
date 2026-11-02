@@ -84,6 +84,8 @@ export interface MatchSummary {
   longestKill: number;
   medals: Record<string, number>;
   weaponKills: Partial<Record<Exclude<DamageSource, 'zone'>, number>>;
+  /** Headshot kills per gun. */
+  weaponHeadshots: Partial<Record<Exclude<DamageSource, 'zone'>, number>>;
   /** Points by kind: kills, headshots, medals... (for the XP breakdown). */
   breakdown: { kills: number; headshots: number; medals: number };
 }
@@ -91,7 +93,7 @@ export interface MatchSummary {
 export class Rewards {
   readonly summary: MatchSummary = {
     score: 0, kills: 0, deaths: 0, headshots: 0, damage: 0, bestStreak: 0, bestMulti: 0, longestKill: 0,
-    medals: {}, weaponKills: {}, breakdown: { kills: 0, headshots: 0, medals: 0 },
+    medals: {}, weaponKills: {}, weaponHeadshots: {}, breakdown: { kills: 0, headshots: 0, medals: 0 },
   };
   private streak = 0;
   private multi = 0;
@@ -160,6 +162,7 @@ export class Rewards {
     };
     if (headshot) {
       s.headshots++;
+      if (weapon !== 'zone') s.weaponHeadshots[weapon] = (s.weaponHeadshots[weapon] ?? 0) + 1;
       s.breakdown.headshots += P.headshot;
       lines.push({ label: 'Headshot', points: P.headshot });
       this.addMedal('headshot');
