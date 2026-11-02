@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG, DIFFICULTIES, MATCH, REWARDS } from '../config';
 import { progress } from './Progress';
+import { sendScoreToUsForge } from './usforge';
 import { audio } from '../audio/AudioEngine';
 import { getMap } from '../map/maps';
 import type { MatchConfig } from '../modes/GameMode';
@@ -188,6 +189,14 @@ export class Game {
     const xp = Math.round(baseXp * multiplier) + m.challenges.xpEarned;
     const difficulty = DIFFICULTIES.find((d) => d.id === m.config.difficulty)?.name ?? m.config.difficulty;
     // Novice and Beginner are practice: nothing goes on your career (no XP, no stats).
+    // UsForge leaderboard (one board, so only the default setup counts: Free for All
+    // on Foundry, Medium, 4 bots, first to 20 kills). Sent once, here, as the match ends.
+    // Not from automated test runs (forcePlay), which skip the real start of a match.
+    const c = m.config;
+    if (!this.forcePlay && c.mode === 'deathmatch' && c.map === MATCH.defaultMap && c.difficulty === MATCH.defaultDifficulty &&
+      c.botCount === MATCH.defaultBotCount && c.killLimit === MATCH.defaultKillLimit) {
+      sendScoreToUsForge(s.score);
+    }
     const career = multiplier > 0
       ? progress.record({ xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, medals: s.medals })
       : { before: m.careerAtStart, after: structuredClone(progress.get()) };

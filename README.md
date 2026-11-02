@@ -192,6 +192,10 @@ Every day you get three new challenges, one each of **Easy (+400 XP)**, **Medium
 
 The XP per challenge is in `CHALLENGES` in `src/config.ts`; the list of challenges is in `src/core/Challenges.ts`.
 
+### UsForge leaderboard
+
+When the game runs on UsForge (inside its page), each finished match on the **default setup** (Free for All, Foundry, Medium, 4 bots, first to 20 kills) sends your match score (points) to UsForge's top-10 leaderboard; UsForge asks for your nickname. Other modes, maps and settings don't post, so all scores on the board are comparable. Opened on its own, the game never sends anything. This is in `src/core/usforge.ts`, called from `endMatch` in `src/core/Game.ts`.
+
 ### Pickups
 
 Walk over a pickup to grab it. Each one comes back 20–30 seconds after it's taken.
