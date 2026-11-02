@@ -59,6 +59,9 @@ function wrap(a: number): number {
   while (a < -Math.PI) a += Math.PI * 2;
   return a;
 }
+/** Longest time step for the recoil spring (seconds); it's only stable in small steps. */
+const SPRING_STEP = 1 / 120;
+
 function approach(cur: number, target: number, rate: number, dt: number): number {
   return cur + (target - cur) * (1 - Math.exp(-rate * dt));
 }
@@ -244,8 +247,13 @@ export class CharacterAnimator {
     b.hips.rotation.set(0, this.hipYaw + pelvisTwist, Math.sin(this.phase) * 0.05 * amp + 0.025 * idleShift * rest);
 
     // ---- Upper body: twist back to aim, lean, breathe, recoil, flinch ------------
-    this.recoilVel += (-this.recoil * 160 - this.recoilVel * 18) * dt;
-    this.recoil += this.recoilVel * dt;
+    // The recoil spring, in small steps: one big step (a slow frame) would make it
+    // overshoot more each frame and fly off to infinity.
+    for (let left = dt; left > 0; left -= SPRING_STEP) {
+      const h = Math.min(left, SPRING_STEP);
+      this.recoilVel += (-this.recoil * 160 - this.recoilVel * 18) * h;
+      this.recoil += this.recoilVel * h;
+    }
     this.flinch = Math.max(0, this.flinch - dt * 3.5);
     const fl = this.flinch * this.flinch;
     this.reloadBlend = approach(this.reloadBlend, inp.reload >= 0 ? 1 : 0, 9, dt);

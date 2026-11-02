@@ -236,6 +236,9 @@ export class CollisionWorld {
     const q = ++this.queryId;
     this.nearBoxes.length = 0;
     this.nearRamps.length = 0;
+    // Nothing is out there (and a wild position, e.g. from a glitch, must never
+    // turn into an endless loop over grid cells).
+    if (!(Math.abs(x) < 1e5 && Math.abs(z) < 1e5 && radius >= 0 && radius < 1e3)) return;
     for (let ix = Math.floor((x - radius) / C); ix <= Math.floor((x + radius) / C); ix++) {
       for (let iz = Math.floor((z - radius) / C); iz <= Math.floor((z + radius) / C); iz++) {
         const k = CollisionWorld.key(ix, iz);
