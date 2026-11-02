@@ -223,7 +223,22 @@ export class Game {
 
   // ---- Main loop ---------------------------------------------------------------
 
+  /**
+   * One frame. If anything goes wrong in it, the error is logged and the game
+   * keeps running (an error that escaped would stop the animation loop, which
+   * looks like the game freezing).
+   */
   private frame(): void {
+    try {
+      this.frameInner();
+    } catch (e) {
+      if (this.frameErrors++ < 5) console.error('Frame error (the game keeps running):', e);
+      this.input.endFrame();
+    }
+  }
+  private frameErrors = 0;
+
+  private frameInner(): void {
     const dt = Math.min(this.clock.getDelta(), MAX_FRAME_DT);
     animateMaterials(this.clock.elapsedTime);
     const m = this.match;
