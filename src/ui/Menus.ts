@@ -161,7 +161,7 @@ export class Menus {
     div('title-tagline', center).textContent = 'Outthink them. Outaim them. Outlast them.';
     div('title-prompt', wrap).textContent = 'Click or press any key to start';
     const foot = div('title-footer', wrap);
-    foot.innerHTML = '<span>Singleplayer · AI bots · 8 game modes</span><span>v1.1</span>';
+    foot.innerHTML = '<span>Singleplayer · AI bots · 8 game modes</span><span>v1.2 · Rank Up</span>';
     wrap.addEventListener('click', () => this.leaveTitle());
   }
 
