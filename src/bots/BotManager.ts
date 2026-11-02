@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOT_DIFFICULTY, BOTS, type Difficulty } from '../config';
+import { BOT_DIFFICULTY, BOTS, GRENADES, type Difficulty } from '../config';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { CharacterBody } from '../core/CharacterBody';
 import type { Damageable } from '../core/Hitbox';
@@ -30,6 +30,11 @@ export interface BotManagerDeps {
   teams?: boolean;
   /** Team modes: each team's spawn points (Blue's, Red's). */
   sides?: [SpawnPoint[], SpawnPoint[]];
+  /** Grenades: so bots can run from live ones and throw their own. */
+  grenades?: {
+    dangerNear(p: THREE.Vector3, extra?: number, minAge?: number): THREE.Vector3 | null;
+    throw(from: THREE.Vector3, velocity: THREE.Vector3, thrower: string, team: number | null): void;
+  };
   /** What the game mode wants each bot to do (hills, flags, zones). */
   objective?: (bot: Bot) => BotObjective | null;
 }
@@ -57,13 +62,54 @@ export class BotManager {
     const seeds = [...def.playerSpawns, ...def.botSpawns].map((s) => new THREE.Vector3(s.x, s.y, s.z));
     this.nav = NavGraph.build(this.world, d.map.playBounds, seeds, { radius: BOTS.radius + 0.06, ...(def.navSpacing ? { spacing: def.navSpacing } : {}) });
 
-    // Bots hear gunshots within each gun's hearing range.
-    this.unsubscribe = events.on('shot', (e) => {
+    // Bots hear gunshots (and explosions) within each sound's hearing range.
+    const hear = (source: string, position: THREE.Vector3, range: number) => {
       for (const bot of this.bots) {
-        if (!bot.isAlive() || e.shooter === bot.name) continue;
-        if (bot.position.distanceTo(e.position) <= e.hearingRange * BOTS.hearingMultiplier) bot.perception.hear(e.position);
+        if (!bot.isAlive() || source === bot.name) continue;
+        if (bot.position.distanceTo(position) <= range * BOTS.hearingMultiplier) bot.perception.hear(position);
       }
-    });
+    };
+    const offShot = events.on('shot', (e) => hear(e.shooter, e.position, e.hearingRange));
+    const offNoise = events.on('noise', (e) => hear(e.source, e.position, e.hearingRange));
+    this.unsubscribe = () => {
+      offShot();
+      offNoise();
+    };
+  }
+
+  /**
+   * Grenades: a bot that notices a live grenade nearby (after its reaction
+   * time) sprints away from it; and now and then, a bot that can see its
+   * target at a middle distance lobs its grenade (one per life).
+   */
+  private handleGrenades(bot: Bot, brain: BotBrain, dt: number): void {
+    const g = this.d.grenades;
+    if (!g) return;
+    const danger = g.dangerNear(bot.position, 1.5, bot.skill.reactionTime * 0.6);
+    if (danger) {
+      const away = (bot.fleeDir ??= new THREE.Vector3());
+      away.set(bot.position.x - danger.x, 0, bot.position.z - danger.z);
+      if (away.lengthSq() < 1e-4) away.set(Math.random() - 0.5, 0, Math.random() - 0.5);
+      away.normalize();
+    } else bot.fleeDir = null;
+
+    bot.grenadeTimer -= dt;
+    const t = brain.target;
+    if (bot.grenades <= 0 || bot.grenadeTimer > 0 || !t || !bot.perception.canSee) return;
+    bot.grenadeTimer = 2 + Math.random() * 3;
+    const dist = bot.position.distanceTo(t.position);
+    // Only at a middle distance, and only sometimes (more often for aggressive bots).
+    if (dist < 9 || dist > 26 || Math.random() > 0.08 + 0.3 * bot.skill.aggression) return;
+    // Aim at their feet, a little off (worse on easy levels), and work out the lob.
+    const err = dist * Math.tan((bot.skill.aimError * Math.PI) / 180) * 0.6;
+    const to = t.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2 * err, 0, (Math.random() - 0.5) * 2 * err));
+    const from = bot.eyePosition().clone();
+    from.y -= 0.2;
+    const T = THREE.MathUtils.clamp(dist / 13, 0.75, 1.5);
+    const vel = new THREE.Vector3((to.x - from.x) / T, (to.y + 0.1 - from.y + 0.5 * GRENADES.gravity * T * T) / T, (to.z - from.z) / T);
+    g.throw(from, vel, bot.name, bot.team);
+    bot.grenades--;
+    bot.grenadeTimer = 10 + Math.random() * 10;
   }
 
   /** Who a bot may shoot at. */
@@ -103,7 +149,7 @@ export class BotManager {
         getEnemies,
         listener: this.d.player,
         sampleLight: this.d.map.sampleLampLight,
-      }, teamOf?.(idx) ?? null);
+      }, teamOf?.(idx) ?? null, BOTS.weapons[(idx + this.loadoutOffset) % BOTS.weapons.length]);
       const objective = this.d.objective ? () => this.d.objective!(bot) : undefined;
       const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth, findAmmo: this.d.findAmmo, objective });
       this.bots.push(bot);
@@ -121,6 +167,8 @@ export class BotManager {
   }
 
   private enemyLists: (readonly (Trackable & Damageable)[])[] = [];
+  /** Bots take turns through the bot gun list, starting at a random place each match. */
+  private loadoutOffset = Math.floor(Math.random() * BOTS.weapons.length);
 
   /** Fixed-rate movement + keeping characters from overlapping. */
   physicsStep(dt: number): void {
@@ -137,6 +185,7 @@ export class BotManager {
     for (let i = 0; i < this.bots.length; i++) {
       const bot = this.bots[i];
       this.brains[i].update(dt);
+      if (bot.isAlive()) this.handleGrenades(bot, this.brains[i], dt);
       bot.update(dt);
       if (!bot.isAlive() && bot.respawnTimer <= 0 && bot.model.root.visible) {
         bot.hide();

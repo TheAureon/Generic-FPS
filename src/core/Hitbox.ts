@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { WeaponId } from '../config';
+import type { DamageSource } from '../config';
 
 export type HitPart = 'head' | 'body';
 
@@ -8,8 +8,8 @@ export interface DamageInfo {
   part: HitPart;
   /** Who dealt the damage (an entity name like 'player' or 'Bot 3'). */
   attacker: string;
-  /** The gun, or 'zone' (Battle Royale: outside the safe zone). */
-  weapon: WeaponId | 'zone';
+  /** The gun, a grenade, or 'zone' (Battle Royale: outside the safe zone). */
+  weapon: DamageSource;
   /** Where the shot came from (world position), for damage indicators. */
   from: THREE.Vector3;
 }

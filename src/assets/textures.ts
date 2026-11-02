@@ -14,6 +14,26 @@ export function getFlashTexture(): THREE.Texture {
 }
 
 /** Bullet hole decal. */
+let smokeTex: THREE.Texture | null = null;
+/** A soft, lumpy puff of smoke (white; tinted by the sprite). */
+export function getSmokeTexture(): THREE.Texture {
+  if (smokeTex) return smokeTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  for (let i = 0; i < 14; i++) {
+    const x = 64 + (Math.random() - 0.5) * 50, y = 64 + (Math.random() - 0.5) * 50, r = 22 + Math.random() * 26;
+    const grad = g.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, 'rgba(255,255,255,0.32)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+  }
+  smokeTex = new THREE.CanvasTexture(c);
+  smokeTex.colorSpace = THREE.SRGBColorSpace;
+  return smokeTex;
+}
+
 export function getHoleTexture(): THREE.Texture {
   return (holeTex ??= makeHoleTexture());
 }

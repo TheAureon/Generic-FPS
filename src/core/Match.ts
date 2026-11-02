@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, PICKUPS, TEAMS } from '../config';
+import { CONFIG, GRENADES, PICKUPS, TEAMS } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { BotDebugView } from '../bots/BotDebugView';
 import { BotManager } from '../bots/BotManager';
@@ -23,6 +23,7 @@ import { PlayerController } from '../player/PlayerController';
 import type { Hud } from '../ui/Hud';
 import type { RadarBlip } from '../ui/Minimap';
 import type { Viewmodel } from '../weapons/Viewmodel';
+import { Grenades, type GrenadeVictim } from '../weapons/Grenades';
 import { WeaponSystem } from '../weapons/WeaponSystem';
 import { events } from './events';
 import { Rewards } from './Rewards';
@@ -55,6 +56,8 @@ export class Match {
   readonly dummies: TargetDummy[] = [];
   /** Your score, medals and streaks this match. */
   readonly rewards: Rewards;
+  /** Live grenades (yours and the bots'). */
+  readonly grenades: Grenades;
 
   readonly kills = new Map<string, number>();
   readonly deaths = new Map<string, number>();
@@ -87,6 +90,23 @@ export class Match {
     (this.map.def.practiceTargets ?? []).forEach((t, i) => this.dummies.push(new TargetDummy(`Dummy ${i + 1}`, t, this.scene)));
 
     this.sides = teamSides(this.map.def);
+    this.grenades = new Grenades({
+      scene: this.scene,
+      world: this.map.world,
+      effects: this.effects,
+      victims: () => [...this.combatants(), ...this.dummies] as GrenadeVictim[],
+      onExplode: (at) => {
+        // The closer the blast, the harder the shake.
+        const d = at.distanceTo(this.player.position);
+        if (d < 30) this.controller.addShake(1.1 * (1 - d / 30) ** 2);
+      },
+      onHit: (thrower, point, damage, killed) => {
+        if (thrower !== this.player.name) return;
+        hud.fx.damageNumber(point, damage, false, killed);
+        hud.showHitmarker(killed ? 'kill' : 'hit');
+        audio.play(killed ? 'kill' : 'hit');
+      },
+    });
 
     // The mode needs a view of the match; build it before the bots.
     const self = this;
@@ -113,6 +133,7 @@ export class Match {
     const blueBots = Math.floor(this.mode.initialBots / 2);
 
     this.bots = new BotManager({
+      grenades: this.grenades,
       scene: this.scene,
       map: this.map,
       effects: this.effects,
@@ -138,6 +159,7 @@ export class Match {
       ownerName: this.player.name,
       viewmodel: d.viewmodel,
       onHit: (point, damage, head, killed) => hud.fx.damageNumber(point, damage, head, killed),
+      throwGrenade: (from, vel) => this.grenades.throw(from, vel, this.player.name, this.player.team),
     });
     this.rewards = new Rewards({
       player: this.player,
@@ -177,6 +199,7 @@ export class Match {
       }),
       () => this.bots.dispose(),
       () => this.rewards.dispose(),
+      () => this.grenades.dispose(),
     );
 
     // Who can grab pickups.
@@ -264,6 +287,7 @@ export class Match {
     this.bots.update(dt);
     for (const dm of this.dummies) dm.update(dt);
     this.pickups.update(dt, this.collectors);
+    this.grenades.update(dt);
     this.effects.update(dt);
     this.updateDeath(dt);
     this.mode.update(dt);
@@ -351,6 +375,10 @@ export class Match {
   /** Things to point out on screen: objectives, and teammates (team modes). */
   screenMarkers(): (Marker & { ally?: boolean })[] {
     const out: (Marker & { ally?: boolean })[] = (this.mode.markers?.() ?? []).filter((m) => m.label);
+    // Warn about live grenades close by.
+    for (const g of this.grenades.positions()) {
+      if (g.distanceTo(this.player.position) < GRENADES.radius + 4) out.push({ x: g.x, y: g.y - 0.9, z: g.z, label: '!', color: '#ff5040' });
+    }
     if (this.player.team !== null) {
       for (const b of this.bots.bots) {
         if (b.isAlive() && b.team === this.player.team) out.push({ x: b.position.x, y: b.position.y + 2.15, z: b.position.z, label: b.name, color: TEAMS.css[b.team], ally: true });

@@ -164,6 +164,8 @@ export interface WeaponStats {
   equipTime: number;
   /** How loud the shot is to bots (meters they can hear it from). */
   hearingRange: number;
+  /** Walking speed while holding it (1 = normal; heavy guns slow you down). */
+  moveSpeed?: number;
 }
 
 export const WEAPONS = {
@@ -215,9 +217,63 @@ export const WEAPONS = {
     recoilPitch: 6, recoilYaw: 1, recoilRecovery: 8,
     aimZoom: 4, scope: true, equipTime: 0.6, hearingRange: 70,
   },
+  smg: {
+    // Fast and light: shreds up close, loses punch at range, accurate on the move.
+    name: 'SMG', slot: 5,
+    damage: 15, headshotMultiplier: 1.8, pellets: 1,
+    fireRate: 14, automatic: true,
+    magazineSize: 32, startingReserve: 160, maxReserve: 256,
+    reloadTime: 1.45, reloadStyle: 'magazine',
+    range: 100, falloffStart: 14, falloffEnd: 40, falloffMinMultiplier: 0.55,
+    baseSpread: 0.6, spreadPerShot: 0.22, maxSpread: 4.5, spreadRecovery: 7,
+    moveSpread: 0.7, airSpread: 2.5, aimSpreadMultiplier: 0.55,
+    recoilPitch: 0.55, recoilYaw: 0.55, recoilRecovery: 8,
+    aimZoom: 1.3, scope: false, equipTime: 0.3, hearingRange: 40, moveSpeed: 1.05,
+  },
+  lmg: {
+    // A huge box magazine for holding a lane. Heavy: slow to raise, reload and walk with.
+    name: 'LMG', slot: 6,
+    damage: 23, headshotMultiplier: 2, pellets: 1,
+    fireRate: 11, automatic: true,
+    magazineSize: 100, startingReserve: 200, maxReserve: 300,
+    reloadTime: 3.6, reloadStyle: 'magazine',
+    range: 150, falloffStart: 35, falloffEnd: 85, falloffMinMultiplier: 0.7,
+    baseSpread: 0.8, spreadPerShot: 0.2, maxSpread: 5, spreadRecovery: 4,
+    moveSpread: 2.6, airSpread: 5, aimSpreadMultiplier: 0.4,
+    recoilPitch: 1.05, recoilYaw: 0.6, recoilRecovery: 5,
+    aimZoom: 1.35, scope: false, equipTime: 0.8, hearingRange: 60, moveSpeed: 0.85,
+  },
 } satisfies Record<string, WeaponStats>;
 
 export type WeaponId = keyof typeof WEAPONS;
+/** What dealt damage: a gun, a grenade, or the Battle Royale zone. */
+export type DamageSource = WeaponId | 'grenade' | 'zone';
+
+/** Frag grenades (G to throw). */
+export const GRENADES = {
+  /** How many you start (and respawn) with, and the most you can carry. */
+  start: 2,
+  max: 4,
+  /** Grenades an ammo pickup gives. */
+  fromAmmoPickup: 1,
+  /** Seconds from the throw to the bang. */
+  fuse: 2.2,
+  /** Pull of gravity on a grenade in flight (m/s²; higher = shorter lobs). */
+  gravity: 16,
+  /** Throw speed (m/s) and extra upward lift. */
+  throwSpeed: 15,
+  throwLift: 3.5,
+  /** Damage at the center, out to `fullRadius` meters, falling to 0 at `radius`. */
+  damage: 130,
+  fullRadius: 1.5,
+  radius: 7,
+  /** Your own grenades hurt you this much (0..1). */
+  selfDamage: 0.5,
+  /** Seconds between throws. */
+  cooldown: 0.9,
+  /** How far away bots hear the bang (meters). */
+  hearingRange: 90,
+};
 
 /**
  * Fitting custom 3D gun models (files in src/assets/models/weapons/, see the
@@ -232,6 +288,8 @@ export const WEAPON_MODELS: Record<WeaponId, { scale: number; position: [number,
   rifle: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
   shotgun: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
   sniper: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  smg: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  lmg: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
 };
 
 export const COMBAT = {
@@ -259,8 +317,11 @@ export const BOTS = {
   maxHealth: 100,
   /** Seconds before a dead bot comes back. */
   respawnDelay: 4,
-  /** The gun bots carry. One of: pistol, rifle, shotgun, sniper. */
-  weapon: 'rifle' as WeaponId,
+  /**
+   * The guns bots carry: each bot gets one of these (repeat one to make it
+   * more common). Any of: pistol, rifle, shotgun, sniper, smg, lmg.
+   */
+  weapons: ['rifle', 'rifle', 'smg', 'lmg'] as WeaponId[],
 
   /** How far bots can see (meters). */
   visionRange: 60,
@@ -463,6 +524,7 @@ export const REWARDS = {
     buzzkill: 100,
     collateral: 100,
     avenger: 50,
+    grenadeKill: 50,
     /** Multikills: double, triple, quad, and 5 or more. */
     multikill: [0, 0, 100, 200, 350, 500],
     /** Kill streaks (without dying) and their bonuses. */

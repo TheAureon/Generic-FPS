@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import { REWARDS, type WeaponId } from '../config';
+import { REWARDS, type DamageSource } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { events } from './events';
 
@@ -31,6 +31,7 @@ export const MEDALS: Record<string, MedalDef> = {
   buzzkill: { name: 'Buzzkill', tier: 'gold', icon: 'stop', info: 'End an enemy’s kill streak' },
   collateral: { name: 'Collateral', tier: 'gold', icon: 'pierce', info: 'Two kills with one shot' },
   avenger: { name: 'Avenger', tier: 'bronze', icon: 'shield', info: 'Kill an enemy who just killed a teammate' },
+  frag: { name: 'Frag Out', tier: 'bronze', icon: 'grenade', info: 'Kill with a grenade' },
   headshot: { name: 'Headshot', tier: 'bronze', icon: 'skull', info: 'Kill with a shot to the head' },
   double: { name: 'Double Kill', tier: 'bronze', icon: 'x2', info: '2 kills in quick succession' },
   triple: { name: 'Triple Kill', tier: 'silver', icon: 'x3', info: '3 kills in quick succession' },
@@ -82,7 +83,7 @@ export interface MatchSummary {
   bestMulti: number;
   longestKill: number;
   medals: Record<string, number>;
-  weaponKills: Partial<Record<WeaponId, number>>;
+  weaponKills: Partial<Record<Exclude<DamageSource, 'zone'>, number>>;
   /** Points by kind: kills, headshots, medals... (for the XP breakdown). */
   breakdown: { kills: number; headshots: number; medals: number };
 }
@@ -117,7 +118,7 @@ export class Rewards {
     this.unsub.forEach((u) => u());
   }
 
-  private onKill(killer: string, victim: string, weapon: WeaponId | 'zone', headshot: boolean): void {
+  private onKill(killer: string, victim: string, weapon: DamageSource, headshot: boolean): void {
     const me = this.d.player.name, now = this.d.time();
     const firstBlood = !this.anyKill && killer !== victim && weapon !== 'zone';
     if (killer !== victim) this.anyKill = true;
@@ -164,6 +165,7 @@ export class Rewards {
       this.addMedal('headshot');
     }
     if (firstBlood) bonus('firstBlood', P.firstBlood);
+    if (weapon === 'grenade') bonus('frag', P.grenadeKill);
     if (dist >= REWARDS.longshotDistance) bonus('longshot', P.longshot);
     else if (dist > 0 && dist <= REWARDS.pointBlankDistance) bonus('pointBlank', P.pointBlank);
     if (this.d.player.health > 0 && this.d.player.health <= REWARDS.closeCallHealth) bonus('closeCall', P.closeCall);

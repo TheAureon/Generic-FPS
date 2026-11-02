@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOT_DIFFICULTY, BOTS, TEAMS, type Difficulty } from '../config';
+import { BOT_DIFFICULTY, BOTS, TEAMS, type Difficulty, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
 import { createCharacterModel, type CharacterModel } from '../assets/characterModel';
@@ -54,6 +54,11 @@ export class Bot implements Damageable, Trackable {
   moveSpeed: number = BOTS.walkSpeed;
   /** If set, the bot moves in this direction instead (for strafing). */
   moveDir: THREE.Vector3 | null = null;
+  /** Running from a grenade: this direction wins over everything else. */
+  fleeDir: THREE.Vector3 | null = null;
+  /** Grenades left this life, and seconds until it may think about throwing one. */
+  grenades = 1;
+  grenadeTimer = 0;
   /** Slow down when reaching moveTarget (true for the end of a path). */
   slowOnArrive = true;
 
@@ -89,12 +94,14 @@ export class Bot implements Damageable, Trackable {
     private ctx: BotContext,
     /** Team modes: 0 = Blue (your side), 1 = Red; null = no teams. */
     readonly team: number | null = null,
+    /** The gun it carries. */
+    gun: WeaponId = BOTS.weapons[0],
   ) {
     this.skill = BOT_DIFFICULTY[difficulty];
     this.body = new CharacterBody(ctx.world, BOTS.height, BOTS.radius, 0.45, 20);
     // Uniforms: red trim normally; team colors (and a slightly tinted uniform) in team modes.
     this.model = team === null ? createCharacterModel(0xb8402f, 0x3f444c) : createCharacterModel(TEAMS.colors[team], team === 0 ? 0x36404f : 0x4a3e3a);
-    this.weaponModel = createWorldWeaponModel(BOTS.weapon);
+    this.weaponModel = createWorldWeaponModel(gun);
     // Slightly oversized so it reads clearly at a distance.
     this.weaponModel.scale.setScalar(1.1);
     this.model.hand.add(this.weaponModel);
@@ -108,7 +115,7 @@ export class Bot implements Damageable, Trackable {
     ctx.scene.add(this.model.root);
     this.model.root.visible = false; // until spawned
 
-    this.weapon = new Weapon(BOTS.weapon);
+    this.weapon = new Weapon(gun);
   }
 
   get position(): THREE.Vector3 {
@@ -154,6 +161,9 @@ export class Bot implements Damageable, Trackable {
 
   spawn(sp: SpawnPoint): void {
     this.health = BOTS.maxHealth;
+    this.grenades = 1;
+    this.grenadeTimer = 5 + Math.random() * 8;
+    this.fleeDir = null;
     this.respawnTimer = 0;
     this.resetPose();
     this.body.position.set(sp.x, sp.y, sp.z);
@@ -266,7 +276,10 @@ export class Bot implements Damageable, Trackable {
       return;
     }
     let tvx = 0, tvz = 0;
-    if (this.moveDir) {
+    if (this.fleeDir) {
+      tvx = this.fleeDir.x * BOTS.runSpeed;
+      tvz = this.fleeDir.z * BOTS.runSpeed;
+    } else if (this.moveDir) {
       tvx = this.moveDir.x * this.moveSpeed;
       tvz = this.moveDir.z * this.moveSpeed;
     } else if (this.moveTarget) {

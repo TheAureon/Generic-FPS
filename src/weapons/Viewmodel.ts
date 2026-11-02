@@ -63,6 +63,9 @@ export class Viewmodel {
   private arms: ViewmodelArms;
   private flashTimer = 0;
   private time = 0;
+  /** Seconds since a grenade throw started (99 = not throwing). */
+  private throwT = 99;
+  private grenade: THREE.Group;
   private casings: Casing[] = [];
   private nextCasing = 0;
   visible = true;
@@ -95,11 +98,21 @@ export class Viewmodel {
       this.aimPose.set(id, sight ? new THREE.Vector3(-sight.x, -sight.y, -SIGHT_DISTANCE - sight.z) : AIM_POSE[id].clone());
       this.ejectPort.set(id, markerPosition(model, 'eject') ?? EJECT_PORT[id].clone());
 
-      const flash = makeFlash(flashTex, id === 'shotgun' || id === 'sniper' ? 1.5 : 1);
+      const flash = makeFlash(flashTex, id === 'shotgun' || id === 'sniper' ? 1.5 : id === 'lmg' ? 1.25 : id === 'smg' ? 0.85 : 1);
       model.getObjectByName('muzzle')!.add(flash);
       this.flashes.set(id, flash);
     }
     this.arms = new ViewmodelArms(this.rig);
+
+    // The grenade you throw: swung up from low on the left and lobbed forward.
+    this.grenade = new THREE.Group();
+    const gBody = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 10).scale(1, 1.15, 1), new THREE.MeshStandardMaterial({ color: 0x4b5a3a, roughness: 0.6, metalness: 0.2 }));
+    const gCap = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.02, 8), new THREE.MeshStandardMaterial({ color: 0x8a8f96, roughness: 0.35, metalness: 0.8 }));
+    gCap.position.y = 0.04;
+    this.grenade.add(gBody, gCap);
+    this.grenade.traverse((o) => { if (o instanceof THREE.Mesh) o.renderOrder = 1; });
+    this.grenade.visible = false;
+    this.camera.add(this.grenade);
     this.setWeapon('pistol');
 
     // Pool of spent shell casings (brass; the shotgun's are red).
@@ -201,9 +214,24 @@ export class Viewmodel {
     f.scale.setScalar(0.8 + Math.random() * 0.5);
   }
 
+  /** Start the grenade throw animation (the gun dips while the grenade is lobbed). */
+  throwGrenade(): void {
+    this.throwT = 0;
+  }
+
   update(dt: number, s: ViewmodelState): void {
     this.time += dt;
     const model = this.models.get(this.current)!;
+    // Grenade throw: the gun dips out of the way, the grenade swings up and flies off.
+    this.throwT += dt;
+    const dip = window01(this.throwT, [0, 0.1], [0.32, 0.55]);
+    const gt = this.throwT / 0.3;
+    this.grenade.visible = gt < 1;
+    if (gt < 1) {
+      const e = gt * gt;
+      this.grenade.position.set(-0.16 + 0.2 * e, -0.2 + 0.3 * Math.sin(gt * Math.PI * 0.8), -0.32 - 0.6 * e);
+      this.grenade.rotation.set(gt * 6, gt * 2, 0);
+    }
 
     // Recoil springs back.
     this.kickBack *= Math.exp(-dt * 14);
@@ -257,7 +285,7 @@ export class Viewmodel {
     const pos = model.position.lerpVectors(HIP_POSE, this.aimPose.get(this.current)!, s.ads);
     // Reloading brings the gun in toward the middle, canted so you see the magazine.
     pos.x += bobX + this.swayX - rl * 0.06;
-    pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 + rl * 0.045 + seat * 0.012 - s.sprint * 0.04;
+    pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 + rl * 0.045 + seat * 0.012 - s.sprint * 0.04 - dip * 0.22;
     pos.z += this.kickBack + rl * 0.06 + rack * 0.015 - slideRack * 0.1;
     pos.x -= slideRack * 0.06;
     pos.y += slideRack * 0.02;
@@ -268,7 +296,7 @@ export class Viewmodel {
     pos.z -= bk * 0.05;
 
     model.rotation.set(
-      this.kickUp - s.lowered * 0.9 + rl * 0.12 + seat * 0.05 - s.sprint * 0.35,
+      this.kickUp - s.lowered * 0.9 + rl * 0.12 + seat * 0.05 - s.sprint * 0.35 - dip * 0.6,
       this.swayX * 2 + rl * 0.3 - slideRack * 1.1 + s.sprint * 0.6,
       rl * 0.6 + rack * 0.12 + bk * 0.4 - slideRack * 0.6 + s.sprint * 0.25,
     );

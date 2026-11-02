@@ -130,10 +130,10 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
       : `<div class="rb-line bonus"><span>${r.difficulty} difficulty ×${r.multiplier}</span><span class="rb-v">+${(r.xp - r.baseXp).toLocaleString('en-US')}</span></div>`) +
     `<div class="rb-line total"><span>Total</span><span class="rb-v">+${r.xp.toLocaleString('en-US')} XP</span></div>`;
   const wl = add(cols, 'report-weapons');
-  const wk = Object.entries(s.weaponKills) as [WeaponId, number][];
+  const wk = Object.entries(s.weaponKills) as [WeaponId | 'grenade', number][];
   const maxK = Math.max(1, ...wk.map(([, n]) => n));
   wl.innerHTML = `<div class="section-title">Kills by weapon</div>` + (wk.length
-    ? wk.sort((a, b) => b[1] - a[1]).map(([w, n]) => `<div class="rw-line"><span class="rw-name">${WEAPONS[w].name}</span><div class="rw-bar"><div class="rw-fill" style="--w:${((100 * n) / maxK).toFixed(0)}%"></div></div><span class="rw-n">${n}</span></div>`).join('')
+    ? wk.sort((a, b) => b[1] - a[1]).map(([w, n]) => `<div class="rw-line"><span class="rw-name">${w === 'grenade' ? 'Grenades' : WEAPONS[w].name}</span><div class="rw-bar"><div class="rw-fill" style="--w:${((100 * n) / maxK).toFixed(0)}%"></div></div><span class="rw-n">${n}</span></div>`).join('')
     : '<div class="rm-none">No kills this match.</div>');
 
   // ---- Animation: tiles count up one after another, then the XP bar fills ----

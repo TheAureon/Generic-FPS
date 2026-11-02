@@ -42,7 +42,10 @@ export type SoundId =
   | 'callout_big'
   | 'tick'
   | 'levelup'
-  | 'stat_slam';
+  | 'stat_slam'
+  | 'grenade_throw'
+  | 'grenade_bounce'
+  | 'explosion';
 
 export const SAMPLE_FILES: Partial<Record<SoundId, string>> = {};
 
@@ -244,6 +247,24 @@ export const SYNTHS: Record<SoundId, Synth> = {
     });
     tone(s, { type: 'sine', from: 70, to: 40, gain: 0.6, decay: 0.7, delay: 0.34 });
     [2093, 2637, 3136].forEach((f, i) => tone(s, { type: 'sine', from: f, to: f, gain: 0.04, decay: 0.4, delay: 0.5 + i * 0.09 }));
+  },
+  grenade_throw: (s) => {
+    // Pin out (a metal ping), then a whoosh.
+    tone(s, { type: 'triangle', from: 2400, to: 2300, gain: 0.08, decay: 0.06 });
+    noiseBurst(s, { type: 'bandpass', freq: 900, q: 1.5, gain: 0.25, decay: 0.18, attack: 0.05, delay: 0.05 });
+  },
+  grenade_bounce: (s) => {
+    // A dull metal clunk on the floor.
+    tone(s, { type: 'triangle', from: 520 + Math.random() * 120, to: 300, gain: 0.25, decay: 0.07 });
+    noiseBurst(s, { type: 'bandpass', freq: 1800, q: 3, gain: 0.15, decay: 0.04 });
+  },
+  explosion: (s) => {
+    // A sharp crack, a deep boom, a long rumble, and debris raining down.
+    noiseBurst(s, { type: 'highpass', freq: 1800, gain: 0.9, decay: 0.08 });
+    tone(s, { type: 'sine', from: 95, to: 28, gain: 1.2, decay: 0.9 });
+    noiseBurst(s, { type: 'lowpass', freq: 900, gain: 1.0, decay: 0.7 });
+    noiseBurst(s, { type: 'lowpass', freq: 250, gain: 0.8, decay: 1.6, attack: 0.04 });
+    noiseBurst(s, { type: 'bandpass', freq: 3500, q: 1, gain: 0.12, decay: 0.8, attack: 0.2, delay: 0.25 });
   },
   stat_slam: (s) => {
     tone(s, { type: 'sine', from: 160, to: 60, gain: 0.35, decay: 0.15 });

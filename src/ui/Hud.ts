@@ -1,5 +1,5 @@
 import { RewardsHud } from './RewardsHud';
-import { CONFIG, TEAMS, WEAPONS, type WeaponId } from '../config';
+import { CONFIG, TEAMS, WEAPONS, type DamageSource, type WeaponId } from '../config';
 import { settings } from '../core/Settings';
 import type { PickupType } from '../map/MapTypes';
 import type { ScoreRow } from '../modes/GameMode';
@@ -13,6 +13,8 @@ export interface AmmoInfo {
   magazine: number;
   reserve: number;
   reloadProgress: number; // 0 when not reloading
+  /** Frag grenades carried. */
+  grenades?: number;
 }
 
 /** Small inline icons (drawn with SVG so they stay crisp at any size). */
@@ -21,10 +23,11 @@ const ICON = {
   armor: '<svg viewBox="0 0 24 24"><path d="M12 1 3 4.5v6.2c0 5.6 3.8 10.4 9 12.3 5.2-1.9 9-6.7 9-12.3V4.5z"/></svg>',
   head: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="3"/></svg>',
   ammo: '<svg viewBox="0 0 24 24"><path d="M7 22V9l2.5-6L12 9v13zm6 0V9l2.5-6L18 9v13z"/></svg>',
+  grenade: '<svg viewBox="0 0 24 24"><path d="M10 3h4v2.2a7.5 7.5 0 1 1-4 0z"/><path d="M14 4h3.5l1.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
 
 /** Short weapon names for the slot chips. */
-const SHORT: Record<WeaponId, string> = { pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper' };
+const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade' };
 
 /**
  * In-game heads-up display: crosshair, hit markers, health/armor, weapon and
@@ -44,6 +47,8 @@ export class Hud {
   private pipEls: HTMLDivElement[] = [];
   private pipWeapon: WeaponId | null = null;
   private reloadBar: HTMLDivElement;
+  private grenadeChip: HTMLDivElement;
+  private lastGrenades = -1;
   private reloadFill: HTMLDivElement;
   private slots = new Map<WeaponId, HTMLDivElement>();
   private scope: HTMLDivElement;
@@ -118,6 +123,7 @@ export class Hud {
       s.innerHTML = `<span class="key">${WEAPONS[id].slot}</span><span class="slot-name">${SHORT[id]}</span>`;
       this.slots.set(id, s);
     }
+    this.grenadeChip = el('div', 'slot grenade-chip', slotList);
     this.ammoName = el('div', 'ammo-name', this.weaponPanel);
     const count = el('div', 'ammo-count', this.weaponPanel);
     this.ammoNumber = document.createElement('span');
@@ -198,6 +204,7 @@ export class Hud {
     this.hurtFlash = 0;
     this.lastVitals = '';
     this.lastAmmo = '';
+    this.lastGrenades = -1;
     for (const ind of this.indicators) ind.life = 0;
     this.setDeath(null);
     this.showScoreboard(null);
@@ -333,7 +340,7 @@ export class Hud {
   }
 
   /** @param killerColor, victimColor team colors (team modes) */
-  addKill(killer: string, victim: string, weapon: WeaponId | 'zone', headshot: boolean, killerColor?: string, victimColor?: string): void {
+  addKill(killer: string, victim: string, weapon: DamageSource, headshot: boolean, killerColor?: string, victimColor?: string): void {
     const row = document.createElement('div');
     const mine = killer === 'You' ? ' mine' : victim === 'You' ? ' died' : '';
     row.className = `kf-row${mine}`;
@@ -401,6 +408,11 @@ export class Hud {
       this.ammoReserve.textContent = String(a.reserve);
       this.pipEls.forEach((p, i) => p.classList.toggle('spent', i >= a.ammo));
       for (const [id, s] of this.slots) s.classList.toggle('active', id === a.weapon);
+    }
+    if (a.grenades !== undefined && a.grenades !== this.lastGrenades) {
+      this.lastGrenades = a.grenades;
+      this.grenadeChip.innerHTML = `<span class="key">G</span><span class="gr-icon">${ICON.grenade}</span><span>${a.grenades}</span>`;
+      this.grenadeChip.classList.toggle('empty', a.grenades === 0);
     }
     setStyle(this.reloadBar, 'visibility', a.reloadProgress > 0 ? 'visible' : 'hidden');
     if (a.reloadProgress > 0) setStyle(this.reloadFill, 'width', `${(a.reloadProgress * 100).toFixed(0)}%`);

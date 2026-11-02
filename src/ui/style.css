@@ -2141,3 +2141,13 @@ body {
 .rb-line.bonus span:first-child { color: var(--accent-hi); opacity: 1; }
 .rb-line.none .rb-v, .rb-line.none span:first-child { color: #ff9a8e; opacity: 1; }
 .rb-note { font-size: 12px; opacity: 0.6; padding: 4px 0 2px; }
+
+/* Weapon slots: only the gun in hand shows its name (6 guns + grenades fit on one row). */
+.slot:not(.active) .slot-name { display: none; }
+.slot:not(.active) { padding-right: 3px; }
+.grenade-chip { color: #d9e0c8; margin-left: 6px; }
+.grenade-chip .gr-icon { display: inline-block; width: 12px; height: 12px; }
+.grenade-chip.empty { opacity: 0.4; }
+/* Big magazines: thinner marks so they all fit. */
+.pips.lmg { gap: 1px; }
+.pips.lmg .pip { flex-basis: 1px; border-radius: 0; }

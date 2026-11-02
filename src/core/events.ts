@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { WeaponId } from '../config';
+import type { DamageSource, WeaponId } from '../config';
 import type { HitPart } from './Hitbox';
 import type { PickupType } from '../map/MapTypes';
 
@@ -10,8 +10,10 @@ import type { PickupType } from '../map/MapTypes';
 export interface GameEvents {
   shot: { shooter: string; weapon: WeaponId; position: THREE.Vector3; hearingRange: number };
   damage: { attacker: string; victim: string; amount: number; part: HitPart; killed: boolean };
-  kill: { killer: string; victim: string; weapon: WeaponId | 'zone'; headshot: boolean };
+  kill: { killer: string; victim: string; weapon: DamageSource; headshot: boolean };
   pickup: { who: string; type: PickupType };
+  /** A loud sound that isn't a gunshot (a grenade going off): bots hear it. */
+  noise: { source: string; position: THREE.Vector3; hearingRange: number };
 }
 
 type Handler<T> = (e: T) => void;

@@ -29,6 +29,8 @@ export const AIM_POSE: Record<WeaponId, THREE.Vector3> = {
   rifle: v(0, -0.0775, -0.24),
   shotgun: v(0, -0.041, -0.38),
   sniper: v(0, -0.085, -0.12),
+  smg: v(0, -0.06, -0.26),
+  lmg: v(0, -0.074, -0.2),
 };
 
 /** With a custom model's 'sight' marker: how far in front of your eye the sight sits when aiming. */
@@ -40,6 +42,8 @@ export const EJECT_PORT: Record<WeaponId, THREE.Vector3> = {
   rifle: v(0.03, 0.025, -0.03),
   shotgun: v(0.03, 0.02, 0.0),
   sniper: v(0.03, 0.025, 0.06),
+  smg: v(0.025, 0.02, -0.02),
+  lmg: v(0.035, 0.0, 0.02),
 };
 
 // ---- Hands -------------------------------------------------------------------------
@@ -59,6 +63,8 @@ export const HANDS: Record<WeaponId, HandPoints> = {
   rifle: { right: v(0, -0.08, 0.1), left: v(0, -0.045, -0.25), reload: v(0, -0.15, -0.075) },
   shotgun: { right: v(0, -0.08, 0.1), left: v(0, -0.05, -0.3), reload: v(0, -0.05, -0.06) },
   sniper: { right: v(0, -0.085, 0.12), left: v(0, -0.03, -0.2), reload: v(0, -0.09, -0.03) },
+  smg: { right: v(0, -0.075, 0.075), left: v(0, -0.075, -0.17), reload: v(0, -0.13, -0.065) },
+  lmg: { right: v(0, -0.085, 0.11), left: v(0, -0.045, -0.28), reload: v(0, -0.1, -0.04) },
 };
 
 /** Where each elbow is relative to its hand (camera coordinates): arms come from the lower corners. */
@@ -156,6 +162,9 @@ export const RELOADS: Record<WeaponId, ReloadAnim> = {
   },
   rifle: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 1 },
   sniper: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 1 },
+  smg: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 1 },
+  // The LMG's ammo box swap: same moves, the gun tilts less (it's heavy).
+  lmg: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 0.6 },
   shotgun: {
     // One shell per cycle (the cycle repeats for each shell).
     keys: [

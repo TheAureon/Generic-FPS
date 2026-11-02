@@ -34,6 +34,14 @@ function tube(r: number, len: number, m: THREE.Material, x = 0, y = 0, z = 0, si
   return mesh;
 }
 
+/** An invisible marker (hand grips, used by bots' hands and the first-person arms). */
+function marker(name: string, x: number, y: number, z: number): THREE.Object3D {
+  const o = new THREE.Object3D();
+  o.name = name;
+  o.position.set(x, y, z);
+  return o;
+}
+
 function muzzle(z: number, y = 0): THREE.Object3D {
   const o = new THREE.Object3D();
   o.name = 'muzzle';
@@ -136,6 +144,76 @@ const builders: Record<WeaponId, () => THREE.Group> = {
     const grip = box(0.032, 0.08, 0.05, mats.wood, 0, -0.07, 0.12);
     grip.rotation.x = -0.35;
     g.add(lens, mag, grip, muzzle(-0.83, 0.008));
+    return g;
+  },
+  smg: () => {
+    // Compact: short receiver, stubby barrel, folding wire stock, straight magazine, front grip.
+    const g = new THREE.Group();
+    g.add(
+      box(0.044, 0.06, 0.24, mats.metal, 0, 0, 0), // receiver
+      box(0.04, 0.046, 0.12, mats.dark, 0, -0.002, -0.18), // barrel shroud
+      tube(0.009, 0.08, mats.metal, 0, 0.004, -0.28), // barrel
+      tube(0.014, 0.04, mats.dark, 0, 0.004, -0.33), // muzzle cap
+      box(0.012, 0.012, 0.16, mats.dark, 0, 0.036, -0.04), // top rail
+      // Wire stock: two rods and a butt plate.
+      box(0.008, 0.008, 0.2, mats.metal, 0, 0.02, 0.21),
+      box(0.008, 0.008, 0.2, mats.metal, 0, -0.022, 0.21),
+      box(0.034, 0.075, 0.014, mats.dark, 0, -0.002, 0.31),
+      // Sights: rear posts and a front post, tops level for aiming.
+      box(0.007, 0.02, 0.01, mats.metal, -0.009, 0.05, 0.07),
+      box(0.007, 0.02, 0.01, mats.metal, 0.009, 0.05, 0.07),
+      box(0.012, 0.014, 0.02, mats.metal, 0, 0.03, -0.21),
+      box(0.004, 0.026, 0.004, mats.dark, 0, 0.047, -0.21),
+      box(0.008, 0.012, 0.03, mats.metal, 0.025, 0.012, -0.04), // charging handle
+    );
+    const mag = box(0.026, 0.15, 0.034, mats.dark, 0, -0.1, -0.06);
+    mag.rotation.x = 0.1;
+    mag.name = 'mag';
+    const grip = box(0.028, 0.085, 0.042, mats.dark, 0, -0.065, 0.07);
+    grip.rotation.x = -0.3;
+    const fore = box(0.024, 0.07, 0.026, mats.dark, 0, -0.058, -0.17); // front grip
+    g.add(mag, grip, fore, muzzle(-0.355, 0.004),
+      marker('grip_right', 0, -0.075, 0.075), marker('grip_left', 0, -0.075, -0.17), marker('grip_reload', 0, -0.13, -0.065));
+    return g;
+  },
+  lmg: () => {
+    // Heavy: long receiver, feed cover, carry handle, folded bipod, and a big ammo box under it.
+    const g = new THREE.Group();
+    g.add(
+      box(0.06, 0.08, 0.36, mats.metal, 0, 0, 0), // receiver
+      box(0.064, 0.02, 0.17, mats.dark, 0, 0.05, -0.01), // feed cover
+      box(0.066, 0.052, 0.18, mats.dark, 0, -0.016, -0.27), // handguard
+      tube(0.013, 0.5, mats.metal, 0, 0.004, -0.46), // barrel
+      box(0.03, 0.022, 0.3, mats.dark, 0, 0.026, -0.38), // heat shield
+      tube(0.019, 0.07, mats.dark, 0, 0.004, -0.74), // flash hider
+      box(0.05, 0.08, 0.25, mats.dark, 0, -0.012, 0.3), // stock
+      box(0.04, 0.03, 0.08, mats.dark, 0, 0.035, 0.29), // cheek riser
+      // Carry handle above the barrel.
+      box(0.012, 0.012, 0.13, mats.metal, 0, 0.095, -0.22),
+      box(0.012, 0.05, 0.012, mats.metal, 0, 0.068, -0.16),
+      box(0.012, 0.05, 0.012, mats.metal, 0, 0.068, -0.28),
+      // Folded bipod legs under the barrel.
+      box(0.008, 0.008, 0.26, mats.metal, -0.018, -0.03, -0.5),
+      box(0.008, 0.008, 0.26, mats.metal, 0.018, -0.03, -0.5),
+      // Sights (tops level for aiming): rear posts on the feed cover, front post on the barrel.
+      box(0.008, 0.016, 0.01, mats.metal, -0.011, 0.066, 0.06),
+      box(0.008, 0.016, 0.01, mats.metal, 0.011, 0.066, 0.06),
+      box(0.012, 0.03, 0.02, mats.metal, 0, 0.032, -0.62),
+      box(0.004, 0.026, 0.004, mats.dark, 0, 0.061, -0.62),
+    );
+    // The ammo box (comes off when reloading), with the belt feeding up into the side.
+    const mag = new THREE.Group();
+    mag.name = 'mag';
+    mag.position.set(-0.004, -0.095, -0.04);
+    mag.add(
+      box(0.075, 0.1, 0.13, mats.accent, 0, 0, 0),
+      box(0.079, 0.012, 0.134, mats.dark, 0, 0.044, 0), // lid
+      box(0.02, 0.05, 0.03, mats.accent, -0.03, 0.065, 0.02), // belt
+    );
+    const grip = box(0.032, 0.09, 0.048, mats.dark, 0, -0.078, 0.11);
+    grip.rotation.x = -0.3;
+    g.add(mag, grip, muzzle(-0.775, 0.004),
+      marker('grip_right', 0, -0.085, 0.11), marker('grip_left', 0, -0.045, -0.28), marker('grip_reload', 0, -0.1, -0.04));
     return g;
   },
 };

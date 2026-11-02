@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getFlashTexture, getHoleTexture } from '../assets/textures';
+import { getFlashTexture, getHoleTexture, getSmokeTexture } from '../assets/textures';
 import { currentQuality } from '../render/quality';
 
 /**
@@ -50,6 +50,10 @@ export class Effects {
   private flashes: { sprite: THREE.Sprite; life: number }[] = [];
   /** Brief light at the muzzle so shots light up nearby walls. */
   private flashLight = new THREE.PointLight(0xffc070, 0, 6, 1.8);
+  /** Explosions: fireballs, smoke puffs, and a big orange light. */
+  private fireballs: { sprite: THREE.Sprite; life: number; max: number; size: number }[] = [];
+  private smoke: { sprite: THREE.Sprite; life: number; max: number; size: number; vel: THREE.Vector3 }[] = [];
+  private blastLight = new THREE.PointLight(0xff9a40, 0, 18, 1.6);
 
   constructor(private scene: THREE.Scene) {
     // ---- Tracers: a thin glowing box, stretched along the bullet path.
@@ -112,6 +116,53 @@ export class Effects {
       sprite.visible = false;
       scene.add(sprite);
       this.flashes.push({ sprite, life: 0 });
+    }
+
+    // ---- Explosions
+    for (let i = 0; i < 10; i++) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: getFlashTexture(), color: i % 5 === 0 ? 0xffffff : 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+      sprite.visible = false;
+      scene.add(sprite);
+      this.fireballs.push({ sprite, life: 0, max: 1, size: 1 });
+    }
+    const smokeTex = getSmokeTexture();
+    for (let i = 0; i < 28; i++) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0x6a6460, depthWrite: false, transparent: true, opacity: 0 }));
+      sprite.visible = false;
+      scene.add(sprite);
+      this.smoke.push({ sprite, life: 0, max: 1, size: 1, vel: new THREE.Vector3() });
+    }
+    scene.add(this.blastLight);
+  }
+
+  /** A grenade going off: a fireball, flying sparks and debris, then rolling smoke. */
+  explosion(at: THREE.Vector3): void {
+    this.blastLight.position.copy(at);
+    this.blastLight.intensity = 60;
+    for (let i = 0; i < 5; i++) {
+      // The first is a white-hot flash; the rest are rolling orange fire.
+      const f = i === 0 ? (this.fireballs.find((x, k) => k % 5 === 0 && x.life <= 0) ?? this.fireballs[0]) : (this.fireballs.find((x, k) => k % 5 !== 0 && x.life <= 0) ?? this.fireballs[i]);
+      f.max = f.life = i === 0 ? 0.16 : 0.4 + i * 0.09;
+      f.size = i === 0 ? 7 : 3.2 + Math.random() * 2;
+      f.sprite.position.set(at.x + (Math.random() - 0.5) * 0.6, at.y + 0.2 + Math.random() * 0.5, at.z + (Math.random() - 0.5) * 0.6);
+      f.sprite.material.rotation = Math.random() * Math.PI * 2;
+      f.sprite.visible = true;
+    }
+    for (let i = 0; i < 10; i++) {
+      const p = this.smoke.find((x) => x.life <= 0) ?? this.smoke[(i * 3) % this.smoke.length];
+      p.max = p.life = 2.2 + Math.random() * 1.6;
+      p.size = 1.6 + Math.random() * 1.4;
+      p.sprite.position.set(at.x + (Math.random() - 0.5) * 1.2, at.y + Math.random() * 0.8, at.z + (Math.random() - 0.5) * 1.2);
+      p.vel.set((Math.random() - 0.5) * 1.6, 0.6 + Math.random() * 1.2, (Math.random() - 0.5) * 1.6);
+      p.sprite.material.rotation = Math.random() * Math.PI * 2;
+      p.sprite.material.color.setScalar(0.35 + Math.random() * 0.15);
+      p.sprite.visible = true;
+    }
+    const up = this._v.set(0, 1, 0);
+    for (let i = 0; i < 60; i++) this.spawnParticle(at, up, 5 + Math.random() * 9, 1, 0.6 + Math.random() * 0.3, 0.2, 0.4 + Math.random() * 0.5, 12);
+    for (let i = 0; i < 30; i++) {
+      const c = 0.2 + Math.random() * 0.15;
+      this.spawnParticle(at, up, 3 + Math.random() * 6, c, c * 0.95, c * 0.9, 0.8 + Math.random() * 0.6, 14);
     }
   }
 
@@ -217,6 +268,27 @@ export class Effects {
 
   update(dt: number): void {
     this.flashLight.intensity = Math.max(0, this.flashLight.intensity - dt * 50);
+    this.blastLight.intensity = Math.max(0, this.blastLight.intensity - dt * 150);
+    for (const f of this.fireballs) {
+      if (f.life <= 0) continue;
+      f.life -= dt;
+      const t = 1 - Math.max(0, f.life) / f.max;
+      // Swells fast, then fades out.
+      f.sprite.scale.setScalar(f.size * (0.4 + 0.8 * Math.sqrt(t)));
+      f.sprite.material.opacity = 1 - t * t;
+      if (f.life <= 0) f.sprite.visible = false;
+    }
+    for (const p of this.smoke) {
+      if (p.life <= 0) continue;
+      p.life -= dt;
+      const t = 1 - Math.max(0, p.life) / p.max;
+      p.sprite.position.addScaledVector(p.vel, dt);
+      p.vel.multiplyScalar(1 - dt * 0.8);
+      p.sprite.scale.setScalar(p.size * (0.6 + 1.4 * t));
+      p.sprite.material.opacity = 0.75 * Math.min(1, t * 6) * (1 - t);
+      p.sprite.material.rotation += dt * 0.2;
+      if (p.life <= 0) p.sprite.visible = false;
+    }
     for (const f of this.flashes) {
       if (f.life <= 0) continue;
       f.life -= dt;

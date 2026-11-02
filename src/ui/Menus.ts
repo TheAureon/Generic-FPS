@@ -187,7 +187,7 @@ export class Menus {
     const aimKeys = { both: 'Right click / Q', mouse: 'Right click', q: 'Q' }[settings.get().aimKey] ?? 'Right click';
     const groups: [string, [string, string][]][] = [
       ['Movement', [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Space', 'Jump'], ['Shift', 'Sprint'], ['C', 'Crouch']]],
-      ['Combat', [['Left click', 'Shoot'], [aimKeys, 'Aim / scope'], ['R', 'Reload'], ['1 – 4 / Wheel', 'Switch weapon'], ['E', 'Last weapon']]],
+      ['Combat', [['Left click', 'Shoot'], [aimKeys, 'Aim / scope'], ['R', 'Reload'], ['1 – 6 / Wheel', 'Switch weapon'], ['E', 'Last weapon'], ['G', 'Throw grenade']]],
       ['Other', [['Tab', 'Scoreboard'], ['Esc', 'Pause']]],
     ];
     const cols = div('controls-cols', p);

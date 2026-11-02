@@ -23,6 +23,7 @@ export const MEDAL_ICONS: Record<string, string> = {
   stop: '<path d="M8 2h8l6 6v8l-6 6H8l-6-6V8z"/><path d="M7 12h10" stroke="#14110a" stroke-width="2.6" stroke-linecap="round"/>',
   pierce: '<path d="M2 12h16l-4-4M18 12l-4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="12" r="2.6"/><circle cx="13" cy="12" r="2.6"/>',
   shield: '<path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/><path d="M8 12l3 3 5-6" fill="none" stroke="#14110a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  grenade: '<path d="M10 3h4v2.2a7.5 7.5 0 1 1-4 0z"/><path d="M14 4h3.5l1.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   flame: '<path d="M12 2c1 4 5 5.5 5 11a5 5 0 0 1-10 0c0-2.4 1.2-3.8 2.4-5 .3 2 1.2 3 2.3 3.4C11 8.5 11 5 12 2z"/>',
   crown: '<path d="M3 18h18l-1.6-10-4.9 4.6L12 5l-2.5 7.6L4.6 8z"/><path d="M4 20h16" stroke="currentColor" stroke-width="2"/>',
   x2: '<text x="12" y="17" text-anchor="middle" font-size="14" font-weight="800" font-family="Rajdhani, sans-serif">×2</text>',

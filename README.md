@@ -6,7 +6,7 @@ Built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https://vit
 
 ## What's new in v1.2: Rank Up
 
-- **Score, medals and streaks**: damage numbers on every hit, a gold flash and points popup on every kill, 19 medals (First Blood, Longshot, Revenge, Buzzkill, Collateral...), and big call-outs for multikills (Double Kill to Rampage) and streaks (On a Roll to Legendary). See [Score, medals, streaks and levels](#score-medals-streaks-and-levels).
+- **Score, medals and streaks**: damage numbers on every hit, a gold flash and points popup on every kill, 20 medals (First Blood, Longshot, Revenge, Buzzkill, Collateral...), and big call-outs for multikills (Double Kill to Rampage) and streaks (On a Roll to Legendary). See [Score, medals, streaks and levels](#score-medals-streaks-and-levels).
 - **Levels and ranks**: earn XP every match and climb from Recruit to Legend. Your level, rank and career stats show on the main menu.
 - **Harder bots, more XP**: ×1 on Easy up to ×3 on Insane. Novice and Beginner are practice and don't count toward your career.
 - **Match report**: the end screen counts up your stats, lists your medals, breaks down your XP and fills your XP bar, with a fanfare when you level up.
@@ -81,7 +81,8 @@ Chrome is recommended. Safari and Firefox also work.
 | Left click          | Shoot                                         |
 | Right click or Q (hold) | Aim down sights (scope on the sniper rifle). Both work by default; Settings can limit it to one |
 | R                   | Reload                                        |
-| 1 2 3 4             | Pistol, assault rifle, shotgun, sniper rifle  |
+| 1 2 3 4 5 6         | Pistol, assault rifle, shotgun, sniper rifle, SMG, LMG |
+| G                   | Throw a grenade                               |
 | Mouse wheel         | Next / previous weapon                        |
 | E                   | Switch back to the last weapon                |
 | Tab (hold)          | Scoreboard                                    |
@@ -128,7 +129,7 @@ When a match ends, the scoreboard shows the result, your kills, deaths, and accu
 ### On screen
 
 - **Bottom left**: health and armor bars (in 10 segments). When you're hit, a pale strip shows how much you just lost; health turns red when low.
-- **Bottom right**: your four weapons (the one in hand highlighted), the weapon name, rounds in the magazine and spare rounds, a row of marks (one per round in the magazine), and a reload bar
+- **Bottom right**: your six weapons (the one in hand highlighted with its name) and how many grenades you have, the weapon name, rounds in the magazine and spare rounds, a row of marks (one per round in the magazine), and a reload bar
 - **Top left**: the minimap. It turns with you (up is the way you're facing; the **N** marker shows north) and shows walls, pickups, your view cone, and enemies you can see or that just fired. A triangle means the enemy is above or below you.
 - **Top center**: score, leader, and time left (or wave and enemies left)
 - **Top right**: kill feed (your kills in gold, your deaths in red, a target icon for headshots)
@@ -151,6 +152,7 @@ Every hit shows a **damage number** rising from where the bullet landed (gold fo
 | Buzzkill | Ending an enemy's streak of 3 or more | +100 |
 | Collateral | Two kills with one shot | +100 |
 | Avenger | Killing an enemy who just killed a teammate | +50 |
+| Frag Out | A kill with a grenade | +50 |
 | Double / Triple / Quad Kill / Rampage | 2 / 3 / 4 / 5+ kills, each within 4.5 seconds of the last | +100 / +200 / +350 / +500 |
 | On a Roll / Killing Spree / Unstoppable / Godlike / Legendary | 3 / 5 / 8 / 12 / 16 kills without dying | +100 / +200 / +350 / +500 / +750 |
 
@@ -162,13 +164,29 @@ At the end of a match, the **match report** counts up your score, kills, deaths,
 
 Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank every 3 levels) and career stats show on a card on the main menu. They're saved in your browser, so they're still there next time (unless you use a private window or clear the browser's site data). The numbers are in `REWARDS` in `src/config.ts`.
 
+### Weapons
+
+| Key | Weapon | Good for |
+|-----|--------|----------|
+| 1 | Pistol | A quick backup; accurate single shots |
+| 2 | Assault Rifle | All-rounder at most distances |
+| 3 | Shotgun | Devastating up close, useless far away |
+| 4 | Sniper Rifle | One-shot headshots at long range (scope) |
+| 5 | SMG | Very fast fire, accurate while moving; weak at range |
+| 6 | LMG | A 100-round box magazine for holding a lane; heavy (you walk 15% slower with it, and it's slow to raise and reload) |
+| G | Frag grenade | Clearing corners and groups behind cover |
+
+**Grenades**: you carry 2 (up to 4; ammo pickups give one more). Press **G** to lob one where you're aiming; it bounces off walls and floors and goes off after about 2 seconds, with a blinking red light while the fuse runs. The blast hurts everyone within 7 m who isn't behind cover, the more the closer they are, including you (at half strength). A red **!** marker warns you when a live grenade lands near you.
+
+**Bots** carry an assault rifle, SMG or LMG (they take turns through the list in `BOTS.weapons`), and each has one grenade per life, which it may lob at you from 9 to 26 m away. Bots that notice a grenade near them run from it; on the easier levels they're slower to notice. Grenade kills earn the **Frag Out** medal.
+
 ### Pickups
 
 Walk over a pickup to grab it. Each one comes back 20–30 seconds after it's taken.
 
 - **Health** (white case, red cross): +35 health
 - **Armor** (blue vest, on the Foundry roof): +50 armor. Armor soaks up 60% of each hit until it runs out.
-- **Ammo** (ammo can): two spare magazines for every gun
+- **Ammo** (ammo can): two spare magazines for every gun, plus a grenade
 
 Bots use pickups too: hurt bots go for health, and bots have the same ammo as you (a full magazine plus the same spare rounds, refilled by ammo pickups), so they have to fetch ammo when they run low. Bots don't wear armor.
 
@@ -244,9 +262,10 @@ Each bot runs a state machine (`src/bots/BotBrain.ts`). Press **B** to see each 
 | ---------------- | ---------------- |
 | `CONFIG.player`  | Movement speeds, jump, gravity, crouch, health, armor, respawn time |
 | `CONFIG.camera`  | Sprint zoom, head bob, screen shake strength |
-| `WEAPONS`        | Each gun's damage, headshot bonus, fire rate, magazine, reload time, spread, recoil, zoom, range |
+| `WEAPONS`        | Each gun's damage, headshot bonus, fire rate, magazine, reload time, spread, recoil, zoom, range, walking speed |
 | `COMBAT`         | Aiming slowdown, crouch accuracy bonus |
-| `BOTS`           | Bot speed, health, vision range and angle, memory, preferred fighting distance, names |
+| `BOTS`           | Bot speed, health, vision range and angle, memory, preferred fighting distance, names, and the guns they carry (`weapons`) |
+| `GRENADES`       | How many grenades you carry, fuse time, throw strength, blast damage and radius |
 | `BOT_DIFFICULTY` | Novice … Insane: reaction time, aim error, turn speed, bursts, aggression, damage (`DIFFICULTIES` holds the names and menu descriptions) |
 | `MATCH`          | Menu defaults, Free for All kill limits, the time limit |
 | `TEAMS`          | Team names and colors |

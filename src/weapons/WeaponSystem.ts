@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { settings } from '../core/Settings';
-import { COMBAT, CONFIG, WEAPONS, type WeaponId } from '../config';
+import { COMBAT, CONFIG, GRENADES, WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
 import type { CollisionWorld } from '../core/CollisionWorld';
@@ -34,6 +34,8 @@ export interface WeaponSystemDeps {
   viewmodel: Viewmodel;
   /** Called for each target hit by a shot (where, how much, head, killed), for damage numbers. */
   onHit?: (point: THREE.Vector3, damage: number, head: boolean, killed: boolean) => void;
+  /** Throw a grenade from `from` with `velocity`. */
+  throwGrenade?: (from: THREE.Vector3, velocity: THREE.Vector3) => void;
 }
 
 /** The player's guns: input, firing, reloading, switching, aiming. */
@@ -51,6 +53,9 @@ export class WeaponSystem {
   private triggerBuffer = 0;
   private sprintBlockTimer = 0;
   private sprintBlend = 0;
+  /** Frag grenades carried, and seconds until the next throw. */
+  grenades = GRENADES.start;
+  private grenadeCooldown = 0;
 
   private _origin = new THREE.Vector3();
   private _dir = new THREE.Vector3();
@@ -85,9 +90,13 @@ export class WeaponSystem {
     this.viewmodel.setWeapon(this.current.id);
   }
 
-  /** Ammo pickup: add spare magazines to every weapon. Returns false if all are full. */
+  /** Ammo pickup: add spare magazines to every weapon (and a grenade). Returns false if all are full. */
   addAmmo(magazines: number): boolean {
     let used = false;
+    if (this.grenades < GRENADES.max) {
+      this.grenades = Math.min(GRENADES.max, this.grenades + GRENADES.fromAmmoPickup);
+      used = true;
+    }
     for (const w of this.weapons) {
       if (w.reserve < w.stats.maxReserve) {
         w.addReserve(w.stats.magazineSize * magazines);
@@ -99,6 +108,8 @@ export class WeaponSystem {
 
   /** Restore full ammo on every weapon (e.g. on respawn). */
   resetAmmo(): void {
+    this.grenades = GRENADES.start;
+    this.grenadeCooldown = 0;
     for (const w of this.weapons) {
       w.ammo = w.stats.magazineSize;
       w.reserve = w.stats.startingReserve;
@@ -144,12 +155,13 @@ export class WeaponSystem {
     const wasShell = w.reloading && w.stats.reloadStyle === 'perShell';
     if (w.update(dt) === 'reloaded') audio.play(wasShell && w.reloading ? 'shell_insert' : 'reload_end');
     this.triggerBuffer = Math.max(0, this.triggerBuffer - dt);
+    this.grenadeCooldown = Math.max(0, this.grenadeCooldown - dt);
     this.sprintBlockTimer = Math.max(0, this.sprintBlockTimer - dt);
 
     // ---- Tell the player about aiming effects ------------------------------
     const s = this.current.stats;
     player.zoom = 1 + (s.aimZoom - 1) * this.ads;
-    player.speedMultiplier = 1 + (COMBAT.aimMoveSpeedMultiplier - 1) * this.ads;
+    player.speedMultiplier = (1 + (COMBAT.aimMoveSpeedMultiplier - 1) * this.ads) * (s.moveSpeed ?? 1);
     player.sprintBlocked = this.ads > 0.05 || this.sprintBlockTimer > 0;
     player.recoilRecovery = s.recoilRecovery * DEG;
 
@@ -175,6 +187,7 @@ export class WeaponSystem {
       magazine: cur.stats.magazineSize,
       reserve: cur.reserve,
       reloadProgress: cur.reloading ? Math.max(0.01, cur.reloadProgress) : 0,
+      grenades: this.grenades,
     });
     const spreadDeg = this.currentSpread();
     const cam = this.d.camera;
@@ -210,6 +223,12 @@ export class WeaponSystem {
 
     if (input.wasPressed('KeyR') && !busy && w.startReload()) audio.play('reload_start');
 
+    // G: throw a grenade.
+    if (input.wasPressed('KeyG') && this.grenades > 0 && this.grenadeCooldown <= 0 && this.d.throwGrenade) {
+      this.throwGrenadeNow();
+      return;
+    }
+
     if (busy) return;
 
     // Trigger.
@@ -225,6 +244,28 @@ export class WeaponSystem {
       if (w.startReload()) audio.play('reload_start');
       else audio.play('dry_fire');
     }
+  }
+
+  private throwGrenadeNow(): void {
+    const { camera, player } = this.d;
+    this.grenades--;
+    this.grenadeCooldown = GRENADES.cooldown;
+    this.sprintBlockTimer = 0.5;
+    this.ads = 0;
+    this.viewmodel.throwGrenade();
+    camera.updateMatrixWorld();
+    camera.getWorldPosition(this._origin);
+    camera.getWorldDirection(this._dir);
+    // Leaves from just in front of you (a bit low and to the left), lobbed along your aim.
+    const right = this._pellet.set(-this._dir.z, 0, this._dir.x).normalize();
+    const from = this._origin.clone().addScaledVector(this._dir, 0.45).addScaledVector(right, -0.12).setY(this._origin.y - 0.12);
+    // Don't start it inside a wall you're standing against.
+    if (!this.d.world.hasLineOfSight(this._origin.x, this._origin.y, this._origin.z, from.x, from.y, from.z)) from.copy(this._origin);
+    const vel = this._dir.clone().multiplyScalar(GRENADES.throwSpeed);
+    vel.y += GRENADES.throwLift;
+    vel.x += player.velocity.x * 0.5;
+    vel.z += player.velocity.z * 0.5;
+    this.d.throwGrenade!(from, vel);
   }
 
   /** Total spread right now, in degrees. */
