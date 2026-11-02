@@ -189,17 +189,13 @@ export class Game {
     const xp = Math.round(baseXp * multiplier) + m.challenges.xpEarned;
     const difficulty = DIFFICULTIES.find((d) => d.id === m.config.difficulty)?.name ?? m.config.difficulty;
     // Novice and Beginner are practice: nothing goes on your career (no XP, no stats).
-    // UsForge leaderboard (one board, so only the default setup counts: Free for All
-    // on Foundry, Medium, 4 bots, first to 20 kills). Sent once, here, as the match ends.
-    // Not from automated test runs (forcePlay), which skip the real start of a match.
-    const c = m.config;
-    if (!this.forcePlay && c.mode === 'deathmatch' && c.map === MATCH.defaultMap && c.difficulty === MATCH.defaultDifficulty &&
-      c.botCount === MATCH.defaultBotCount && c.killLimit === MATCH.defaultKillLimit) {
-      sendScoreToUsForge(s.score);
-    }
     const career = multiplier > 0
       ? progress.record({ xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, medals: s.medals })
       : { before: m.careerAtStart, after: structuredClone(progress.get()) };
+    // UsForge leaderboard: your total career XP, sent once here as a match ends. Total XP
+    // already adds up every mode, so any finished match that earns XP posts it. Not from
+    // practice difficulties (no XP) or automated test runs (forcePlay).
+    if (!this.forcePlay && multiplier > 0) sendScoreToUsForge(career.after.xp);
     this.menus.showEnd(result, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() }, {
       summary: s, accuracy, xpLines, xp, baseXp, multiplier, difficulty, before: m.careerAtStart, after: career.after,
       challenges, challengeXp: m.challenges.xpEarned, mode: m.mode.name, map: m.map.def.name, time: m.time,
