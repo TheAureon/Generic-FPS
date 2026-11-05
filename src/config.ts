@@ -65,6 +65,8 @@ export const CONFIG = {
     mouseSensitivity: 1.0,
     fov: 80,
     masterVolume: 0.8,
+    /** Music volume (0 = off). */
+    musicVolume: 0.4,
     screenShake: true,
     /** Aim / scope with both the right mouse button and Q ('both'), or only one ('mouse' / 'q'). */
     aimKey: 'both' as 'both' | 'mouse' | 'q',

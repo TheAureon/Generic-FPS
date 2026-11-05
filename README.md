@@ -196,6 +196,10 @@ The XP per challenge is in `CHALLENGES` in `src/config.ts`; the list of challeng
 
 When the game runs on UsForge (inside its page), the end of each finished match sends your **total XP** (your career XP, the same number behind your level) to UsForge's top-10 leaderboard; UsForge asks for your nickname. Matches on Novice and Beginner (practice, no XP) don't post. Opened on its own, the game never sends anything. This is in `src/core/usforge.ts`, called from `endMatch` in `src/core/Game.ts`.
 
+### Music
+
+The game has its own music, composed in code like the sound effects (no audio files): a slow, moody theme in the menus, and quiet ambience during a match that builds up when you're in a fight (bass, drums, then a fast arpeggio) and calms down a while after. It dips under explosions, big call-outs and completed challenges, gets quieter while paused, and the end screen plays a short victory or defeat stinger. Set its volume in **Settings → Music** (all the way down = off; it starts at 40%). It's in `src/audio/Music.ts`, where the chords and tempo of each track are at the top.
+
 ### Pickups
 
 Walk over a pickup to grab it. Each one comes back 20–30 seconds after it's taken.
@@ -210,7 +214,7 @@ Bots use pickups too: hurt bots go for health, and bots have the same ammo as yo
 
 Open **Settings** from the main menu or the pause menu. Changes are saved automatically.
 
-- **Mouse sensitivity**, **Field of view**, **Volume**
+- **Mouse sensitivity**, **Field of view**, **Volume**, **Music** (all the way down turns it off)
 - **Screen shake**: on or off
 - **HUD size**: shrink the on-screen panels (health, ammo, minimap, kill feed, status bar) down to 60%. The crosshair always stays the same size.
 - **Aim / scope**: which button aims down sights and scopes: **Both** right mouse and Q (default), only the right mouse button, or only Q.

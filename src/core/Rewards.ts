@@ -1,6 +1,7 @@
 import type * as THREE from 'three';
 import { REWARDS, type DamageSource } from '../config';
 import { audio } from '../audio/AudioEngine';
+import { music } from '../audio/Music';
 import { events } from './events';
 
 /**
@@ -213,6 +214,7 @@ export class Rewards {
       const def = MEDALS[big];
       const sub = STREAKS[this.streak] === big ? `${this.streak} kills without dying` : this.multi >= 2 && MULTI[Math.min(5, this.multi)] === big ? `${this.multi} kills in a row` : def.info;
       this.d.display.callout(def.name, sub, def.tier);
+      music.duck(0.45, 1.5);
       audio.play(def.tier === 'legend' || def.tier === 'gold' ? 'callout_big' : 'callout');
     } else if (medals.length) {
       audio.play('medal');

@@ -5,6 +5,8 @@ export interface SettingsData {
   mouseSensitivity: number;
   fov: number;
   masterVolume: number;
+  /** Music (0 = off). */
+  musicVolume: number;
   /** Camera shake when shooting and getting hit. */
   screenShake: boolean;
   /** Which button aims down sights / scopes: both right mouse and Q, or just one. */

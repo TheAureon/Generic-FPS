@@ -3,6 +3,7 @@ import { CONFIG, DIFFICULTIES, MATCH, REWARDS } from '../config';
 import { progress } from './Progress';
 import { sendScoreToUsForge } from './usforge';
 import { audio } from '../audio/AudioEngine';
+import { music } from '../audio/Music';
 import { getMap } from '../map/maps';
 import type { MatchConfig } from '../modes/GameMode';
 import { animateMaterials } from '../assets/materials';
@@ -170,6 +171,7 @@ export class Game {
     this.hud.setVisible(false);
     const result = m.mode.result!;
     audio.play(result.win ? 'win' : 'lose');
+    music.stinger(result.win);
     const accuracy = m.shotsFired ? Math.round((100 * m.shotsHit) / m.shotsFired) : 0;
     // XP: everything you scored, plus a bonus for finishing (and more for winning).
     const s = m.rewards.summary;
@@ -240,6 +242,13 @@ export class Game {
 
   private frameInner(): void {
     const dt = Math.min(this.clock.getDelta(), MAX_FRAME_DT);
+    // Music: the menu theme in menus, match music during a match (building with the
+    // fighting, quieter while paused), and silence on the end screen after its stinger.
+    const inMatch = !!this.match && (this.state === 'playing' || this.state === 'paused');
+    music.update(dt, inMatch ? 'match' : this.state === 'ended' ? null : 'menu', {
+      intensity: inMatch ? this.match!.combatIntensity() : 0,
+      paused: this.state === 'paused',
+    });
     animateMaterials(this.clock.elapsedTime);
     const m = this.match;
 

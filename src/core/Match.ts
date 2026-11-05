@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG, GRENADES, PICKUPS, REWARDS, TEAMS } from '../config';
 import { audio } from '../audio/AudioEngine';
+import { music } from '../audio/Music';
 import { BotDebugView } from '../bots/BotDebugView';
 import { BotManager } from '../bots/BotManager';
 import { Effects } from '../effects/Effects';
@@ -65,6 +66,9 @@ export class Match {
   /** Your career when the match started (the end screen animates from here). */
   readonly careerAtStart = structuredClone(progress.get());
   private challengeTimer = 0;
+  /** How intense the fighting around you is (for the music): level, and when it last flared. */
+  private heat = 0;
+  private heatAt = -99;
 
   readonly kills = new Map<string, number>();
   readonly deaths = new Map<string, number>();
@@ -103,9 +107,13 @@ export class Match {
       effects: this.effects,
       victims: () => [...this.combatants(), ...this.dummies] as GrenadeVictim[],
       onExplode: (at) => {
-        // The closer the blast, the harder the shake.
+        // The closer the blast, the harder the shake (and the music ducks under it).
         const d = at.distanceTo(this.player.position);
         if (d < 30) this.controller.addShake(1.1 * (1 - d / 30) ** 2);
+        if (d < 40) {
+          music.duck(0.7 * (1 - d / 40), 1.4);
+          this.flare(1);
+        }
       },
       onHit: (thrower, point, damage, killed) => {
         if (thrower !== this.player.name) return;
@@ -178,6 +186,7 @@ export class Match {
     // Daily challenges (nothing counts on practice difficulties).
     this.challenges = new ChallengeTracker(REWARDS.xpMultiplier[config.difficulty] === 0, (s) => {
       hud.challenges.complete(s);
+      music.duck(0.5, 2);
       audio.play('challenge');
     });
 
@@ -205,9 +214,13 @@ export class Match {
       events.on('kill', () => this.updateChallenges()),
       events.on('shot', (e) => {
         if (e.shooter === this.player.name) this.shotsFired++;
+        // Gunfire: yours, or close to you.
+        if (e.shooter === this.player.name) this.flare(0.75);
+        else if (e.position.distanceTo(this.player.position) < 35) this.flare(0.55);
         this.lastShotAt.set(e.shooter, this.time);
       }),
       events.on('damage', (e) => {
+        if (e.attacker === this.player.name || e.victim === this.player.name) this.flare(1);
         if (e.attacker === this.player.name) this.shotsHit++;
       }),
       () => this.bots.dispose(),
@@ -225,6 +238,18 @@ export class Match {
     for (const bot of this.bots.bots) this.addBotCollector(bot);
 
     this.mode.start();
+  }
+
+  private flare(level: number): void {
+    // A fresh flare-up counts fully; otherwise keep whatever is higher right now.
+    this.heat = Math.max(level, this.combatIntensity());
+    this.heatAt = this.time;
+  }
+
+  /** 0 (calm) .. 1 (in a firefight): holds for a few seconds after the action, then fades. */
+  combatIntensity(): number {
+    const since = this.time - this.heatAt;
+    return since < 5 ? this.heat : Math.max(0, this.heat * (1 - (since - 5) / 9));
   }
 
   /** How the match is going, for daily challenges. */

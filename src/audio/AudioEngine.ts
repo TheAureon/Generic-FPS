@@ -49,6 +49,16 @@ class AudioEngine {
     }
   }
 
+  /** The audio context once sound is unlocked (after the first click), else null. */
+  get context(): AudioContext | null {
+    return this.ctx && this.ctx.state === 'running' ? this.ctx : null;
+  }
+
+  /** Where other sound (music) should go: through the main volume and limiter. */
+  get output(): AudioNode {
+    return this.master;
+  }
+
   /** Keep the "ears" at the camera. Call every frame. */
   updateListener(camera: THREE.Camera): void {
     if (!this.ctx) return;

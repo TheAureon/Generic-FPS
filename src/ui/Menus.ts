@@ -323,6 +323,7 @@ export class Menus {
     slider(field(p, 'Volume'), 0, 1, 0.05, s.masterVolume, (v) => `${Math.round(v * 100)}%`, (v) => settings.set({ masterVolume: v }), () =>
       audio.play('pickup'),
     );
+    slider(field(p, 'Music', 'Menu theme and match music'), 0, 1, 0.05, s.musicVolume, (v) => (v === 0 ? 'Off' : `${Math.round(v * 100)}%`), (v) => settings.set({ musicVolume: v }));
 
     div('menu-note', p).textContent = 'Changes are saved automatically. Some graphics changes take full effect from the next match.';
     const row = div('menu-buttons row', p);
