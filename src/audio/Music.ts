@@ -34,13 +34,35 @@ interface TrackDef {
 }
 
 const TRACKS: Record<'menu' | 'match', TrackDef> = {
-  // D minor, slow: Dm, Bb, F, C (and a suspended turn at the end).
-  menu: { bpm: 70, barsPerChord: 2, chords: [[50, MIN], [46, MAJ], [41, MAJ], [48, SUS]] },
+  // D minor: Dm(add9), Bb(maj7), F, C(sus) — one bar each, in a piece of 8 sections (see MENU_SECTIONS).
+  menu: { bpm: 84, barsPerChord: 1, chords: [[50, [0, 3, 7, 14]], [46, MAJ], [41, [0, 4, 7, 14]], [48, SUS]] },
   // E minor, tense and driving when it builds: Em, Em, C, D, Em, Em, Am, B.
   match: { bpm: 104, barsPerChord: 1, chords: [[52, MIN], [52, MIN], [48, MAJ], [50, MAJ], [52, MIN], [52, MIN], [45, MIN], [47, [0, 4, 7, 10]]] },
 };
 
 const freq = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12);
+
+/**
+ * The menu piece: 8 sections of 8 bars (about 3 minutes, then it starts over).
+ * Each says which parts play.
+ */
+interface Section { arp?: boolean; bass?: boolean; lead?: boolean; drums?: 0 | 1 | 2; bells?: boolean; dark?: boolean; rise?: boolean; boom?: boolean; up?: boolean }
+const MENU_SECTIONS: Section[] = [
+  { boom: true }, // intro: pads and a deep hit
+  { arp: true, bass: true, rise: true }, // the arpeggio comes in, opening up; a whoosh into...
+  { arp: true, bass: true, lead: true, drums: 1, boom: true }, // the melody, with soft drums
+  { arp: true, bass: true, lead: true, drums: 2, up: true, rise: true }, // full: melody an octave up, bigger drums
+  { bells: true, dark: true, boom: true }, // breakdown: dark pads and bells
+  { arp: true, bass: true, bells: true, drums: 1, rise: true }, // building again
+  { arp: true, bass: true, lead: true, drums: 2, boom: true }, // full again
+  { arp: true, dark: true }, // outro: fading out to the start
+];
+
+/** The melody: [step in the 4 bars (16 per bar), MIDI note, length in steps]. Two phrases: a call and an answer. */
+const MELODY: [number, number, number][][] = [
+  [[0, 69, 6], [6, 65, 2], [8, 67, 4], [12, 69, 4], [16, 74, 8], [24, 72, 4], [28, 70, 4], [32, 69, 8], [40, 67, 4], [44, 65, 4], [48, 64, 6], [54, 65, 2], [56, 67, 8]],
+  [[0, 69, 4], [4, 74, 4], [8, 77, 6], [14, 76, 2], [16, 74, 8], [24, 77, 4], [28, 74, 4], [32, 72, 6], [38, 69, 2], [40, 72, 4], [44, 77, 4], [48, 76, 12], [60, 74, 4]],
+];
 
 class Music {
   private ctx: AudioContext | null = null;
@@ -231,24 +253,57 @@ class Music {
   }
 
   private menuStep(step: number, t: number, s: number, def: TrackDef): void {
-    const { chord, first, index } = this.chordAt(step, def);
+    const { chord, first } = this.chordAt(step, def);
     const [root, notes] = chord;
-    const inBar = step % 16;
-    const chordLen = s * 16 * def.barsPerChord;
+    const bar = Math.floor(step / 16), inBar = step % 16;
+    const sec = MENU_SECTIONS[Math.floor(bar / 8) % MENU_SECTIONS.length];
+    const barInSec = bar % 8, progress = (barInSec * 16 + inBar) / 128; // 0..1 through the section
+    const barLen = s * 16;
+
+    // Pads: the chord, wide in stereo; darker in the breakdown and the outro.
     if (first) {
-      // Pad: the chord, slow to swell, overlapping the next one.
-      for (const n of notes) this.padNote(freq(root + 12 + n), t, chordLen + 1.5, 0.05);
-      this.padNote(freq(root + 24 + notes[1]), t, chordLen + 1.5, 0.025);
-      // A deep hit at the start of each full round of chords.
-      if (index === 0) this.boom(t, 0.5);
+      const bright = sec.dark ? 700 : 1500;
+      notes.forEach((n, i) => this.padNote(freq(root + 12 + n), t, barLen + 1.2, 0.04, bright, i % 2 ? 0.5 : -0.5));
+      this.padNote(freq(root), t, barLen + 1.2, 0.03, bright * 0.6);
+      if (barInSec === 0 && sec.boom) this.boom(t, 0.55);
     }
-    // Bass: long notes on the root.
-    if (inBar === 0) this.bassNote(freq(root - 12), t, s * 14, 0.22);
-    // A sparse, echoing arpeggio on every other bar.
-    if (Math.floor(step / 16) % 2 === 1 && inBar % 4 === 0) {
-      const n = notes[(inBar / 4) % notes.length];
-      this.pluck(freq(root + 24 + n), t, 1.4, 0.07, this.layers.arp);
+    // Bass: long root notes, or a gentle syncopated pulse once things get going.
+    if (sec.bass) {
+      if (inBar === 0 || inBar === 6 || inBar === 10) this.bassNote(freq(root - 12), t, s * (inBar === 0 ? 5 : 3.5), inBar === 0 ? 0.26 : 0.16);
+    } else if (inBar === 0) this.bassNote(freq(root - 12), t, barLen * 0.95, 0.2);
+
+    // Arpeggio: 16ths over two octaves, bouncing left and right; its filter opens through the
+    // build-up and closes in the outro.
+    if (sec.arp) {
+      const pattern = [0, 1, 2, 3, 4, 3, 2, 1];
+      const k = pattern[inBar % 8];
+      const n = root + 24 + (k < notes.length ? notes[k] : notes[k - notes.length] + 12);
+      const open = MENU_SECTIONS.indexOf(sec) === 1 ? 800 + 4200 * progress : sec.dark ? 5000 - 4000 * progress : 5000;
+      this.pluck(freq(n), t, 0.35, inBar % 4 === 0 ? 0.075 : 0.05, this.layers.arp, open, inBar % 2 ? 0.45 : -0.45);
     }
+
+    // The melody (call in bars 1-4, answer in 5-8 of the section).
+    if (sec.lead || sec.bells) {
+      const phrase = MELODY[barInSec < 4 ? 0 : 1];
+      const pos = (barInSec % 4) * 16 + inBar;
+      for (const [at, note, len] of phrase) {
+        if (at !== pos) continue;
+        if (sec.lead) this.leadNote(freq(note + (sec.up ? 12 : 0)), t, len * s, 0.1);
+        if (sec.lead && sec.up) this.leadNote(freq(note), t, len * s, 0.03); // the octave below, for weight
+        if (sec.bells) this.bell(freq(note + 12), t, 0.08);
+      }
+    }
+
+    // Drums: soft (kick, rim, shaker), or full (plus snare and toms filling the last bar).
+    if (sec.drums) {
+      const full = sec.drums === 2;
+      if (inBar === 0 || (full && inBar === 10)) this.kick(t, full ? 0.5 : 0.35);
+      if (inBar === 8) full ? this.snare(t, 0.2) : this.noiseHit(t, 0.12, 'bandpass', 3200, 0.06, this.layers.drums);
+      if (inBar % 2 === 0) this.noiseHit(t, inBar % 4 === 2 ? 0.035 : 0.02, 'highpass', 8000, 0.04, this.layers.drums);
+      if (full && barInSec === 7 && inBar >= 8 && inBar % 2 === 0) this.tom(t, 180 - (inBar - 8) * 14, 0.3);
+    }
+    // A rising whoosh in the last two bars, into the next section.
+    if (sec.rise && barInSec === 6 && inBar === 0) this.riser(t, barLen * 2);
   }
 
   private matchStep(step: number, t: number, s: number, def: TrackDef): void {
@@ -273,7 +328,7 @@ class Music {
   // ---- Instruments ------------------------------------------------------------------
 
   /** A soft, wide pad note: two detuned saws through a slowly opening filter. */
-  private padNote(f: number, t: number, len: number, gain: number): void {
+  private padNote(f: number, t: number, len: number, gain: number, bright = 1300, pan = 0): void {
     const ctx = this.ctx!;
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
@@ -282,9 +337,9 @@ class Music {
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(400, t);
-    filter.frequency.linearRampToValueAtTime(1300, t + len * 0.5);
+    filter.frequency.linearRampToValueAtTime(bright, t + len * 0.5);
     filter.Q.value = 0.6;
-    filter.connect(env).connect(this.layers.pad);
+    filter.connect(env).connect(this.panned(pan, this.layers.pad));
     for (const det of [-7, 7]) {
       const o = ctx.createOscillator();
       o.type = 'sawtooth';
@@ -320,7 +375,7 @@ class Music {
     }
   }
 
-  private pluck(f: number, t: number, len: number, gain: number, out: GainNode): void {
+  private pluck(f: number, t: number, len: number, gain: number, out: GainNode, bright = 3500, pan = 0): void {
     const ctx = this.ctx!;
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
@@ -328,15 +383,112 @@ class Music {
     env.gain.exponentialRampToValueAtTime(0.0001, t + len);
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(3500, t);
-    filter.frequency.exponentialRampToValueAtTime(600, t + len);
-    filter.connect(env).connect(out);
+    filter.frequency.setValueAtTime(bright, t);
+    filter.frequency.exponentialRampToValueAtTime(Math.min(600, bright * 0.5), t + len);
+    filter.connect(env).connect(this.panned(pan, out));
     const o = ctx.createOscillator();
     o.type = 'square';
     o.frequency.value = f;
     o.connect(filter);
     o.start(t);
     o.stop(t + len + 0.05);
+  }
+
+  /** Send `out` through a stereo pan (-1 left .. 1 right), if the browser has one. */
+  private panned(pan: number, out: AudioNode): AudioNode {
+    if (!pan || !this.ctx!.createStereoPanner) return out;
+    const p = this.ctx!.createStereoPanner();
+    p.pan.value = pan;
+    p.connect(out);
+    return p;
+  }
+
+  /** The lead: two slightly detuned voices (saw + triangle), a soft attack and a gentle vibrato. */
+  private leadNote(f: number, t: number, len: number, gain: number): void {
+    const ctx = this.ctx!;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.linearRampToValueAtTime(gain, t + 0.06);
+    env.gain.setTargetAtTime(gain * 0.7, t + 0.1, 0.3);
+    env.gain.setTargetAtTime(0.0001, t + len, 0.18);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 3600;
+    filter.Q.value = 1.2;
+    filter.connect(env);
+    env.connect(this.layers.arp); // (shares the echo and reverb with the arpeggio)
+    const vib = ctx.createOscillator();
+    vib.frequency.value = 5.2;
+    const vibAmt = ctx.createGain();
+    vibAmt.gain.setValueAtTime(0, t);
+    vibAmt.gain.linearRampToValueAtTime(f * 0.006, t + Math.min(0.5, len)); // vibrato fades in on long notes
+    vib.connect(vibAmt);
+    for (const [type, det, g] of [['sawtooth', -5, 0.5], ['triangle', 5, 1]] as [OscillatorType, number, number][]) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = f;
+      o.detune.value = det;
+      vibAmt.connect(o.frequency);
+      const og = ctx.createGain();
+      og.gain.value = g;
+      o.connect(og).connect(filter);
+      o.start(t);
+      o.stop(t + len + 1);
+    }
+    vib.start(t);
+    vib.stop(t + len + 1);
+  }
+
+  /** A bell: a sine with two bright overtones that ring off quickly. */
+  private bell(f: number, t: number, gain: number): void {
+    const ctx = this.ctx!;
+    for (const [mult, g, decay] of [[1, 1, 2.2], [2.76, 0.35, 0.9], [5.4, 0.15, 0.4]]) {
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(gain * g, t + 0.004);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+      env.connect(this.layers.arp);
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = f * mult;
+      o.connect(env);
+      o.start(t);
+      o.stop(t + decay + 0.05);
+    }
+  }
+
+  private tom(t: number, f: number, gain: number): void {
+    const ctx = this.ctx!;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(gain, t);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    env.connect(this.layers.drums);
+    const o = ctx.createOscillator();
+    o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * 0.55, t + 0.3);
+    o.connect(env);
+    o.start(t);
+    o.stop(t + 0.45);
+  }
+
+  /** A swell of filtered noise rising into the next section. */
+  private riser(t: number, len: number): void {
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 1.4;
+    filter.frequency.setValueAtTime(300, t);
+    filter.frequency.exponentialRampToValueAtTime(5000, t + len);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(0.09, t + len * 0.97);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.08);
+    src.connect(filter).connect(env).connect(this.layers.drums);
+    src.start(t);
+    src.stop(t + len + 0.1);
   }
 
   private kick(t: number, gain: number): void {

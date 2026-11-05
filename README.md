@@ -198,7 +198,7 @@ When the game runs on UsForge (inside its page), the end of each finished match 
 
 ### Music
 
-The game has its own music, composed in code like the sound effects (no audio files): a slow, moody theme in the menus, and quiet ambience during a match that builds up when you're in a fight (bass, drums, then a fast arpeggio) and calms down a while after. It dips under explosions, big call-outs and completed challenges, gets quieter while paused, and the end screen plays a short victory or defeat stinger. Set its volume in **Settings → Music** (all the way down = off; it starts at 40%). It's in `src/audio/Music.ts`, where the chords and tempo of each track are at the top.
+The game has its own music, composed in code like the sound effects (no audio files): a three-minute menu theme in D minor (an intro, a build-up with a rising arpeggio, a melody with soft drums, a full section with the melody an octave up and drum fills, a dark breakdown with bells, and back again), and quiet ambience during a match that builds up when you're in a fight (bass, drums, then a fast arpeggio) and calms down a while after. It dips under explosions, big call-outs and completed challenges, gets quieter while paused, and the end screen plays a short victory or defeat stinger. Set its volume in **Settings → Music** (all the way down = off; it starts at 40%). It's in `src/audio/Music.ts`, where the chords and tempo of each track are at the top.
 
 ### Pickups
 
