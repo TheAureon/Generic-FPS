@@ -198,7 +198,12 @@ When the game runs on UsForge (inside its page), the end of each finished match 
 
 ### Music
 
-The game has its own music, composed in code like the sound effects (no audio files): a three-minute menu theme in D minor (an intro, a build-up with a rising arpeggio, a melody with soft drums, a full section with the melody an octave up and drum fills, a dark breakdown with bells, and back again), and quiet ambience during a match that builds up when you're in a fight (bass, drums, then a fast arpeggio) and calms down a while after. It dips under explosions, big call-outs and completed challenges, gets quieter while paused, and the end screen plays a short victory or defeat stinger. Set its volume in **Settings → Music** (all the way down = off; it starts at 40%). It's in `src/audio/Music.ts`, where the chords and tempo of each track are at the top.
+The game has its own music, composed in code like the sound effects (no audio files): a three-minute menu theme in D minor (an intro, a build-up with a rising arpeggio, a melody with soft drums, a full section with the melody an octave up and drum fills, a dark breakdown with bells, and back again), and quiet ambience during a match that builds up when you're in a fight (bass, drums, then a fast arpeggio) and calms down a while after. It dips under explosions, big call-outs and completed challenges, gets quieter while paused, and the end screen plays a short victory or defeat stinger. There are two styles to choose from in **Settings → Music style**:
+
+- **Synth** (the default): the pads, arpeggios and electronic drums described above.
+- **Cinematic**: an orchestra made in code. The menu piece plays the same theme in C minor with string sections, horns, a choir, harp, taiko drums, timpani and cymbal swells; match music is tense low strings that build into driving short string notes, taiko and brass stabs when you're fighting; and the end screen gets a brass fanfare or a dark low fall.
+
+Changing the style while music is playing crossfades to the other one. Set the volume in **Settings → Music** (all the way down = off; it starts at 40%). It's in `src/audio/Music.ts`, where the chords and tempo of each track are at the top.
 
 ### Pickups
 
@@ -214,7 +219,7 @@ Bots use pickups too: hurt bots go for health, and bots have the same ammo as yo
 
 Open **Settings** from the main menu or the pause menu. Changes are saved automatically.
 
-- **Mouse sensitivity**, **Field of view**, **Volume**, **Music** (all the way down turns it off)
+- **Mouse sensitivity**, **Field of view**, **Volume**, **Music** (all the way down turns it off), **Music style** (Synth or Cinematic)
 - **Screen shake**: on or off
 - **HUD size**: shrink the on-screen panels (health, ammo, minimap, kill feed, status bar) down to 60%. The crosshair always stays the same size.
 - **Aim / scope**: which button aims down sights and scopes: **Both** right mouse and Q (default), only the right mouse button, or only Q.

@@ -324,6 +324,9 @@ export class Menus {
       audio.play('pickup'),
     );
     slider(field(p, 'Music', 'Menu theme and match music'), 0, 1, 0.05, s.musicVolume, (v) => (v === 0 ? 'Off' : `${Math.round(v * 100)}%`), (v) => settings.set({ musicVolume: v }));
+    segmented(field(p, 'Music style'), [['synth', 'Synth'], ['cinematic', 'Cinematic']], s.musicStyle ?? 'synth', (v) =>
+      settings.set({ musicStyle: v as 'synth' | 'cinematic' }),
+    );
 
     div('menu-note', p).textContent = 'Changes are saved automatically. Some graphics changes take full effect from the next match.';
     const row = div('menu-buttons row', p);

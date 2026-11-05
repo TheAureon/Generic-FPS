@@ -67,6 +67,8 @@ export const CONFIG = {
     masterVolume: 0.8,
     /** Music volume (0 = off). */
     musicVolume: 0.4,
+    /** Music style: 'synth' or 'cinematic'. */
+    musicStyle: 'synth' as 'synth' | 'cinematic',
     screenShake: true,
     /** Aim / scope with both the right mouse button and Q ('both'), or only one ('mouse' / 'q'). */
     aimKey: 'both' as 'both' | 'mouse' | 'q',

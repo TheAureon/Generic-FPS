@@ -7,6 +7,8 @@ export interface SettingsData {
   masterVolume: number;
   /** Music (0 = off). */
   musicVolume: number;
+  /** Which music: synth or cinematic. */
+  musicStyle: 'synth' | 'cinematic';
   /** Camera shake when shooting and getting hit. */
   screenShake: boolean;
   /** Which button aims down sights / scopes: both right mouse and Q, or just one. */
