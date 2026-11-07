@@ -203,7 +203,7 @@ The game has its own music, composed in code like the sound effects (no audio fi
 - **Synth** (the default): the pads, arpeggios and electronic drums described above.
 - **Cinematic**: an orchestra made in code. The menu piece plays the same theme in C minor with string sections, horns, a choir, harp, taiko drums, timpani and cymbal swells; match music is tense low strings that build into driving short string notes, taiko and brass stabs when you're fighting; and the end screen gets a brass fanfare or a dark low fall.
 
-Changing the style while music is playing crossfades to the other one. Set the volume in **Settings → Music** (all the way down = off; it starts at 40%). It's in `src/audio/Music.ts`, where the chords and tempo of each track are at the top.
+Changing the style while music is playing crossfades to the other one. Set the volume in **Settings → Music** (all the way down = off; it starts at 40%). **Music in matches** is off by default, so while you play you only hear the game (footsteps, gunfire, where shots come from); turn it on in Settings to get the match music. It's in `src/audio/Music.ts`, where the chords and tempo of each track are at the top.
 
 ### Pickups
 
@@ -219,7 +219,7 @@ Bots use pickups too: hurt bots go for health, and bots have the same ammo as yo
 
 Open **Settings** from the main menu or the pause menu. Changes are saved automatically.
 
-- **Mouse sensitivity**, **Field of view**, **Volume**, **Music** (all the way down turns it off), **Music style** (Synth or Cinematic)
+- **Mouse sensitivity**, **Field of view**, **Volume**, **Music** (all the way down turns it off), **Music style** (Synth or Cinematic), **Music in matches** (off by default)
 - **Screen shake**: on or off
 - **HUD size**: shrink the on-screen panels (health, ammo, minimap, kill feed, status bar) down to 60%. The crosshair always stays the same size.
 - **Aim / scope**: which button aims down sights and scopes: **Both** right mouse and Q (default), only the right mouse button, or only Q.
@@ -336,6 +336,7 @@ It appears in the match menu automatically, and bots can navigate it without any
 - **A page of text instead of the game**: that's `dev.html`, the development page. Open `index.html` instead, or use `npm run dev`.
 - **The mouse isn't captured / "Click Resume"**: browsers only capture the mouse right after a click, and they refuse if you press Esc and click again very quickly. Wait a second and click **Resume**.
 - **The game feels choppy**: Settings → Graphics → Medium or Low.
+- **The sound stops**: press any key or click; the browser sometimes pauses a page's sound (for example when you switch to headphones or the computer wakes from sleep), and the game starts it again on your next key press or click.
 - **No sound**: check the volume in Settings and your Mac's volume. Browsers only allow sound after your first click in the page.
 - **`npm` isn't found in Terminal**: install Node.js (see setup above), then open a new Terminal window.
 

@@ -245,7 +245,7 @@ export class Game {
     // Music: the menu theme in menus, match music during a match (building with the
     // fighting, quieter while paused), and silence on the end screen after its stinger.
     const inMatch = !!this.match && (this.state === 'playing' || this.state === 'paused');
-    music.update(dt, inMatch ? 'match' : this.state === 'ended' ? null : 'menu', {
+    music.update(dt, inMatch ? (settings.get().matchMusic ? 'match' : null) : this.state === 'ended' ? null : 'menu', {
       intensity: inMatch ? this.match!.combatIntensity() : 0,
       paused: this.state === 'paused',
     });

@@ -9,6 +9,8 @@ export interface SettingsData {
   musicVolume: number;
   /** Which music: synth or cinematic. */
   musicStyle: 'synth' | 'cinematic';
+  /** Music while playing a match (the menus always have it, if Music is on). */
+  matchMusic: boolean;
   /** Camera shake when shooting and getting hit. */
   screenShake: boolean;
   /** Which button aims down sights / scopes: both right mouse and Q, or just one. */

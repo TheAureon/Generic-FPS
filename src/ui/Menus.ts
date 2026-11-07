@@ -327,6 +327,9 @@ export class Menus {
     segmented(field(p, 'Music style'), [['synth', 'Synth'], ['cinematic', 'Cinematic']], s.musicStyle ?? 'synth', (v) =>
       settings.set({ musicStyle: v as 'synth' | 'cinematic' }),
     );
+    segmented(field(p, 'Music in matches', 'Off: only the game’s sounds while you play'), [['off', 'Off'], ['on', 'On']], s.matchMusic ? 'on' : 'off', (v) =>
+      settings.set({ matchMusic: v === 'on' }),
+    );
 
     div('menu-note', p).textContent = 'Changes are saved automatically. Some graphics changes take full effect from the next match.';
     const row = div('menu-buttons row', p);

@@ -69,6 +69,8 @@ export const CONFIG = {
     musicVolume: 0.4,
     /** Music style: 'synth' or 'cinematic'. */
     musicStyle: 'synth' as 'synth' | 'cinematic',
+    /** Music during matches (off: just the game's sounds while you play). */
+    matchMusic: false,
     screenShake: true,
     /** Aim / scope with both the right mouse button and Q ('both'), or only one ('mouse' / 'q'). */
     aimKey: 'both' as 'both' | 'mouse' | 'q',

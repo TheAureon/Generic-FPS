@@ -91,6 +91,7 @@ class Music {
   private intensityTarget = 0;
   private paused = false;
   private switching = false;
+  private hooked = false;
   /** The style now playing (a change in Settings crossfades to the other one). */
   private style: MusicStyle = 'synth';
 
@@ -189,7 +190,22 @@ class Music {
     this.fadeGain = ctx.createGain();
     this.fadeGain.gain.value = 0;
     this.volume.gain.value = LEVEL * settings.get().musicVolume;
-    settings.onChange((s) => this.volume.gain.setTargetAtTime(LEVEL * s.musicVolume, ctx.currentTime, 0.1));
+    if (!this.hooked) {
+      // (Once only, even if the music is rebuilt.)
+      this.hooked = true;
+      settings.onChange((s) => this.volume && this.ctx && this.volume.gain.setTargetAtTime(LEVEL * s.musicVolume, this.ctx.currentTime, 0.1));
+      // Keep scheduling on its own timer too, so a slow frame never leaves a gap in the music.
+      window.setInterval(() => {
+        if (this.ctx && this.track && !this.switching) this.schedule();
+      }, 100);
+      // If the sound engine had to rebuild its mixer, start the music over with fresh parts.
+      audio.onReset(() => {
+        this.volume?.disconnect();
+        this.ctx = null;
+        this.track = null;
+        this.switching = false;
+      });
+    }
     this.fadeGain.connect(this.duckGain).connect(this.volume).connect(audio.output);
 
     // A big, soft room: a reverb made from fading noise.
@@ -226,10 +242,7 @@ class Music {
     };
     this.layers = { pad: layer(), bass: layer(), drums: layer(), arp: layer() };
     this.layers.arp.connect(this.delay);
-    // Keep scheduling on its own timer too, so a slow frame never leaves a gap in the music.
-    window.setInterval(() => {
-      if (this.track && !this.switching) this.schedule();
-    }, 100);
+
   }
 
   private start(track: MusicTrack): void {

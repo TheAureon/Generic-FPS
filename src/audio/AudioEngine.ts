@@ -8,10 +8,23 @@ export interface PlayOptions {
   volume?: number;
 }
 
-/** Plays sound effects. Browsers only allow audio after a click, see `unlock()`. */
+/**
+ * Plays sound effects. Browsers only allow audio after a click, see `unlock()`.
+ *
+ * Keeping sound alive: a browser can pause a page's sound by itself (Safari
+ * does when the audio device changes, after sleep, or when another tab or app
+ * plays sound). Any later key press, click or return to the tab starts it
+ * again. And if a broken value ever reaches the mixer (which would silence it
+ * for good), a watchdog rebuilds the mixer within a second.
+ */
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
+  private limiter!: DynamicsCompressorNode;
+  private guard!: AnalyserNode;
+  private guardBuf = new Float32Array(256);
+  private resuming = false;
+  private resetListeners: (() => void)[] = [];
   private noise!: AudioBuffer;
   private samples = new Map<SoundId, AudioBuffer>();
 
@@ -21,11 +34,19 @@ class AudioEngine {
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
       this.master.gain.value = settings.get().masterVolume;
-      // Gentle limiter so many overlapping shots don't distort.
-      const comp = this.ctx.createDynamicsCompressor();
-      comp.threshold.value = -10;
-      comp.ratio.value = 6;
-      this.master.connect(comp).connect(this.ctx.destination);
+      this.buildLimiter();
+      // Watch what goes into the limiter; see healIfBroken().
+      this.guard = this.ctx.createAnalyser();
+      this.guard.fftSize = 256;
+      this.master.connect(this.guard);
+      window.setInterval(() => this.healIfBroken(), 1000);
+
+      // Start sound again whenever the player does anything, or comes back to the tab.
+      const wake = () => this.resume();
+      for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, wake, true);
+      window.addEventListener('focus', wake);
+      document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && this.resume());
+      this.ctx.addEventListener('statechange', () => this.ctx!.state !== 'running' && document.visibilityState === 'visible' && this.resume());
 
       const len = this.ctx.sampleRate * 2;
       this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -35,7 +56,45 @@ class AudioEngine {
       settings.onChange((s) => this.master.gain.setTargetAtTime(s.masterVolume, this.ctx!.currentTime, 0.05));
       void this.loadSamples();
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    this.resume();
+  }
+
+  /** Ask the browser to start sound again if it was paused (needs a recent click or key press). */
+  private resume(): void {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state === 'running' || ctx.state === 'closed' || this.resuming) return;
+    this.resuming = true;
+    ctx.resume().catch(() => {}).finally(() => (this.resuming = false));
+  }
+
+  /** Gentle limiter so many overlapping shots don't distort. */
+  private buildLimiter(): void {
+    const ctx = this.ctx!;
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -10;
+    this.limiter.ratio.value = 6;
+    this.master.connect(this.limiter).connect(ctx.destination);
+  }
+
+  /**
+   * A single broken value (not a number) reaching the limiter would silence
+   * everything for good. If one shows up, swap in a fresh limiter, and tell
+   * the music to rebuild itself (its echoes could keep passing it around).
+   */
+  private healIfBroken(): void {
+    if (!this.ctx || this.ctx.state !== 'running') return;
+    this.guard.getFloatTimeDomainData(this.guardBuf);
+    if (this.guardBuf.every((v) => Number.isFinite(v))) return;
+    console.warn('Sound: a broken value reached the mixer; rebuilding it.');
+    this.master.disconnect(this.limiter);
+    this.limiter.disconnect();
+    this.buildLimiter();
+    for (const f of this.resetListeners) f();
+  }
+
+  /** Called if the mixer had to be rebuilt (see healIfBroken). */
+  onReset(f: () => void): void {
+    this.resetListeners.push(f);
   }
 
   private async loadSamples(): Promise<void> {
@@ -64,6 +123,7 @@ class AudioEngine {
     if (!this.ctx) return;
     const l = this.ctx.listener;
     const e = camera.matrixWorld.elements;
+    if (!e.every((v) => Number.isFinite(v))) return;
     const t = this.ctx.currentTime;
     // Camera looks down its -Z axis; Y is up.
     if (l.positionX) {
@@ -85,7 +145,15 @@ class AudioEngine {
 
   play(id: SoundId, opts: PlayOptions = {}): void {
     const ctx = this.ctx;
-    if (!ctx || ctx.state !== 'running') return;
+    if (!ctx) return;
+    if (ctx.state !== 'running') {
+      this.resume();
+      return;
+    }
+    // Never feed the mixer a broken position or volume (see healIfBroken).
+    const p = opts.position;
+    if (p && !(Math.abs(p.x) < 1e4 && Math.abs(p.y) < 1e4 && Math.abs(p.z) < 1e4)) return;
+    if (opts.volume !== undefined && !(opts.volume >= 0 && opts.volume < 10)) return;
 
     let out: AudioNode = this.master;
     const vol = opts.volume ?? 1;
