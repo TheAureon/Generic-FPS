@@ -1,4 +1,4 @@
-import type { MedalTier } from './Rewards';
+import { MEDALS, type MedalTier } from './Rewards';
 import { MASTERY_GUNS, masteryLevel } from './Cosmetics';
 import type { Career, MatchRecord } from './Progress';
 
@@ -26,6 +26,8 @@ export const WINNABLE_MODES = ['deathmatch', 'tdm', 'koh', 'coh', 'ctf', 'contro
 /** The real maps (not the test room). */
 export const CAREER_MAPS = ['foundry', 'office', 'museum', 'forest', 'mountains', 'flatlands'];
 
+/** Has every medal (of a tier) been earned at least once? */
+const hasAll = (c: Career, tier?: MedalTier) => Object.entries(MEDALS).filter(([, m]) => !tier || m.tier === tier).every(([id]) => (c.medals[id] ?? 0) > 0);
 const count = (rec: Record<string, number>) => Object.values(rec).reduce((a, b) => a + b, 0);
 /** Stars on a map: 1 for a win, 2 for a win on Hard or harder, 3 for a win on Insane. */
 export const starCount = (mask = 0) => (mask & 1 ? 1 : 0) + (mask & 2 ? 1 : 0) + (mask & 4 ? 1 : 0);
@@ -65,6 +67,12 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   // Medals and challenges
   { id: 'medals100', name: 'Decorated', info: 'Earn 100 medals', tier: 'silver', icon: 'burst', check: (c) => count(c.medals) - (c.medals.headshot ?? 0) >= 100 },
   { id: 'daily10', name: 'Daily Grind', info: 'Complete 10 daily challenges', tier: 'silver', icon: 'rise', check: (c) => c.challengesDone >= 10 },
+  // Medal collection: every medal of a tier at least once.
+  { id: 'allBronze', name: 'Bronze Collection', info: 'Earn every bronze medal', tier: 'silver', icon: 'burst', check: (c) => hasAll(c, 'bronze') },
+  { id: 'allSilver', name: 'Silver Collection', info: 'Earn every silver medal', tier: 'gold', icon: 'burst', check: (c) => hasAll(c, 'silver') },
+  { id: 'allGold', name: 'Gold Collection', info: 'Earn every gold medal', tier: 'gold', icon: 'crown', check: (c) => hasAll(c, 'gold') },
+  { id: 'allLegend', name: 'Legend Collection', info: 'Earn every legendary medal', tier: 'legend', icon: 'crown', check: (c) => hasAll(c, 'legend') },
+  { id: 'allMedals', name: 'Collector', info: 'Earn every medal in the game', tier: 'legend', icon: 'crown', check: (c) => hasAll(c) },
   // Mastery and prestige
   { id: 'gold1', name: 'Golden Gun', info: 'Reach mastery 10 (Gold) with any gun', tier: 'gold', icon: 'crown', check: (c) => MASTERY_GUNS.some((g) => masteryLevel(c.weaponKills[g] ?? 0) >= 10) },
   { id: 'goldAll', name: 'Armory of Gold', info: 'Reach mastery 10 with every gun', tier: 'legend', icon: 'crown', check: (c) => MASTERY_GUNS.every((g) => masteryLevel(c.weaponKills[g] ?? 0) >= 10) },

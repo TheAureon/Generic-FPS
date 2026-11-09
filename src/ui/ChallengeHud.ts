@@ -16,18 +16,7 @@ export class ChallengeHud {
   constructor(root: HTMLElement) {
     this.panel = div('ch-panel glass', root);
     const head = div('ch-head', this.panel);
-    head.textContent = 'Daily challenges';
-    for (let i = 0; i < 3; i++) {
-      const el = div('ch-row', this.panel);
-      const top = div('chr-top', el);
-      const text = div('ch-text', top);
-      const count = document.createElement('span');
-      count.className = 'ch-count';
-      top.appendChild(count);
-      const bar = div('ch-bar', el);
-      const fill = div('ch-fill', bar);
-      this.rows.push({ el, text, count, fill, last: -1 });
-    }
+    head.textContent = 'Challenges';
     this.note = div('ch-note', this.panel);
     this.banner = div('ch-banner', root);
     this.reset();
@@ -46,11 +35,22 @@ export class ChallengeHud {
     this.lastKey = key;
     this.panel.classList.toggle('practice', practice);
     this.note.textContent = practice ? 'Practice difficulty: challenges don’t count' : '';
+    // (Rows are made as needed: three daily, three weekly.)
+    while (this.rows.length < list.length) {
+      const el = document.createElement('div');
+      this.panel.insertBefore(el, this.note);
+      const top = div('chr-top', el);
+      const text = div('ch-text', top);
+      const count = document.createElement('span');
+      count.className = 'ch-count';
+      top.appendChild(count);
+      const fill = div('ch-fill', div('ch-bar', el));
+      this.rows.push({ el, text, count, fill, last: -1 });
+    }
     list.forEach((s, i) => {
       const r = this.rows[i];
-      if (!r) return;
-      r.el.className = `ch-row tier-${s.tier}${s.done ? ' done' : ''}`;
-      r.text.textContent = s.text;
+      r.el.className = `ch-row tier-${s.tier}${s.done ? ' done' : ''}${s.weekly ? ' weekly' : ''}`;
+      r.text.innerHTML = `${s.weekly ? '<span class="ch-tag">Weekly</span>' : ''}${esc(s.text)}`;
       r.count.textContent = s.done ? '✓' : `${fmt(s.current)}/${fmt(s.target)}`;
       r.fill.style.width = `${((100 * s.current) / s.target).toFixed(1)}%`;
       // Progress went up: a little pulse.
@@ -65,7 +65,7 @@ export class ChallengeHud {
 
   complete(s: ChallengeStatus): void {
     this.banner.className = `ch-banner tier-${s.tier}`;
-    this.banner.innerHTML = `<div class="chb-eyebrow">Daily challenge complete</div><div class="chb-text">${esc(s.text)}</div><div class="chb-xp">+${s.xp.toLocaleString('en-US')} XP</div>`;
+    this.banner.innerHTML = `<div class="chb-eyebrow">${s.weekly ? 'Weekly' : 'Daily'} challenge complete</div><div class="chb-text">${esc(s.text)}</div><div class="chb-xp">+${s.xp.toLocaleString('en-US')} XP</div>`;
     this.banner.style.opacity = '1';
     this.banner.classList.add('in');
     this.bannerTimer = 4;

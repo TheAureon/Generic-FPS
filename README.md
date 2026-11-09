@@ -196,12 +196,18 @@ Open **Career** from the main menu.
 - **Armory**: each gun has a **mastery** level from your kills with it (10, 25, 50, 100, 150, 225, 300, 400, 500 and 650 kills). Mastery 2, 4, 6 and 8 unlock that gun's **Woodland**, **Desert**, **Digital** and **Tiger** camos, and mastery 10 unlocks **Gold**. Your level unlocks camos for every gun: Arctic (5), Crimson (10), Carbon (15), Cobalt (20), Neon (25, it glows), Obsidian (30) and Royal (50). **Prestige** and **Diamond** (gold on every gun) are special. Pick a camo per gun.
 - **Look**: glove colors, crosshair styles (Classic, Dot, Circle, Cross, T) and colors, and the **menu backdrop** (Dusk, Night, Dawn, Storm, Golden Hour).
 - **Profile**: your **calling card** (the background of your player card), a **title** (any achievement you've earned) and **prestige**.
+- **Medals**: your medal collection: every medal with how many times you've earned it, unearned ones as silhouettes, and how many of each color you have. Collecting every bronze, silver, gold or legendary medal (and then every medal) earns achievements, and the last one unlocks the **Collector** calling card.
+- **Achievements**: all of them, earned (with the date) or locked, and their XP.
+- **Records**: your personal bests, career totals, and each map's stars, survival best and matches played.
+- **Challenges**: today's and this week's challenges.
 
 Unlocks come roughly one per level up to 50 (the next one is always a level or two away), from weapon mastery, from achievements and from prestige. They only change how things look. Locked items show what unlocks them, and the match report lists anything new you unlocked.
 
 **Prestige**: at level 50 you can start over at level 1 (click twice to confirm). You get a prestige star on your emblem (up to 10), the Prestige camo, card and gloves, and the *Prestige* achievement. You keep everything you've unlocked, your stats, and your total (lifetime) XP, which is what the UsForge leaderboard shows. What you've equipped is saved in your browser.
 
-### Daily challenges
+### Daily and weekly challenges
+
+**Weekly challenges**: three more each week (new every Monday), bigger versions of the daily ones (4× the target, e.g. "Get 160 kills"), worth **2,500**, **4,000** and **6,000 XP**. They show in the same places as the daily ones, tagged *Weekly*.
 
 Every day you get three new challenges, one each of **Easy (+400 XP)**, **Medium (+800 XP)** and **Hard (+1,500 XP)**, for example "Get 8 kills with the SMG", "Win a King of the Hill match", "Get 3 grenade kills" or "Get an 8-kill streak in one match". Everyone gets the same three on the same day, and they change at midnight.
 
@@ -311,7 +317,7 @@ Each bot runs a state machine (`src/bots/BotBrain.ts`). Press **B** to see each 
 | `WEAPONS`        | Each gun's damage, headshot bonus, fire rate, magazine, reload time, spread, recoil, zoom, range, walking speed |
 | `COMBAT`         | Aiming slowdown, crouch accuracy bonus |
 | `BOTS`           | Bot speed, health, vision range and angle, memory, preferred fighting distance, names, and the guns they carry (`weapons`) |
-| `CHALLENGES`     | Bonus XP for easy, medium and hard daily challenges |
+| `CHALLENGES`     | Bonus XP for easy, medium and hard daily and weekly challenges |
 | `GRENADES`       | How many grenades you carry, fuse time, throw strength, blast damage and radius |
 | `BOT_DIFFICULTY` | Novice … Insane: reaction time, aim error, turn speed, bursts, aggression, damage (`DIFFICULTIES` holds the names and menu descriptions) |
 | `MATCH`          | Menu defaults, Free for All kill limits, the time limit |

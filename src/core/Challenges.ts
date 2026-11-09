@@ -92,7 +92,7 @@ export function today(d = new Date()): string {
 }
 
 /** The three challenges for a date: one per tier, picked from the date. */
-export function challengesFor(date: string): Challenge[] {
+export function challengesFor(date: string, from: Challenge[] = ALL): Challenge[] {
   // Mix the date's characters well (nearby dates must give very different picks).
   let h = 2166136261;
   for (const c of date) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
@@ -105,74 +105,116 @@ export function challengesFor(date: string): Challenge[] {
   const sort = (c: Challenge) => c.id.split(/[-\d]/)[0];
   const used = new Set<string>();
   return ([0, 1, 2] as const).map((tier) => {
-    const sorts = [...new Set(ALL.filter((c) => c.tier === tier && !used.has(sort(c))).map(sort))];
+    const sorts = [...new Set(from.filter((c) => c.tier === tier && !used.has(sort(c))).map(sort))];
     const chosen = sorts[Math.floor(rnd() * sorts.length)];
-    const options = ALL.filter((c) => c.tier === tier && sort(c) === chosen);
+    const options = from.filter((c) => c.tier === tier && sort(c) === chosen);
     used.add(chosen);
     return options[Math.floor(rnd() * options.length)];
   });
 }
 
-export interface DailyState {
-  date: string;
+/** The Monday that starts the week of `d` (local), e.g. "2026-11-09". */
+export function thisWeek(d = new Date()): string {
+  const m = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+  return today(m);
+}
+
+/**
+ * Weekly challenges: bigger versions of the daily ones (4x the target), picked
+ * from the week. Only challenges that add up over matches and have a number to
+ * scale qualify (e.g. "Get 40 kills" becomes "Get 160 kills").
+ */
+const WEEKLY_SCALE = 4;
+function weekly(c: Challenge): Challenge {
+  const target = c.target * WEEKLY_SCALE;
+  return { ...c, id: c.id, target, text: c.text.replace(/\d[\d,]*/, target.toLocaleString('en-US')) };
+}
+const weeklyPool = ALL.filter((c) => c.kind === 'sum' && /\d/.test(c.text));
+
+export function weeklyFor(week: string): Challenge[] {
+  const pool = challengesFor(`week-${week}`, weeklyPool);
+  return pool.map(weekly);
+}
+
+interface BoardState {
+  period: string;
   ids: string[];
   progress: number[];
   done: boolean[];
 }
 
-const KEY = 'generic-fps.daily.v1';
+/** One set of challenges (today's, or this week's) and its saved progress. */
+class Board {
+  private state: BoardState;
 
-class Daily {
-  private state: DailyState;
-
-  constructor() {
+  constructor(
+    private key: string,
+    readonly weekly: boolean,
+    private period: () => string,
+    private pick: (period: string) => Challenge[],
+    private make: (id: string) => Challenge | undefined,
+    private xp: readonly number[],
+  ) {
     this.state = this.fresh();
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(key);
       if (raw) {
-        const s = JSON.parse(raw) as DailyState;
-        if (s.date === today() && s.ids?.length === 3 && s.ids.every((id) => byId.has(id))) this.state = s;
+        const s = JSON.parse(raw);
+        const period = s.period ?? s.date; // (older saves called it "date")
+        if (period === this.period() && s.ids?.length === 3 && s.ids.every((id: string) => this.make(id))) this.state = { ...s, period };
       }
     } catch {
       // Not saved in this browser: start fresh.
     }
   }
 
-  private fresh(): DailyState {
-    const date = today();
-    return { date, ids: challengesFor(date).map((c) => c.id), progress: [0, 0, 0], done: [false, false, false] };
+  private fresh(): BoardState {
+    const period = this.period();
+    return { period, ids: this.pick(period).map((c) => c.id), progress: [0, 0, 0], done: [false, false, false] };
   }
 
-  /** Today's challenges with their saved progress (rolls over to new ones at midnight). */
-  get(): { challenge: Challenge; progress: number; done: boolean; xp: number }[] {
-    if (this.state.date !== today()) this.state = this.fresh();
+  /** The challenges with their saved progress (new ones when the day / week turns over). */
+  get(): { challenge: Challenge; progress: number; done: boolean; xp: number; weekly: boolean }[] {
+    if (this.state.period !== this.period()) this.state = this.fresh();
     return this.state.ids.map((id, i) => {
-      const c = byId.get(id)!;
-      return { challenge: c, progress: this.state.progress[i], done: this.state.done[i], xp: CHALLENGES.xp[c.tier] };
+      const c = this.make(id)!;
+      return { challenge: c, progress: this.state.progress[i], done: this.state.done[i], xp: this.xp[c.tier], weekly: this.weekly };
     });
   }
 
-  /** Save progress (after a match, or when a challenge completes). */
-  save(progress: number[], done: boolean[]): void {
+  /** Which day / week the saved progress belongs to. */
+  get current(): string {
+    return this.state.period;
+  }
+
+  save(period: string, progress: number[], done: boolean[]): void {
+    if (period !== this.state.period) return; // (the day/week turned over mid-match)
     this.state.progress = progress.slice();
     this.state.done = done.slice();
     try {
-      localStorage.setItem(KEY, JSON.stringify(this.state));
+      localStorage.setItem(this.key, JSON.stringify(this.state));
     } catch {
       // Couldn't save; keep going.
     }
   }
 
-  /** Time until the next set of challenges. */
+  /** Time until the next set. */
   timeLeft(): string {
     const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const next = this.weekly
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7 - ((now.getDay() + 6) % 7))
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     const mins = Math.max(0, Math.round((next.getTime() - now.getTime()) / 60000));
-    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+    const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60);
+    return d ? `${d}d ${h}h` : `${h}h ${mins % 60}m`;
   }
 }
 
-export const daily = new Daily();
+export const daily = new Board('generic-fps.daily.v1', false, () => today(), (d) => challengesFor(d), (id) => byId.get(id), CHALLENGES.xp);
+export const weeklyBoard = new Board('generic-fps.weekly.v1', true, () => thisWeek(), weeklyFor, (id) => {
+  const c = byId.get(id);
+  return c ? weekly(c) : undefined;
+}, CHALLENGES.weeklyXp);
 
 /** What the HUD and end screen show for each challenge. */
 export interface ChallengeStatus {
@@ -186,17 +228,19 @@ export interface ChallengeStatus {
   /** Completed during this match. */
   justDone: boolean;
   xp: number;
+  weekly: boolean;
 }
 
 /**
- * Tracks today's challenges during one match. Progress shows live; it's
- * saved when a challenge completes and when the match ends (or you quit).
+ * Tracks today's and this week's challenges during one match. Progress shows
+ * live; it's saved when a challenge completes and when the match ends (or you quit).
  */
 export class ChallengeTracker {
-  private list = daily.get();
-  private date = today();
+  private boards = [daily, weeklyBoard];
+  private periods = this.boards.map((b) => (b.get(), b.current));
+  private list = this.boards.flatMap((b) => b.get());
   private start = this.list.map((c) => c.progress);
-  private justDone = [false, false, false];
+  private justDone = this.list.map(() => false);
   /** Bonus XP earned from challenges completed this match. */
   xpEarned = 0;
 
@@ -216,7 +260,7 @@ export class ChallengeTracker {
         current = Math.min(c.challenge.target, c.challenge.kind === 'sum' ? was + v : Math.max(was, v));
       }
       if (c.done) current = c.challenge.target;
-      return { text: c.challenge.text, tier: c.challenge.tier, target: c.challenge.target, start: was, current, done: c.done || current >= c.challenge.target, justDone: this.justDone[i], xp: c.xp };
+      return { text: c.challenge.text, tier: c.challenge.tier, target: c.challenge.target, start: was, current, done: c.done || current >= c.challenge.target, justDone: this.justDone[i], xp: c.xp, weekly: c.weekly };
     });
     let changed = false;
     out.forEach((s, i) => {
@@ -234,7 +278,10 @@ export class ChallengeTracker {
 
   /** Save where everyone's at (call at the end of the match, or when quitting). */
   save(statuses: ChallengeStatus[]): void {
-    if (this.practice || this.date !== today()) return;
-    daily.save(statuses.map((s) => s.current), statuses.map((s) => s.done));
+    if (this.practice) return;
+    this.boards.forEach((b, k) => {
+      const mine = statuses.slice(k * 3, k * 3 + 3);
+      b.save(this.periods[k], mine.map((s) => s.current), mine.map((s) => s.done));
+    });
   }
 }

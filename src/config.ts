@@ -568,4 +568,6 @@ export const REWARDS = {
 export const CHALLENGES = {
   /** Bonus XP for completing an easy, medium and hard challenge. */
   xp: [400, 800, 1500] as [number, number, number],
+  /** Bonus XP for completing an easy, medium and hard weekly challenge. */
+  weeklyXp: [2500, 4000, 6000] as [number, number, number],
 };

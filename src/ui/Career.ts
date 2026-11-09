@@ -1,6 +1,6 @@
 import { WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
-import { daily, tierName, type ChallengeStatus } from '../core/Challenges';
+import { daily, tierName, weeklyBoard, type ChallengeStatus } from '../core/Challenges';
 import { ACHIEVEMENT_BY_ID, ACHIEVEMENT_XP } from '../core/Achievements';
 import { BACKDROPS, CAMOS, CARDS, CROSSHAIR_COLORS, GLOVES, isUnlocked, loadout, unlockName } from '../core/Cosmetics';
 import { camoTextures } from '../assets/camos';
@@ -81,13 +81,15 @@ export function playerCard(): HTMLElement {
 export function dailyCard(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'daily-card glass-card';
-  const list = daily.get();
-  const doneCount = list.filter((c) => c.done).length;
-  el.innerHTML = `<div class="dc-head"><span>Daily challenges</span><span class="dc-left">${doneCount}/3 · New in ${daily.timeLeft()}</span></div>` +
-    list.map((c) => `<div class="dc-row tier-${c.challenge.tier}${c.done ? ' done' : ''}">
-      <div class="dc-top"><span class="dc-text">${c.challenge.text}</span><span class="dc-xp">${c.done ? '✓' : `+${c.xp.toLocaleString('en-US')} XP`}</span></div>
-      <div class="ch-bar"><div class="ch-fill" style="width:${((100 * (c.done ? c.challenge.target : c.progress)) / c.challenge.target).toFixed(1)}%"></div></div>
-      <div class="dc-count">${tierName(c.challenge.tier)} · ${c.done ? 'Complete' : `${Math.floor(c.progress).toLocaleString('en-US')} / ${c.challenge.target.toLocaleString('en-US')}`}</div></div>`).join('') +
+  const block = (title: string, list: ReturnType<typeof daily.get>, left: string) => {
+    const done = list.filter((c) => c.done).length;
+    return `<div class="dc-head"><span>${title}</span><span class="dc-left">${done}/3 · New in ${left}</span></div>` +
+      list.map((c) => `<div class="dc-row tier-${c.challenge.tier}${c.done ? ' done' : ''}">
+        <div class="dc-top"><span class="dc-text">${c.challenge.text}</span><span class="dc-xp">${c.done ? '✓' : `+${c.xp.toLocaleString('en-US')} XP`}</span></div>
+        <div class="ch-bar"><div class="ch-fill" style="width:${((100 * (c.done ? c.challenge.target : c.progress)) / c.challenge.target).toFixed(1)}%"></div></div>
+        <div class="dc-count">${tierName(c.challenge.tier)} · ${c.done ? 'Complete' : `${Math.floor(c.progress).toLocaleString('en-US')} / ${c.challenge.target.toLocaleString('en-US')}`}</div></div>`).join('');
+  };
+  el.innerHTML = block('Daily challenges', daily.get(), daily.timeLeft()) + block('Weekly challenges', weeklyBoard.get(), weeklyBoard.timeLeft()) +
     `<div class="dc-note">Play on Easy or harder to make progress.</div>`;
   return el;
 }
@@ -205,12 +207,12 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
   // ---- Daily challenges: how far this match took each one ----
   if (r.challenges?.length) {
     const box = add(wrap, 'report-challenges');
-    box.innerHTML = `<div class="section-title">Daily challenges</div>`;
+    box.innerHTML = `<div class="section-title">Challenges</div>`;
     const grid = add(box, 'rc-list');
     r.challenges.forEach((c, i) => {
       const row = add(grid, `rc-item tier-${c.tier}${c.done ? ' done' : ''}${c.justDone ? ' just' : ''}`);
       const pct = (v: number) => `${((100 * v) / c.target).toFixed(1)}%`;
-      row.innerHTML = `<div class="rc-top"><span class="rc-tier">${tierName(c.tier)}</span><span class="rc-xp">${c.justDone ? `+${c.xp.toLocaleString('en-US')} XP` : c.done ? 'Done' : `${c.xp.toLocaleString('en-US')} XP`}</span></div>
+      row.innerHTML = `<div class="rc-top"><span class="rc-tier">${c.weekly ? 'Weekly · ' : ''}${tierName(c.tier)}</span><span class="rc-xp">${c.justDone ? `+${c.xp.toLocaleString('en-US')} XP` : c.done ? 'Done' : `${c.xp.toLocaleString('en-US')} XP`}</span></div>
         <div class="rc-text">${c.text}</div>
         <div class="rc-bar"><div class="rc-was" style="width:${pct(c.start)}"></div><div class="rc-now" style="--from:${pct(c.start)};--to:${pct(c.current)};animation-delay:${1.2 + i * 0.25}s"></div></div>
         <div class="rc-count">${c.done ? 'Complete' : `${Math.floor(c.current).toLocaleString('en-US')} / ${c.target.toLocaleString('en-US')}`}${c.current > c.start && !c.done ? ` <b>(+${Math.floor(c.current - c.start).toLocaleString('en-US')})</b>` : ''}</div>`;

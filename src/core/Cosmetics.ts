@@ -119,6 +119,7 @@ export const CARDS: Item[] = [
   { id: 'allstar', name: 'All-Star', unlock: { achievement: 'stars18', hint: 'All 18 map stars' }, value: 'radial-gradient(circle at 20% 30%, rgba(255,220,120,0.9) 0 2px, transparent 3px), radial-gradient(circle at 70% 60%, rgba(255,220,120,0.8) 0 2px, transparent 3px), radial-gradient(circle at 45% 80%, rgba(255,220,120,0.7) 0 1.5px, transparent 2.5px), linear-gradient(160deg, #1a1440, #3a2a10)' },
   { id: 'legend', name: 'One-Man Army', unlock: { achievement: 'kills5000', hint: '5,000 kills' }, value: 'linear-gradient(135deg, #2a0a0a 0%, #8a1a1a 50%, #e0b04a 100%)' },
   { id: 'prestige', name: 'Prestige', unlock: { prestige: 1 }, value: 'linear-gradient(135deg, #2a1050 0%, #6a30c0 50%, #e0b04a 100%)' },
+  { id: 'collector', name: 'Collector', unlock: { achievement: 'allMedals', hint: 'Every medal' }, value: 'conic-gradient(from 30deg at 50% 50%, #e08a4a, #c4ccd4, #e0b04a, #a060ff, #e08a4a)' },
 ];
 
 /** Menu backdrops: the arena at different times of day. */
