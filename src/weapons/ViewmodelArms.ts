@@ -71,6 +71,7 @@ class MovingPart {
 
 export class ViewmodelArms {
   readonly right: THREE.Group;
+  private mats: ArmMaterials;
   readonly left: THREE.Group;
   /** A shotgun shell carried by the left hand while loading. */
   private shell: THREE.Mesh;
@@ -86,14 +87,14 @@ export class ViewmodelArms {
   private bolt: MovingPart | null = null;
 
   constructor(parent: THREE.Object3D) {
-    const mats: ArmMaterials = {
+    const mats: ArmMaterials = (this.mats = {
       sleeve: new THREE.MeshStandardMaterial({ color: 0x4a5040, roughness: 0.9 }),
       // Tactical gloves: dark fabric, a molded knuckle guard, and grippy palm and finger pads.
       glove: new THREE.MeshStandardMaterial({ color: 0x2b2e33, roughness: 0.85 }),
       guard: new THREE.MeshStandardMaterial({ color: 0x3d4248, roughness: 0.45, metalness: 0.1 }),
       pad: new THREE.MeshStandardMaterial({ color: 0x1c1e21, roughness: 0.95 }),
       strap: new THREE.MeshStandardMaterial({ color: 0x56584f, roughness: 0.8 }),
-    };
+    });
     this.right = makeArm(mats, 1);
     this.left = makeArm(mats, -1);
     this.shell = new THREE.Mesh(
@@ -106,6 +107,12 @@ export class ViewmodelArms {
     this.shell.visible = false;
     this.left.add(this.shell);
     parent.add(this.right, this.left);
+  }
+
+  /** Glove color (from the equipped gloves); the knuckle guard is a lighter shade. */
+  setGloveColor(color: string): void {
+    (this.mats.glove as THREE.MeshStandardMaterial).color.set(color);
+    (this.mats.guard as THREE.MeshStandardMaterial).color.set(color).lerp(new THREE.Color(0xffffff), 0.12);
   }
 
   setWeapon(id: WeaponId, model: THREE.Object3D): void {

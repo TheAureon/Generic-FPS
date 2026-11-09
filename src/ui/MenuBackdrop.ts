@@ -4,6 +4,7 @@ import { createWorldWeaponModel } from '../assets/weaponModels';
 import { CharacterAnimator, gunGrips } from '../bots/CharacterAnimator';
 import { buildMap } from '../map/MapBuilder';
 import type { MapDef } from '../map/MapTypes';
+import type { Backdrop } from '../core/Cosmetics';
 
 /**
  * The scene behind the title screen and menus: the arena at dusk, dust
@@ -19,27 +20,10 @@ export class MenuBackdrop {
   private menuBlend = 0;
   private readonly bounds: THREE.Box3;
 
-  constructor(map: MapDef) {
-    // Dusk: deep blue above, warm haze at the horizon, a low orange sun,
-    // pink-lit clouds, and lit windows in the distant buildings.
-    const built = buildMap(map, this.scene, {
-      sky: {
-        zenith: 0x0c1428,
-        mid: 0x2e3a5c,
-        horizon: 0xd88e5c,
-        ground: 0x2a2220,
-        sunColor: 0xffa860,
-        sunElevation: 9,
-        sunAzimuth: 245,
-        sunIntensity: 2.3,
-        skyLight: 0.75,
-        clouds: 0.32,
-        cloudColor: 0x6e5a6c,
-        skylineColor: 0x2c303c,
-        litWindows: true,
-      },
-      fog: [30, 140],
-    });
+  constructor(map: MapDef, look: Pick<Backdrop, 'sky' | 'fog'>) {
+    // The chosen time of day (dusk by default: deep blue above, warm haze at
+    // the horizon, a low orange sun, and lit windows in the distance).
+    const built = buildMap(map, this.scene, { sky: look.sky, fog: look.fog });
     this.bounds = built.bounds;
 
     // Dust motes drifting through the air.
@@ -91,6 +75,15 @@ export class MenuBackdrop {
   }
 
   /** Animate and point `camera` for the title (menu=false) or menus (menu=true). */
+  /** Free GPU memory (when switching to another backdrop). */
+  dispose(): void {
+    this.scene.traverse((o) => {
+      if (o instanceof THREE.Mesh || o instanceof THREE.Points || o instanceof THREE.LineSegments) {
+        if (!o.geometry.userData.cached) o.geometry.dispose();
+      }
+    });
+  }
+
   update(dt: number, camera: THREE.PerspectiveCamera, menu: boolean): void {
     this.time += dt;
     const t = this.time;

@@ -4,6 +4,7 @@ import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
 import { modeLimit, type MatchConfig, type MatchResult, type ModeId, type ScoreRow } from '../modes/GameMode';
 import { dailyCard, matchReport, playerCard, type EndReport } from './Career';
+import { buildCareer, type CareerTab } from './CareerScreen';
 import { scoreTableHtml, type ScoreExtras } from './Hud';
 import { progress } from '../core/Progress';
 import { starCount } from '../core/Achievements';
@@ -15,7 +16,7 @@ export interface MenuActions {
   quitToMenu(): void;
 }
 
-type Screen = 'title' | 'main' | 'controls' | 'setup' | 'pause' | 'settings' | 'end' | null;
+type Screen = 'title' | 'main' | 'controls' | 'setup' | 'pause' | 'settings' | 'end' | 'career' | null;
 
 const CONFIG_KEY = 'generic-fps-match';
 
@@ -44,6 +45,8 @@ export class Menus {
   private stopReport: (() => void) | null = null;
   /** Shown on the pause screen, e.g. when the mouse couldn't be captured. */
   private pauseHint = '';
+  /** The Career screen's open tab. */
+  private careerTab: CareerTab = 'armory';
 
   constructor(parent: HTMLElement, private actions: MenuActions) {
     this.root = document.createElement('div');
@@ -142,6 +145,14 @@ export class Menus {
     const panel = div(`menu-panel ${screen}`, this.root);
     switch (screen) {
       case 'controls': this.buildControls(panel); break;
+      case 'career':
+        head(panel, 'Your progress', 'Career');
+        buildCareer(panel, this.careerTab, (t) => {
+          this.careerTab = t;
+          this.show('career');
+        });
+        button(div('menu-buttons row', panel), 'Back', () => this.show('main'), 'primary');
+        break;
       case 'setup': this.buildSetup(panel); break;
       case 'pause': this.buildPause(panel); break;
       case 'settings': this.buildSettings(panel); break;
@@ -177,6 +188,7 @@ export class Menus {
       b.innerHTML = `<span class="nav-label">${label}</span><span class="nav-hint">${hint}</span>`;
     };
     item('Play', 'Free for all, team modes, objectives, Battle Royale', () => this.show('setup'), true);
+    item('Career', 'Unlocks, weapon mastery, prestige', () => this.show('career'));
     item('How to play', 'Controls and tips', () => this.show('controls'));
     item('Settings', 'Mouse, field of view, sound, graphics', () => this.openSettings('main'));
     // Career and today's challenges, on the right.

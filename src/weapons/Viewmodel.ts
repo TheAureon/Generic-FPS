@@ -3,7 +3,9 @@ import { WEAPONS, type WeaponId } from '../config';
 import type { SkyDef } from '../map/MapTypes';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { getFlashTexture } from '../assets/textures';
-import { createWeaponModel, markerPosition } from '../assets/weaponModels';
+import { camoTextures } from '../assets/camos';
+import { createWeaponModel, markerPosition, mats } from '../assets/weaponModels';
+import { CAMOS, GLOVES, type Loadout } from '../core/Cosmetics';
 import { AIM_POSE, BOLT, EJECT_PORT, HIP_POSE, PUMP, RELOADS, SIGHT_DISTANCE, smoothstep, window01 } from './animations';
 import { ViewmodelArms } from './ViewmodelArms';
 
@@ -66,6 +68,8 @@ export class Viewmodel {
   /** Seconds since a grenade throw started (99 = not throwing). */
   private throwT = 99;
   private grenade: THREE.Group;
+  /** Each gun's own body materials (for camos). */
+  private paint = new Map<WeaponId, { metal: THREE.MeshStandardMaterial | null; dark: THREE.MeshStandardMaterial | null; wood: THREE.MeshStandardMaterial | null }>();
   private casings: Casing[] = [];
   private nextCasing = 0;
   visible = true;
@@ -87,10 +91,19 @@ export class Viewmodel {
     for (const id of Object.keys(WEAPONS) as WeaponId[]) {
       const model = createWeaponModel(id);
       model.visible = false;
+      // Each gun gets its own copies of the body materials, so each can wear its own camo.
+      const own = new Map<THREE.Material, THREE.MeshStandardMaterial>();
       model.traverse((o) => {
         // Draw the gun on top of everything in this scene.
-        if (o instanceof THREE.Mesh) o.renderOrder = 1;
+        if (!(o instanceof THREE.Mesh)) return;
+        o.renderOrder = 1;
+        const m = o.material as THREE.Material;
+        if (!model.userData.custom && (m === mats.metal || m === mats.dark || m === mats.wood)) {
+          if (!own.has(m)) own.set(m, (m as THREE.MeshStandardMaterial).clone());
+          o.material = own.get(m)!;
+        }
       });
+      this.paint.set(id, { metal: own.get(mats.metal) ?? null, dark: own.get(mats.dark) ?? null, wood: own.get(mats.wood) ?? null });
       this.rig.add(model);
       this.models.set(id, model);
       // A custom model can mark its sight and ejection port.
@@ -212,6 +225,54 @@ export class Viewmodel {
     const f = this.flashes.get(this.current)!;
     f.rotation.z = Math.random() * Math.PI;
     f.scale.setScalar(0.8 + Math.random() * 0.5);
+  }
+
+  /**
+   * Apply the equipped camos (one per gun) and glove color. Camos cover the
+   * body (metal and dark parts); the plain-metal finishes (Gold, Cobalt...)
+   * cover the wood too, for that solid look.
+   */
+  applyCosmetics(l: Loadout): void {
+    for (const [id, p] of this.paint) {
+      const camo = CAMOS.find((c) => c.id === (l.camo[id] ?? 'factory')) ?? CAMOS[0];
+      const factory = camo.id === 'factory';
+      const tex = factory ? null : camoTextures(camo);
+      const solid = !factory && !camo.pattern;
+      // Back to the gun's own finish.
+      const restore = (m: THREE.MeshStandardMaterial | null, orig: THREE.MeshStandardMaterial) => {
+        if (!m) return;
+        m.color.copy(orig.color);
+        m.metalness = orig.metalness;
+        m.roughness = orig.roughness;
+        m.map = null;
+        m.emissiveMap = null;
+        m.emissive.set(0x000000);
+        m.needsUpdate = true;
+      };
+      // Wear the camo (`shade` darkens it a little for the dark parts).
+      const wear = (m: THREE.MeshStandardMaterial | null, shade: number) => {
+        if (!m || !tex) return;
+        m.color.set(tex.map ? '#ffffff' : camo.color).multiplyScalar(shade);
+        m.metalness = camo.metalness;
+        m.roughness = camo.roughness;
+        m.map = tex.map;
+        m.emissiveMap = tex.glow;
+        m.emissive.set(camo.emissive && tex.glow ? camo.emissive : 0x000000);
+        m.emissiveIntensity = 0.8;
+        m.needsUpdate = true;
+      };
+      if (factory) {
+        restore(p.metal, mats.metal);
+        restore(p.dark, mats.dark);
+        restore(p.wood, mats.wood);
+      } else {
+        wear(p.metal, 1);
+        wear(p.dark, 0.72); // (a shade darker, so the gun still reads in pieces)
+        if (solid) wear(p.wood, 0.85);
+        else restore(p.wood, mats.wood);
+      }
+    }
+    this.arms.setGloveColor(GLOVES.find((g) => g.id === l.gloves)?.value ?? GLOVES[0].value);
   }
 
   /** Start the grenade throw animation (the gun dips while the grenade is lobbed). */

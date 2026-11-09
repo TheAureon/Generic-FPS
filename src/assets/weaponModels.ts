@@ -12,7 +12,8 @@ import { mergeMeshes } from './mergeMeshes';
  * README there) and it's used instead of these, automatically.
  */
 
-const mats = {
+/** The built-in guns' materials (the first-person view paints copies of metal/dark/wood with camos). */
+export const mats = {
   metal: new THREE.MeshStandardMaterial({ color: 0x4a5058, metalness: 0.55, roughness: 0.38 }),
   dark: new THREE.MeshStandardMaterial({ color: 0x2a2c30, metalness: 0.15, roughness: 0.6 }),
   wood: new THREE.MeshStandardMaterial({ color: 0x7a4e28, metalness: 0, roughness: 0.7 }),

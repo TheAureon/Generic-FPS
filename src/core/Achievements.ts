@@ -1,4 +1,5 @@
 import type { MedalTier } from './Rewards';
+import { MASTERY_GUNS, masteryLevel } from './Cosmetics';
 import type { Career, MatchRecord } from './Progress';
 
 /**
@@ -64,6 +65,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   // Medals and challenges
   { id: 'medals100', name: 'Decorated', info: 'Earn 100 medals', tier: 'silver', icon: 'burst', check: (c) => count(c.medals) - (c.medals.headshot ?? 0) >= 100 },
   { id: 'daily10', name: 'Daily Grind', info: 'Complete 10 daily challenges', tier: 'silver', icon: 'rise', check: (c) => c.challengesDone >= 10 },
+  // Mastery and prestige
+  { id: 'gold1', name: 'Golden Gun', info: 'Reach mastery 10 (Gold) with any gun', tier: 'gold', icon: 'crown', check: (c) => MASTERY_GUNS.some((g) => masteryLevel(c.weaponKills[g] ?? 0) >= 10) },
+  { id: 'goldAll', name: 'Armory of Gold', info: 'Reach mastery 10 with every gun', tier: 'legend', icon: 'crown', check: (c) => MASTERY_GUNS.every((g) => masteryLevel(c.weaponKills[g] ?? 0) >= 10) },
+  { id: 'prestige1', name: 'Prestige', info: 'Prestige for the first time (level 50)', tier: 'legend', icon: 'rise', check: (c) => c.prestige >= 1 },
 ];
 
 export const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));

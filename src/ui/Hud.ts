@@ -385,6 +385,12 @@ export class Hud {
     this.root.style.display = v ? '' : 'none';
   }
 
+  /** Crosshair style (classic, dot, circle, cross, t) and color, from your loadout. */
+  setCrosshairLook(style: string, color: string): void {
+    this.crosshair.className = `crosshair ch-style-${style}`;
+    this.crosshair.style.setProperty('--ch-color', color);
+  }
+
   /**
    * @param gapPx distance from center to the crosshair lines (shows spread)
    * @param ads 0..1 aim amount (crosshair fades out while aiming)

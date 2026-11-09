@@ -554,6 +554,9 @@ export const REWARDS = {
    * is practice: its matches don't count toward career stats either.
    */
   xpMultiplier: { novice: 0, beginner: 0, easy: 1, medium: 1.25, advanced: 1.5, hard: 2, insane: 3 } as Record<Difficulty, number>,
+  /** Level where you can prestige (start over at level 1 for a prestige star), and the most prestiges. */
+  prestigeLevel: 50,
+  maxPrestige: 10,
   /** XP needed for the first level-up; each level after needs `perLevel` more. */
   levelBaseXp: 1000,
   perLevel: 250,

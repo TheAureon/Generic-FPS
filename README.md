@@ -189,6 +189,18 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 
 Like XP, none of this counts on Novice or Beginner.
 
+### Career: unlocks, weapon mastery and prestige
+
+Open **Career** from the main menu.
+
+- **Armory**: each gun has a **mastery** level from your kills with it (10, 25, 50, 100, 150, 225, 300, 400, 500 and 650 kills). Mastery 2, 4, 6 and 8 unlock that gun's **Woodland**, **Desert**, **Digital** and **Tiger** camos, and mastery 10 unlocks **Gold**. Your level unlocks camos for every gun: Arctic (5), Crimson (10), Carbon (15), Cobalt (20), Neon (25, it glows), Obsidian (30) and Royal (50). **Prestige** and **Diamond** (gold on every gun) are special. Pick a camo per gun.
+- **Look**: glove colors, crosshair styles (Classic, Dot, Circle, Cross, T) and colors, and the **menu backdrop** (Dusk, Night, Dawn, Storm, Golden Hour).
+- **Profile**: your **calling card** (the background of your player card), a **title** (any achievement you've earned) and **prestige**.
+
+Unlocks come roughly one per level up to 50 (the next one is always a level or two away), from weapon mastery, from achievements and from prestige. They only change how things look. Locked items show what unlocks them, and the match report lists anything new you unlocked.
+
+**Prestige**: at level 50 you can start over at level 1 (click twice to confirm). You get a prestige star on your emblem (up to 10), the Prestige camo, card and gloves, and the *Prestige* achievement. You keep everything you've unlocked, your stats, and your total (lifetime) XP, which is what the UsForge leaderboard shows. What you've equipped is saved in your browser.
+
 ### Daily challenges
 
 Every day you get three new challenges, one each of **Easy (+400 XP)**, **Medium (+800 XP)** and **Hard (+1,500 XP)**, for example "Get 8 kills with the SMG", "Win a King of the Hill match", "Get 3 grenade kills" or "Get an 8-kill streak in one match". Everyone gets the same three on the same day, and they change at midnight.

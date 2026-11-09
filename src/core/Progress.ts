@@ -34,6 +34,9 @@ export interface Career {
   achievements: Record<string, number>;
   /** Daily (and weekly) challenges completed. */
   challengesDone: number;
+  /** Highest level ever reached (unlocks use it, so prestiging keeps them), and times prestiged. */
+  bestLevel: number;
+  prestige: number;
 }
 
 export interface Bests {
@@ -96,6 +99,7 @@ function empty(): Career {
     xp: 0, lifetimeXp: 0, matches: 0, wins: 0, kills: 0, deaths: 0, headshots: 0, damage: 0, bestStreak: 0, medals: {},
     weaponKills: {}, bests: { score: 0, kills: 0, streak: 0, longestKill: 0, damage: 0, multi: 0, accuracy: 0 },
     survivalBest: {}, mapStars: {}, modesWon: {}, mapsFinished: {}, achievements: {}, challengesDone: 0,
+    bestLevel: 1, prestige: 0,
   };
 }
 
@@ -128,6 +132,7 @@ class Progress {
         this.data = { ...empty(), ...saved, bests: { ...empty().bests, ...(saved.bests ?? {}) } };
         // Careers from before lifetime XP was kept: start it at what they have.
         this.data.lifetimeXp = Math.max(this.data.lifetimeXp, this.data.xp);
+        this.data.bestLevel = Math.max(this.data.bestLevel, levelInfo(this.data.xp).level);
       }
     } catch {
       // No saving in this browser: start fresh.
@@ -142,7 +147,29 @@ class Progress {
   addXp(xp: number): void {
     this.data.xp += xp;
     this.data.lifetimeXp += xp;
+    this.data.bestLevel = Math.max(this.data.bestLevel, levelInfo(this.data.xp).level);
     this.save();
+  }
+
+  /** Can you prestige now (level 50 or more, and not at the last prestige)? */
+  canPrestige(): boolean {
+    return levelInfo(this.data.xp).level >= REWARDS.prestigeLevel && this.data.prestige < REWARDS.maxPrestige;
+  }
+
+  /** Start over at level 1 with one more prestige. Unlocks, stats and lifetime XP are kept. */
+  doPrestige(): boolean {
+    if (!this.canPrestige()) return false;
+    this.data.prestige++;
+    this.data.xp = 0;
+    const a = ACHIEVEMENTS.find((x) => x.id === 'prestige1');
+    if (a && !this.data.achievements[a.id]) {
+      // The Prestige achievement, with its XP (a head start on the new climb).
+      this.data.achievements[a.id] = Date.now();
+      this.data.xp += ACHIEVEMENT_XP[a.tier];
+      this.data.lifetimeXp += ACHIEVEMENT_XP[a.tier];
+    }
+    this.save();
+    return true;
   }
 
   /** A daily (or weekly) challenge was completed. */
@@ -213,6 +240,7 @@ class Progress {
     }
     d.xp += achievementXp;
     d.lifetimeXp += achievementXp;
+    d.bestLevel = Math.max(d.bestLevel, levelInfo(d.xp).level);
     this.save();
     return { before, after: structuredClone(d), newBests, firstRecords, achievements: earned, achievementXp, stars: [starsBefore, stars(d.mapStars[m.map])], survivalRecord };
   }

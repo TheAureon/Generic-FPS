@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONFIG, DIFFICULTIES, MATCH, REWARDS } from '../config';
 import { progress } from './Progress';
 import { sendScoreToUsForge } from './usforge';
+import { BACKDROPS, CROSSHAIR_COLORS, isUnlocked, loadout, MASTERY_GUNS, masteryLevel, unlockedIds, type Loadout } from './Cosmetics';
 import { audio } from '../audio/AudioEngine';
 import { music } from '../audio/Music';
 import { getMap } from '../map/maps';
@@ -44,6 +45,8 @@ export class Game {
   private accumulator = 0;
   private lastConfig: MatchConfig | null = null;
   private backdrop: MenuBackdrop | null = null;
+  private backdropId = '';
+  private backdropStale = false;
   private readonly pipeline: RenderPipeline;
   private lampTimer = 0;
   private lampColor = new THREE.Color();
@@ -73,6 +76,14 @@ export class Game {
 
     this.hud = new Hud(uiRoot);
     this.hud.setVisible(false);
+    // Your look: camos, gloves, crosshair, and the menu backdrop (rebuilt when it changes).
+    const applyLook = (l: Loadout) => {
+      this.viewmodel.applyCosmetics(l);
+      this.hud.setCrosshairLook(l.crosshair, CROSSHAIR_COLORS.find((c) => c.id === l.crosshairColor)?.value ?? '#ffffff');
+      if (this.backdrop && this.backdropId !== l.backdrop) this.backdropStale = true;
+    };
+    applyLook(loadout.get());
+    loadout.onChange(applyLook);
     this.menus = new Menus(uiRoot, {
       startMatch: (cfg) => this.startMatch(cfg),
       resume: () => this.resume(),
@@ -206,7 +217,10 @@ export class Game {
     if (!this.forcePlay && multiplier > 0) sendScoreToUsForge(career.after.lifetimeXp);
     this.menus.showEnd(result, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() }, {
       summary: s, accuracy, xpLines, xp: xp + (record?.achievementXp ?? 0), baseXp, multiplier, difficulty, before: m.careerAtStart, after: career.after, record,
-      challenges, challengeXp: m.challenges.xpEarned, mode: m.mode.name, map: m.map.def.name, time: m.time,
+      challenges, challengeXp: m.challenges.xpEarned,
+      // What this match unlocked (by level, mastery or achievements), and mastery level-ups.
+      unlocks: record ? [...unlockedIds(record.after)].filter((id) => !unlockedIds(record.before).has(id)) : [],
+      mastery: record ? MASTERY_GUNS.map((g) => [g, masteryLevel(record.before.weaponKills[g] ?? 0), masteryLevel(record.after.weaponKills[g] ?? 0)] as [string, number, number]).filter(([, a, b]) => b > a) : [], mode: m.mode.name, map: m.map.def.name, time: m.time,
     });
   }
 
@@ -358,7 +372,18 @@ export class Game {
 
   /** Behind the title screen and menus: the arena at dusk with a slow camera. */
   private renderMenuBackdrop(dt: number): void {
-    this.backdrop ??= new MenuBackdrop(getMap(MATCH.defaultMap));
+    if (this.backdropStale && this.backdrop) {
+      this.backdrop.dispose();
+      this.backdrop = null;
+      this.backdropStale = false;
+    }
+    if (!this.backdrop) {
+      // The equipped backdrop, if it's unlocked (otherwise the default dusk).
+      const c = progress.get();
+      const pick = BACKDROPS.find((b) => b.id === loadout.get().backdrop && isUnlocked(b.unlock, c)) ?? BACKDROPS[0];
+      this.backdropId = pick.id;
+      this.backdrop = new MenuBackdrop(getMap(MATCH.defaultMap), pick);
+    }
     this.backdrop.update(dt, this.camera, this.menus.current !== 'title');
     this.pipeline.render(this.backdrop.scene, this.camera);
   }

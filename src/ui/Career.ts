@@ -1,7 +1,9 @@
 import { WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { daily, tierName, type ChallengeStatus } from '../core/Challenges';
-import { ACHIEVEMENT_XP } from '../core/Achievements';
+import { ACHIEVEMENT_BY_ID, ACHIEVEMENT_XP } from '../core/Achievements';
+import { BACKDROPS, CAMOS, CARDS, CROSSHAIR_COLORS, GLOVES, isUnlocked, loadout, unlockName } from '../core/Cosmetics';
+import { camoTextures } from '../assets/camos';
 import { levelInfo, progress, type Bests, type Career, type RecordResult } from '../core/Progress';
 import { MEDALS, type MatchSummary } from '../core/Rewards';
 import { medalHtml } from './RewardsHud';
@@ -26,6 +28,9 @@ export interface EndReport {
   challengeXp?: number;
   /** What the match changed in your career: records, stars, achievements (null on practice). */
   record?: RecordResult | null;
+  /** New unlocks (ids like "camo:smg:desert") and weapon mastery level-ups [gun, from, to]. */
+  unlocks?: string[];
+  mastery?: [string, number, number][];
   before: Career;
   after: Career;
   mode: string;
@@ -36,7 +41,7 @@ export interface EndReport {
 const TIER_CLASS = ['bronze', 'bronze', 'bronze', 'silver', 'silver', 'silver', 'gold', 'gold', 'gold', 'legend', 'legend', 'legend'];
 
 /** A rank emblem: a shield with chevrons (1-3 by rank within the color) and the level number. */
-export function rankEmblem(level: number, size = 64): string {
+export function rankEmblem(level: number, size = 64, prestige = progress.get().prestige): string {
   const tier = Math.min(11, Math.floor((level - 1) / 3));
   const chevrons = (tier % 3) + 1;
   let marks = '';
@@ -45,7 +50,7 @@ export function rankEmblem(level: number, size = 64): string {
   return `<div class="rank-emblem tier-${TIER_CLASS[tier]}" style="--size:${size}px">
     <svg viewBox="0 0 100 100"><path class="re-shield" d="M50 4l40 14v30c0 24-17 40-40 48C27 88 10 72 10 48V18z"/>
     <path class="re-inner" d="M50 12l32 11v25c0 19-13 32-32 39-19-7-32-20-32-39V23z"/>${stars}${marks}</svg>
-    <div class="re-level">${level}</div></div>`;
+    <div class="re-level">${level}</div>${prestige ? `<div class="re-prestige" title="Prestige ${prestige}">★${prestige > 1 ? prestige : ''}</div>` : ''}</div>`;
 }
 
 /** The main menu's player card: emblem, level, rank, XP bar, career stats. */
@@ -54,11 +59,16 @@ export function playerCard(): HTMLElement {
   const L = levelInfo(c.xp);
   const el = document.createElement('div');
   el.className = 'player-card glass-card';
+  // Your calling card is the card's background, and your title sits under your rank.
+  const l = loadout.get();
+  const card = CARDS.find((x) => x.id === l.card && isUnlocked(x.unlock, c)) ?? CARDS[0];
+  el.style.setProperty('--card-bg', card.value);
+  const title = l.title && c.achievements[l.title] ? ACHIEVEMENT_BY_ID.get(l.title)?.name : '';
   const kd = c.deaths ? (c.kills / c.deaths).toFixed(2) : c.kills.toFixed(2);
   const medals = Object.values(c.medals).reduce((a, b) => a + b, 0);
   el.innerHTML = `
     <div class="pc-top">${rankEmblem(L.level, 64)}
-      <div class="pc-id"><div class="pc-name">Level ${L.level}</div><div class="pc-rank">${L.rank}</div>
+      <div class="pc-id"><div class="pc-name">Level ${L.level}</div><div class="pc-rank">${L.rank}${c.prestige ? ` · Prestige ${c.prestige}` : ''}</div>${title ? `<div class="pc-title">“${title}”</div>` : ''}
         <div class="xp-bar"><div class="xp-fill" style="width:${((100 * L.into) / L.need).toFixed(1)}%"></div></div>
         <div class="pc-xp">${L.into.toLocaleString('en-US')} / ${L.need.toLocaleString('en-US')} XP</div></div></div>
     <div class="pc-stats">
@@ -175,6 +185,23 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
     }
   }
 
+  // ---- Unlocks and weapon mastery ----
+  if (r.unlocks?.length || r.mastery?.length) {
+    const box = add(wrap, 'report-unlocks');
+    box.innerHTML = `<div class="section-title">Unlocked</div>`;
+    const grid = add(box, 'ru-list');
+    for (const [gun, , to] of r.mastery ?? []) {
+      const it = add(grid, 'ru-item mastery');
+      it.innerHTML = `<div class="ru-face ru-level">${to}</div><div class="ru-kind">${WEAPONS[gun as WeaponId].name}</div><div class="ru-name">${to >= 10 ? 'Mastered!' : `Mastery ${to}`}</div>`;
+    }
+    for (const id of r.unlocks ?? []) {
+      const { kind, name } = unlockName(id);
+      const it = add(grid, 'ru-item');
+      it.innerHTML = `<div class="ru-face" style="background:${unlockLook(id)};background-size:cover"></div><div class="ru-kind">${kind}</div><div class="ru-name">${name}</div>`;
+    }
+    add(box, 'career-note').textContent = 'Equip them on the Career screen (main menu).';
+  }
+
   // ---- Daily challenges: how far this match took each one ----
   if (r.challenges?.length) {
     const box = add(wrap, 'report-challenges');
@@ -197,7 +224,7 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
     r.xpLines.map(([l, v]) => `<div class="rb-line"><span>${l}</span><span class="rb-v">+${v.toLocaleString('en-US')}</span></div>`).join('') +
     (r.multiplier === 1 ? '' : r.multiplier === 0
       ? `<div class="rb-line none"><span>${r.difficulty} difficulty: no XP</span><span class="rb-v">×0</span></div><div class="rb-note">${r.difficulty} is practice: this match doesn't count toward your XP or career stats. Play on Easy or harder to earn XP (the harder the bots, the more you get).</div>`
-      : `<div class="rb-line bonus"><span>${r.difficulty} difficulty ×${r.multiplier}</span><span class="rb-v">+${(r.xp - (r.challengeXp ?? 0) - r.baseXp).toLocaleString('en-US')}</span></div>`) +
+      : `<div class="rb-line bonus"><span>${r.difficulty} difficulty ×${r.multiplier}</span><span class="rb-v">+${(r.xp - (r.challengeXp ?? 0) - (r.record?.achievementXp ?? 0) - r.baseXp).toLocaleString('en-US')}</span></div>`) +
     (r.challengeXp ? `<div class="rb-line bonus"><span>Daily challenges</span><span class="rb-v">+${r.challengeXp.toLocaleString('en-US')}</span></div>` : '') +
     (r.record?.achievementXp ? `<div class="rb-line bonus"><span>Achievements</span><span class="rb-v">+${r.record.achievementXp.toLocaleString('en-US')}</span></div>` : '') +
     `<div class="rb-line total"><span>Total</span><span class="rb-v">+${r.xp.toLocaleString('en-US')} XP</span></div>`;
@@ -281,6 +308,19 @@ function animateXp(box: HTMLElement, r: EndReport, later: (ms: number, f: () => 
     later(28, tick);
   };
   tick();
+}
+
+/** A preview background for an unlock (camo swatch, color, card...). */
+function unlockLook(id: string): string {
+  const [kind, a, b] = id.split(':');
+  if (kind === 'camo') {
+    const c = CAMOS.find((x) => x.id === b);
+    return c ? `url(${camoTextures(c).swatch})` : '#333';
+  }
+  const list = kind === 'gloves' ? GLOVES : kind === 'color' ? CROSSHAIR_COLORS : kind === 'card' ? CARDS : kind === 'backdrop' ? BACKDROPS : null;
+  const it = list?.find((x) => x.id === a);
+  if (!it) return '#262b34';
+  return kind === 'backdrop' ? `linear-gradient(180deg, #${(it as (typeof BACKDROPS)[number]).sky.zenith.toString(16).padStart(6, '0')}, ${it.value})` : it.value;
 }
 
 function tierRank(t: string): number {
