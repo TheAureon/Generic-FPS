@@ -186,6 +186,7 @@ export class Match {
     // Daily challenges (nothing counts on practice difficulties).
     this.challenges = new ChallengeTracker(REWARDS.xpMultiplier[config.difficulty] === 0, (s) => {
       hud.challenges.complete(s);
+      progress.challengeDone();
       music.duck(0.5, 2);
       audio.play('challenge');
     });

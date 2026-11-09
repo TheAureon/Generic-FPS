@@ -180,6 +180,15 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 
 **Bots** carry an assault rifle, SMG or LMG (they take turns through the list in `BOTS.weapons`), and each has one grenade per life, which it may lob at you from 9 to 26 m away. Bots that notice a grenade near them run from it; on the easier levels they're slower to notice. Grenade kills earn the **Frag Out** medal.
 
+### Records, map stars and achievements
+
+- **Personal bests**: your best score, kills, streak, longest kill, damage, multikill and accuracy (with 10+ kills) in a single match. Beat one and the match report marks it **New best!**
+- **Map stars**: ★ for winning on a map, ★★ for winning on Hard or Insane, ★★★ for winning on Insane. They show on the map cards when you set up a match.
+- **Survival records**: your most waves cleared on each map (shown on the map cards when Survival is picked). Clearing waves 5, 10, 15 and 20 earns the **Survivor**, **Last Stand**, **Unbreakable** and **Immortal** medals with bonus points.
+- **Achievements**: 28 career milestones, from *Centurion* (100 kills) and *Tourist* (finish a match on every map) to *Flawless* (win with 10+ kills and no deaths), *Jack of All Trades* (win every mode) and *All-Star* (all 18 map stars). Each is earned once and gives XP: 500 (bronze), 1,000 (silver), 2,500 (gold) or 5,000 (legendary). The list is in `src/core/Achievements.ts`.
+
+Like XP, none of this counts on Novice or Beginner.
+
 ### Daily challenges
 
 Every day you get three new challenges, one each of **Easy (+400 XP)**, **Medium (+800 XP)** and **Hard (+1,500 XP)**, for example "Get 8 kills with the SMG", "Win a King of the Hill match", "Get 3 grenade kills" or "Get an 8-kill streak in one match". Everyone gets the same three on the same day, and they change at midnight.

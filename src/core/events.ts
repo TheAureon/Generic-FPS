@@ -14,6 +14,8 @@ export interface GameEvents {
   pickup: { who: string; type: PickupType };
   /** A loud sound that isn't a gunshot (a grenade going off): bots hear it. */
   noise: { source: string; position: THREE.Vector3; hearingRange: number };
+  /** Survival: a wave was cleared. */
+  waveCleared: { wave: number };
 }
 
 type Handler<T> = (e: T) => void;

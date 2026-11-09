@@ -47,6 +47,8 @@ export interface MatchResult {
   win: boolean;
   /** Extra lines for the end screen (e.g. "Waves survived: 4"). */
   stats: string[];
+  /** Survival: waves cleared (for your survival record). */
+  wavesCleared?: number;
 }
 
 /** Anyone in the fight: the player or a bot. */

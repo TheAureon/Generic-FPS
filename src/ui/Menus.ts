@@ -5,6 +5,8 @@ import { MAPS } from '../map/maps';
 import { modeLimit, type MatchConfig, type MatchResult, type ModeId, type ScoreRow } from '../modes/GameMode';
 import { dailyCard, matchReport, playerCard, type EndReport } from './Career';
 import { scoreTableHtml, type ScoreExtras } from './Hud';
+import { progress } from '../core/Progress';
+import { starCount } from '../core/Achievements';
 
 export interface MenuActions {
   startMatch(config: MatchConfig): void;
@@ -225,7 +227,15 @@ export class Menus {
     }, 'small modes');
 
     div('section-title', p).textContent = 'Map';
-    choiceCards(p, MAPS.map((m) => [m.id, m.name, m.description, ICONS.map] as [string, string, string, string]), c.map, (v) => (c.map = v), 'small');
+    // Each map shows its stars (★ win, ★★ win on Hard+, ★★★ win on Insane) and, in Survival, your best wave.
+    const career = progress.get();
+    const mapName = (id: string, name: string) => {
+      if (id === 'test-room') return name;
+      const n = starCount(career.mapStars[id]);
+      const wave = c.mode === 'survival' && career.survivalBest[id] ? `<span class="map-record">best: wave ${career.survivalBest[id]}</span>` : '';
+      return `${name}<span class="map-stars">${'★'.repeat(n)}<span>${'★'.repeat(3 - n)}</span></span>${wave}`;
+    };
+    choiceCards(p, MAPS.map((m) => [m.id, mapName(m.id, m.name), m.description, ICONS.map] as [string, string, string, string]), c.map, (v) => (c.map = v), 'small');
 
     div('section-title', p).textContent = 'Difficulty';
     const diffWrap = div('difficulty', p);

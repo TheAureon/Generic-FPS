@@ -531,6 +531,8 @@ export const REWARDS = {
     collateral: 100,
     avenger: 50,
     grenadeKill: 50,
+    /** Survival: clearing wave 5, 10, 15 and 20. */
+    survivalWave: { 5: 250, 10: 500, 15: 1000, 20: 2000 } as Record<number, number>,
     /** Multikills: double, triple, quad, and 5 or more. */
     multikill: [0, 0, 100, 200, 350, 500],
     /** Kill streaks (without dying) and their bonuses. */

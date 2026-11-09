@@ -33,6 +33,10 @@ export const MEDALS: Record<string, MedalDef> = {
   collateral: { name: 'Collateral', tier: 'gold', icon: 'pierce', info: 'Two kills with one shot' },
   avenger: { name: 'Avenger', tier: 'bronze', icon: 'shield', info: 'Kill an enemy who just killed a teammate' },
   frag: { name: 'Frag Out', tier: 'bronze', icon: 'grenade', info: 'Kill with a grenade' },
+  wave5: { name: 'Survivor', tier: 'bronze', icon: 'shield', info: 'Clear wave 5 in Survival' },
+  wave10: { name: 'Last Stand', tier: 'silver', icon: 'shield', info: 'Clear wave 10 in Survival' },
+  wave15: { name: 'Unbreakable', tier: 'gold', icon: 'shield', info: 'Clear wave 15 in Survival' },
+  wave20: { name: 'Immortal', tier: 'legend', icon: 'crown', info: 'Clear wave 20 in Survival' },
   headshot: { name: 'Headshot', tier: 'bronze', icon: 'skull', info: 'Kill with a shot to the head' },
   double: { name: 'Double Kill', tier: 'bronze', icon: 'x2', info: '2 kills in quick succession' },
   triple: { name: 'Triple Kill', tier: 'silver', icon: 'x3', info: '3 kills in quick succession' },
@@ -111,6 +115,7 @@ export class Rewards {
   constructor(private d: RewardsDeps) {
     this.unsub.push(
       events.on('kill', (e) => this.onKill(e.killer, e.victim, e.weapon, e.headshot)),
+      events.on('waveCleared', (e) => this.onWave(e.wave)),
       events.on('damage', (e) => {
         if (e.attacker === d.player.name && e.victim !== d.player.name) this.summary.damage += Math.max(0, e.amount);
       }),
@@ -219,6 +224,20 @@ export class Rewards {
     } else if (medals.length) {
       audio.play('medal');
     }
+  }
+
+  /** Survival milestones: a medal, points and a call-out for clearing waves 5, 10, 15 and 20. */
+  private onWave(wave: number): void {
+    const points = REWARDS.points.survivalWave[wave];
+    if (!points) return;
+    const id = `wave${wave}`;
+    this.summary.score += points;
+    this.summary.breakdown.medals += points;
+    this.d.display.score([{ label: `${MEDALS[id].name}: wave ${wave} cleared`, points }], this.summary.score);
+    this.addMedal(id);
+    this.d.display.callout(MEDALS[id].name, `Wave ${wave} cleared`, MEDALS[id].tier);
+    music.duck(0.45, 1.5);
+    audio.play(MEDALS[id].tier === 'gold' || MEDALS[id].tier === 'legend' ? 'callout_big' : 'callout');
   }
 
   private addMedal(id: string): void {

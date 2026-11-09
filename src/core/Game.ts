@@ -191,15 +191,21 @@ export class Game {
     const xp = Math.round(baseXp * multiplier) + m.challenges.xpEarned;
     const difficulty = DIFFICULTIES.find((d) => d.id === m.config.difficulty)?.name ?? m.config.difficulty;
     // Novice and Beginner are practice: nothing goes on your career (no XP, no stats).
-    const career = multiplier > 0
-      ? progress.record({ xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, medals: s.medals })
-      : { before: m.careerAtStart, after: structuredClone(progress.get()) };
+    const record = multiplier > 0
+      ? progress.record({
+        xp, win: result.win, kills: s.kills, deaths: s.deaths, headshots: s.headshots, bestStreak: s.bestStreak, bestMulti: s.bestMulti,
+        longestKill: s.longestKill, damage: s.damage, score: s.score, accuracy, medals: s.medals, weaponKills: s.weaponKills as Record<string, number>,
+        mode: m.config.mode, map: m.config.map, difficulty: m.config.difficulty, wavesCleared: result.wavesCleared,
+      })
+      : null;
+    const career = record ?? { after: structuredClone(progress.get()) };
     // UsForge leaderboard: your total career XP, sent once here as a match ends. Total XP
     // already adds up every mode, so any finished match that earns XP posts it. Not from
     // practice difficulties (no XP) or automated test runs (forcePlay).
-    if (!this.forcePlay && multiplier > 0) sendScoreToUsForge(career.after.xp);
+    // (Lifetime XP: it never goes down, even when you prestige.)
+    if (!this.forcePlay && multiplier > 0) sendScoreToUsForge(career.after.lifetimeXp);
     this.menus.showEnd(result, m.mode.scoreboard(), { scoreLabel: m.mode.scoreLabel, teamScores: m.mode.teamScores?.() }, {
-      summary: s, accuracy, xpLines, xp, baseXp, multiplier, difficulty, before: m.careerAtStart, after: career.after,
+      summary: s, accuracy, xpLines, xp: xp + (record?.achievementXp ?? 0), baseXp, multiplier, difficulty, before: m.careerAtStart, after: career.after, record,
       challenges, challengeXp: m.challenges.xpEarned, mode: m.mode.name, map: m.map.def.name, time: m.time,
     });
   }

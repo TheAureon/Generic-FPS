@@ -1,5 +1,6 @@
 import { BOT_DIFFICULTY, SURVIVAL } from '../config';
 import { audio } from '../audio/AudioEngine';
+import { events } from '../core/events';
 import { formatTime, scoreRows, type GameMode, type MatchResult, type ModeContext, type ScoreRow } from './GameMode';
 
 type Skill = (typeof BOT_DIFFICULTY)['medium'];
@@ -53,6 +54,7 @@ export class Survival implements GameMode {
           subtitle: `You survived ${cleared} wave${cleared === 1 ? '' : 's'}`,
           win: false,
           stats: [`Reached wave ${this.wave}`, `Kills: ${kills}`, `Time: ${formatTime(this.ctx.time)}`],
+          wavesCleared: cleared,
         };
       }
       return;
@@ -64,6 +66,7 @@ export class Survival implements GameMode {
         this.intermission = SURVIVAL.intermission;
         player.heal(SURVIVAL.healOnWaveClear);
         this.ctx.announce(`Wave ${this.wave} cleared`, `+${SURVIVAL.healOnWaveClear} health`, 3);
+        events.emit('waveCleared', { wave: this.wave });
       }
       return;
     }

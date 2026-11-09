@@ -1,7 +1,8 @@
 import { WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { daily, tierName, type ChallengeStatus } from '../core/Challenges';
-import { levelInfo, progress, type Career } from '../core/Progress';
+import { ACHIEVEMENT_XP } from '../core/Achievements';
+import { levelInfo, progress, type Bests, type Career, type RecordResult } from '../core/Progress';
 import { MEDALS, type MatchSummary } from '../core/Rewards';
 import { medalHtml } from './RewardsHud';
 
@@ -23,6 +24,8 @@ export interface EndReport {
   /** Daily challenges after this match, and the bonus XP from ones completed in it. */
   challenges?: ChallengeStatus[];
   challengeXp?: number;
+  /** What the match changed in your career: records, stars, achievements (null on practice). */
+  record?: RecordResult | null;
   before: Career;
   after: Career;
   mode: string;
@@ -86,7 +89,10 @@ function stat(label: string, value: string | number): string {
 /** The match report on the end screen. Animates in; returns a function that stops the animation. */
 export function matchReport(parent: HTMLElement, r: EndReport): () => void {
   const s = r.summary;
+  // Timers and animation frames are kept apart: their ids are separate number sequences, and
+  // cancelling a frame by a timer's id could cancel someone else's frame (like the game loop).
   const timers: number[] = [];
+  const frames: number[] = [];
   const later = (ms: number, f: () => void) => timers.push(window.setTimeout(f, ms));
   const wrap = document.createElement('div');
   wrap.className = 'report';
@@ -121,9 +127,13 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
     ['Longest kill', s.longestKill, (v) => `${Math.round(v)} m`],
     ['Time', r.time, () => `${mm}:${String(ss).padStart(2, '0')}`],
   ];
+  // Tiles that set a new personal best get a badge.
+  const bestOf: Record<string, keyof Bests> = { Score: 'score', Kills: 'kills', Accuracy: 'accuracy', Damage: 'damage', 'Best streak': 'streak', 'Longest kill': 'longestKill' };
+  const newBests = new Set(r.record?.newBests ?? []);
   const tileEls = tileDefs.map(([label, , fmt, cls]) => {
-    const t = add(tiles, `report-tile ${cls ?? ''}`);
-    t.innerHTML = `<div class="rt-v">${fmt(0)}</div><div class="rt-l">${label}</div>`;
+    const isBest = bestOf[label] && newBests.has(bestOf[label]);
+    const t = add(tiles, `report-tile ${cls ?? ''}${isBest ? ' best' : ''}`);
+    t.innerHTML = `<div class="rt-v">${fmt(0)}</div><div class="rt-l">${label}</div>${isBest ? `<div class="rt-best">${r.record?.firstRecords ? 'First record' : 'New best!'}</div>` : ''}`;
     return t.querySelector('.rt-v') as HTMLElement;
   });
 
@@ -138,6 +148,32 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
     m.innerHTML = `${medalHtml(MEDALS[id], n)}<div class="rm-name">${MEDALS[id].name}</div><div class="rm-info">${MEDALS[id].info}</div>`;
     m.style.animationDelay = `${0.9 + i * 0.12}s`;
   });
+
+  // ---- Records: achievements, map stars, survival record, best multikill ----
+  const rec = r.record;
+  const multiBest = newBests.has('multi') && s.bestMulti >= 2;
+  if (rec && (rec.achievements.length || rec.stars[1] > rec.stars[0] || rec.survivalRecord || multiBest)) {
+    const box = add(wrap, 'report-records');
+    box.innerHTML = `<div class="section-title">Records &amp; achievements</div>`;
+    const list = add(box, 'rr-list');
+    rec.achievements.forEach((a, i) => {
+      const it = add(list, 'rr-item achievement');
+      it.innerHTML = `${medalHtml({ name: a.name, tier: a.tier, icon: a.icon, info: a.info })}<div class="rr-text"><div class="rr-eyebrow">Achievement unlocked</div><div class="rr-name">${a.name}</div><div class="rr-info">${a.info}</div></div><div class="rr-xp">+${ACHIEVEMENT_XP[a.tier].toLocaleString('en-US')} XP</div>`;
+      it.style.animationDelay = `${1.1 + i * 0.15}s`;
+    });
+    if (rec.stars[1] > rec.stars[0]) {
+      const it = add(list, 'rr-item');
+      it.innerHTML = `<div class="rr-stars">${'★'.repeat(rec.stars[1])}<span>${'★'.repeat(3 - rec.stars[1])}</span></div><div class="rr-text"><div class="rr-eyebrow">New map star${rec.stars[1] - rec.stars[0] > 1 ? 's' : ''}</div><div class="rr-name">${r.map}</div><div class="rr-info">★ win · ★★ win on Hard or Insane · ★★★ win on Insane</div></div>`;
+    }
+    if (rec.survivalRecord) {
+      const it = add(list, 'rr-item');
+      it.innerHTML = `<div class="rr-big">${rec.survivalRecord.after}</div><div class="rr-text"><div class="rr-eyebrow">New survival record</div><div class="rr-name">${rec.survivalRecord.after} wave${rec.survivalRecord.after === 1 ? '' : 's'} cleared on ${r.map}</div><div class="rr-info">${rec.survivalRecord.before ? `Your best was ${rec.survivalRecord.before}` : 'Your first survival record here'}</div></div>`;
+    }
+    if (multiBest) {
+      const it = add(list, 'rr-item');
+      it.innerHTML = `<div class="rr-big">×${s.bestMulti}</div><div class="rr-text"><div class="rr-eyebrow">New best</div><div class="rr-name">Biggest multikill</div><div class="rr-info">${s.bestMulti} kills in quick succession</div></div>`;
+    }
+  }
 
   // ---- Daily challenges: how far this match took each one ----
   if (r.challenges?.length) {
@@ -163,6 +199,7 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
       ? `<div class="rb-line none"><span>${r.difficulty} difficulty: no XP</span><span class="rb-v">×0</span></div><div class="rb-note">${r.difficulty} is practice: this match doesn't count toward your XP or career stats. Play on Easy or harder to earn XP (the harder the bots, the more you get).</div>`
       : `<div class="rb-line bonus"><span>${r.difficulty} difficulty ×${r.multiplier}</span><span class="rb-v">+${(r.xp - (r.challengeXp ?? 0) - r.baseXp).toLocaleString('en-US')}</span></div>`) +
     (r.challengeXp ? `<div class="rb-line bonus"><span>Daily challenges</span><span class="rb-v">+${r.challengeXp.toLocaleString('en-US')}</span></div>` : '') +
+    (r.record?.achievementXp ? `<div class="rb-line bonus"><span>Achievements</span><span class="rb-v">+${r.record.achievementXp.toLocaleString('en-US')}</span></div>` : '') +
     `<div class="rb-line total"><span>Total</span><span class="rb-v">+${r.xp.toLocaleString('en-US')} XP</span></div>`;
   const wl = add(cols, 'report-weapons');
   const wk = Object.entries(s.weaponKills) as [WeaponId | 'grenade', number][];
@@ -181,13 +218,16 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
       const step = () => {
         const t = Math.min(1, (performance.now() - start) / dur);
         el.textContent = fmt(value * (1 - Math.pow(1 - t, 3)));
-        if (t < 1) timers.push(requestAnimationFrame(step) as unknown as number);
+        if (t < 1) frames.push(requestAnimationFrame(step));
       };
       step();
     });
   });
   later(250 + tileDefs.length * 90 + 500, () => animateXp(xpBox, r, later));
-  return () => timers.forEach((t) => { clearTimeout(t); cancelAnimationFrame(t); });
+  return () => {
+    timers.forEach((t) => clearTimeout(t));
+    frames.forEach((f) => cancelAnimationFrame(f));
+  };
 }
 
 function animateXp(box: HTMLElement, r: EndReport, later: (ms: number, f: () => void) => void): void {
