@@ -23,6 +23,16 @@ const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 /** Gun position when not aiming (camera coordinates). */
 export const HIP_POSE = v(0.14, -0.12, -0.43);
 
+/**
+ * Per-gun changes to the hip position (fading out as you aim): a bulky gun
+ * sits further out and is turned a little, so you see its side instead of
+ * just its back. offset in meters; turn in radians around [x, y, z]
+ * (y > 0 turns the muzzle toward the middle of the screen).
+ */
+export const HIP_ADJUST: Partial<Record<WeaponId, { offset: THREE.Vector3; turn: THREE.Vector3 }>> = {
+  lmg: { offset: v(0.03, -0.01, -0.12), turn: v(0, 0.22, 0.07) },
+};
+
 /** Gun position when aiming down sights, so the sights line up with the screen center. */
 export const AIM_POSE: Record<WeaponId, THREE.Vector3> = {
   pistol: v(0, -0.053, -0.27),

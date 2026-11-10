@@ -6,7 +6,7 @@ import { getFlashTexture } from '../assets/textures';
 import { camoTextures } from '../assets/camos';
 import { createWeaponModel, markerPosition, mats } from '../assets/weaponModels';
 import { CAMOS, GLOVES, type Loadout } from '../core/Cosmetics';
-import { AIM_POSE, BOLT, EJECT_PORT, HIP_POSE, PUMP, RELOADS, SIGHT_DISTANCE, smoothstep, window01 } from './animations';
+import { AIM_POSE, BOLT, EJECT_PORT, HIP_ADJUST, HIP_POSE, PUMP, RELOADS, SIGHT_DISTANCE, smoothstep, window01 } from './animations';
 import { ViewmodelArms } from './ViewmodelArms';
 
 /**
@@ -339,6 +339,9 @@ export class Viewmodel {
 
     // Blend hip -> aim pose.
     const pos = model.position.lerpVectors(HIP_POSE, this.aimPose.get(this.current)!, s.ads);
+    const adj = HIP_ADJUST[this.current];
+    const hip = 1 - s.ads;
+    if (adj) pos.addScaledVector(adj.offset, hip);
     // Reloading brings the gun in toward the middle, canted so you see the magazine.
     pos.x += bobX + this.swayX - rl * 0.06;
     pos.y += bobY + breathe + this.swayY - s.lowered * 0.35 + rl * 0.045 + seat * 0.012 - s.sprint * 0.04 - dip * 0.22;
@@ -356,6 +359,11 @@ export class Viewmodel {
       this.swayX * 2 + rl * 0.3 - slideRack * 1.1 + s.sprint * 0.6,
       rl * 0.6 + rack * 0.12 + bk * 0.4 - slideRack * 0.6 + s.sprint * 0.25,
     );
+    if (adj) {
+      model.rotation.x += adj.turn.x * hip;
+      model.rotation.y += adj.turn.y * hip;
+      model.rotation.z += adj.turn.z * hip;
+    }
     this.arms.update(dt, model, s.reloadProgress, pump, this.bolt);
 
     for (const c of this.casings) {

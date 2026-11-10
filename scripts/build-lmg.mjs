@@ -46,10 +46,12 @@ const Y = (py) => (220 - py) * K - 0.035;
 
 // ---- Materials (the name before ':' is the camo role) -------------------------------
 const M = {
-  body: new THREE.MeshStandardMaterial({ name: 'metal:receiver', color: 0x34465a, metalness: 0.45, roughness: 0.45 }),
-  dark: new THREE.MeshStandardMaterial({ name: 'dark:furniture', color: 0x1d2631, metalness: 0.2, roughness: 0.6 }),
-  steel: new THREE.MeshStandardMaterial({ name: 'trim:steel', color: 0x8b9fb8, metalness: 0.6, roughness: 0.35 }),
-  ammo: new THREE.MeshStandardMaterial({ name: 'trim:ammobox', color: 0x5aa548, metalness: 0.05, roughness: 0.7 }),
+  body: new THREE.MeshStandardMaterial({ name: 'metal:receiver', color: 0x2f4053, metalness: 0.25, roughness: 0.55 }),
+  dark: new THREE.MeshStandardMaterial({ name: 'dark:furniture', color: 0x1a222c, metalness: 0.1, roughness: 0.65 }),
+  steel: new THREE.MeshStandardMaterial({ name: 'trim:steel', color: 0x65778d, metalness: 0.35, roughness: 0.5 }),
+  ammo: new THREE.MeshStandardMaterial({ name: 'trim:ammobox', color: 0x427f35, metalness: 0, roughness: 0.8 }),
+  ammoDark: new THREE.MeshStandardMaterial({ name: 'trim:ammolid', color: 0x33662a, metalness: 0, roughness: 0.8 }),
+  link: new THREE.MeshStandardMaterial({ name: 'trim:link', color: 0x2a2d31, metalness: 0.5, roughness: 0.5 }),
   brass: new THREE.MeshStandardMaterial({ name: 'trim:brass', color: 0xe0b040, metalness: 0.8, roughness: 0.3 }),
   hole: new THREE.MeshStandardMaterial({ name: 'trim:hole', color: 0x0c0f13, metalness: 0.1, roughness: 0.8 }),
 };
@@ -62,15 +64,35 @@ const put = (part, mat, geo) => {
   pieces.push([part, mat, g]);
 };
 
-/** Box between two px and two py, from x0 to x1 (meters). */
-function box(px0, px1, py0, py1, x0, x1, mat, part = 'body') {
-  const z0 = Z(px1), z1 = Z(px0), y0 = Y(py1), y1 = Y(py0);
-  const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
-  g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+/**
+ * Extrude a flat outline ([u, v] meters, u = -z, v = y) sideways from x0 to
+ * x1, with every edge chamfered by about `c` meters (the low-poly bevelled
+ * look of the reference picture).
+ */
+function extrudeSide(outline, x0, x1, mat, part, c) {
+  const k = Math.min(c, (x1 - x0) / 3);
+  const s = new THREE.Shape(outline.map(([u, v]) => new THREE.Vector2(u, v)));
+  const g = k > 0.0004
+    ? new THREE.ExtrudeGeometry(s, { depth: x1 - x0 - 2 * k, bevelEnabled: true, bevelThickness: k, bevelSize: k, bevelOffset: -k, bevelSegments: 1 })
+    : new THREE.ExtrudeGeometry(s, { depth: x1 - x0, bevelEnabled: false });
+  if (k > 0.0004) g.translate(0, 0, k);
+  g.rotateY(Math.PI / 2); // u (= -z) → z, extrusion → +x
+  g.translate(x0, 0, 0);
   put(part, mat, g);
 }
+
+/** A rectangle outline (meters) with its corners cut by c. */
+function chamferRect(u0, u1, v0, v1, c) {
+  const k = Math.min(c, (u1 - u0) / 3, (v1 - v0) / 3);
+  return [[u0 + k, v0], [u1 - k, v0], [u1, v0 + k], [u1, v1 - k], [u1 - k, v1], [u0 + k, v1], [u0, v1 - k], [u0, v0 + k]];
+}
+
+/** Box between two px and two py, from x0 to x1 (meters), edges chamfered by c. */
+function box(px0, px1, py0, py1, x0, x1, mat, part = 'body', c = 0.003) {
+  extrudeSide(chamferRect(-Z(px0), -Z(px1), Y(py1), Y(py0), c), x0, x1, mat, part, c);
+}
 /** Centered box (x from -w/2 to w/2). */
-const cbox = (px0, px1, py0, py1, w, mat, part) => box(px0, px1, py0, py1, -w / 2, w / 2, mat, part);
+const cbox = (px0, px1, py0, py1, w, mat, part, c) => box(px0, px1, py0, py1, -w / 2, w / 2, mat, part, c);
 
 /** Tube along the gun (hexagonal by default) from px0 to px1 at height py. */
 function tube(px0, px1, py, r, mat, sides = 6, part = 'body', x = 0, r2 = r) {
@@ -90,21 +112,18 @@ function across(px, py, r, x0, x1, mat, sides = 6, part = 'body') {
   put(part, mat, g);
 }
 
-/** A flat shape traced in the picture ([px, py] corners), x0..x1 thick. */
-function side(points, x0, x1, mat, part = 'body') {
-  const s = new THREE.Shape(points.map(([px, py]) => new THREE.Vector2(-Z(px), Y(py))));
-  const g = new THREE.ExtrudeGeometry(s, { depth: x1 - x0, bevelEnabled: false });
-  g.rotateY(Math.PI / 2); // shape x → -z, extrusion → +x
-  g.translate(x0, 0, 0);
-  put(part, mat, g);
+/** A flat shape traced in the picture ([px, py] corners), x0..x1 thick, edges chamfered by c. */
+function side(points, x0, x1, mat, part = 'body', c = 0.003) {
+  extrudeSide(points.map(([px, py]) => [-Z(px), Y(py)]), x0, x1, mat, part, c);
 }
-const cside = (points, w, mat, part) => side(points, -w / 2, w / 2, mat, part);
+const cside = (points, w, mat, part, c) => side(points, -w / 2, w / 2, mat, part, c);
 
-/** A shape in the cross-section ([x, y] meters), from px0 to px1 along the gun. */
-function section(points, px0, px1, mat, part = 'body') {
+/** A shape in the cross-section ([x, y] meters), from px0 to px1 along the gun, edges chamfered by c. */
+function section(points, px0, px1, mat, part = 'body', c = 0.004) {
   const s = new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x, y)));
-  const g = new THREE.ExtrudeGeometry(s, { depth: (px1 - px0) * K, bevelEnabled: false });
-  g.translate(0, 0, Z(px1));
+  const depth = (px1 - px0) * K;
+  const g = new THREE.ExtrudeGeometry(s, { depth: depth - 2 * c, bevelEnabled: true, bevelThickness: c, bevelSize: c, bevelOffset: -c, bevelSegments: 1 });
+  g.translate(0, 0, Z(px1) + c);
   put(part, mat, g);
 }
 
@@ -119,15 +138,17 @@ tube(720, 815, 245, 0.02, M.steel, 8);
 tube(690, 720, 245, 0.012, M.steel, 8, 'body', 0, 0.02); // tapered cap
 
 // Receiver: rear block, upper and lower halves with a groove between, front block.
-cbox(805, 882, 185, 302, 0.068, M.body);
-cbox(880, 1340, 184, 221, 0.062, M.body);
-cbox(880, 1340, 221, 300, 0.058, M.body);
-cbox(882, 1290, 219, 225, 0.063, M.dark);
-cbox(1250, 1340, 168, 184, 0.062, M.body);
+cbox(805, 882, 185, 302, 0.068, M.body, 'body', 0.008);
+cbox(880, 1340, 184, 222, 0.062, M.body, 'body', 0.005);
+cbox(880, 1340, 221, 300, 0.058, M.body, 'body', 0.007);
+cbox(882, 1290, 219, 225, 0.064, M.dark, 'body', 0.001);
+cbox(1250, 1340, 166, 186, 0.062, M.body, 'body', 0.006);
+// Side plates on the lower receiver (both sides), slightly raised.
+for (const x of [-0.0305, 0.0285]) box(900, 1110, 236, 288, x, x + 0.002, M.dark, 'body', 0.001);
 // Feed cover (flips open on reloads), with the top rail and its slots.
-cbox(882, 1250, 162, 184, 0.06, M.body, 'cover');
-cbox(965, 1245, 152, 162, 0.026, M.body, 'cover');
-for (let px = 975; px < 1240; px += 30) cbox(px, px + 14, 145, 152, 0.026, M.body, 'cover');
+cbox(882, 1250, 161, 185, 0.06, M.body, 'cover', 0.007);
+cbox(965, 1245, 152, 163, 0.03, M.dark, 'cover', 0.002);
+for (let px = 975; px < 1240; px += 30) cbox(px, px + 14, 145, 153, 0.03, M.dark, 'cover', 0.002);
 
 // Rear sight: an aperture (ring with a hole in the middle), side guards and two drums.
 const AP = 118; // aperture center (py), level with the front sight tip
@@ -160,7 +181,9 @@ cbox(1012, 1024, 325, 368, 0.016, M.steel);
 cside([[1040, 300], [1052, 300], [1062, 335], [1052, 358], [1044, 352], [1050, 332]], 0.008, M.steel);
 
 // Handguard (wide, with a step at the back) and the bipod pivot nut.
-cside([[1280, 206], [1340, 193], [1608, 193], [1616, 202], [1616, 330], [1600, 340], [1292, 340], [1280, 330]], 0.074, M.dark);
+cside([[1280, 206], [1340, 193], [1608, 193], [1616, 202], [1616, 330], [1600, 340], [1292, 340], [1280, 330]], 0.074, M.dark, 'body', 0.01);
+// The curved recess along the bottom of the handguard (both sides), as in the picture.
+for (const x of [-0.0385, 0.0365]) side([[1296, 330], [1296, 300], [1318, 262], [1350, 248], [1598, 248], [1598, 322], [1588, 330]], x, x + 0.002, M.body, 'body', 0.001);
 across(1540, 298, 0.012, 0.037, 0.047, M.steel);
 across(1540, 298, 0.012, -0.047, -0.037, M.steel);
 
@@ -178,12 +201,17 @@ for (const x of [-0.016, 0.01]) box(1714, 1746, AP - 8, 172, x, x + 0.006, M.ste
 // Ammo box (comes off on reloads): chamfered on the top left, with a latch,
 // and the belt of rounds running up into the left side.
 const boxX0 = -0.098, boxX1 = 0.034, top = Y(290), bot = Y(600);
-section([[boxX0, bot], [boxX1, bot], [boxX1, top], [boxX0 + 0.034, top], [boxX0, top - 0.034]], 1108, 1236, M.ammo, 'mag');
+section([[boxX0, bot], [boxX1, bot], [boxX1, top], [boxX0 + 0.034, top], [boxX0, top - 0.034]], 1108, 1236, M.ammo, 'mag', 0.006);
+// Lid seam: a slightly wider band just under the top.
+section([[boxX0 - 0.002, top - 0.06], [boxX1 + 0.002, top - 0.06], [boxX1 + 0.002, top - 0.05], [boxX0 - 0.002, top - 0.05]], 1106, 1238, M.ammoDark, 'mag', 0.001);
+// Ribs on the broad faces.
+for (const py of [430, 500]) box(1114, 1230, py, py + 8, boxX0 - 0.002, boxX1 + 0.002, M.ammoDark, 'mag', 0.001);
 box(1148, 1200, 281, 291, -0.012, 0.022, M.steel, 'mag');
 for (let i = 0; i < 6; i++) {
   const py = 286 - i * 15;
   tube(1150, 1205, py, 0.0055, M.brass, 6, 'mag', -0.038);
   tube(1205, 1222, py, 0.0055, M.brass, 6, 'mag', -0.038, 0.0012); // pointed tip
+  box(1150, 1166, py - 7, py + 7, -0.045, -0.031, M.link, 'mag', 0.001); // belt link
 }
 
 // ---- Assemble ------------------------------------------------------------------
