@@ -150,17 +150,10 @@ cbox(882, 1250, 161, 185, 0.06, M.body, 'cover', 0.007);
 cbox(965, 1245, 152, 163, 0.03, M.dark, 'cover', 0.002);
 for (let px = 975; px < 1240; px += 30) cbox(px, px + 14, 145, 153, 0.03, M.dark, 'cover', 0.002);
 
-// Rear sight: an aperture (ring with a hole in the middle), side guards and two drums.
-const AP = 118; // aperture center (py), level with the front sight tip
-const apZ0 = 864, apZ1 = 874;
-box(apZ0, apZ1, AP - 22, AP - 7, -0.017, 0.017, M.steel); // top bar
-box(apZ0, apZ1, AP + 7, AP + 26, -0.017, 0.017, M.steel); // bottom bar
-box(apZ0, apZ1, AP - 7, AP + 7, -0.017, -0.0065, M.steel); // left bar
-box(apZ0, apZ1, AP - 7, AP + 7, 0.0065, 0.017, M.steel); // right bar
-for (const x of [-0.022, 0.018]) side([[850, 163], [860, 100], [893, 100], [945, 152], [945, 163]], x, x + 0.004, M.steel);
-cbox(848, 948, 152, 163, 0.04, M.steel);
-across(872, 145, 0.016, -0.028, 0.028, M.steel);
-across(926, 145, 0.016, -0.028, 0.028, M.steel);
+// No rear sight: when aiming you look along the top of the rail at the
+// front sight post. AP is the post's tip (py), the aiming point.
+const AP = 118;
+const apZ0 = 864, apZ1 = 874; // where your eye line starts (the back of the receiver)
 
 // Right side: ejection window (a round showing) and the charging handle.
 box(1133, 1237, 163, 207, 0.031, 0.0335, M.steel);

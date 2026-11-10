@@ -186,7 +186,7 @@ Every gun is a low-poly 3D model. The pistol, assault rifle, shotgun, sniper rif
 - **Magazines** come out and go back in with your left hand when you reload (the pistol's grip had no separate magazine, so one was added inside it, with a base plate showing underneath).
 - The **pistol slide** racks back at the end of a reload, the **shotgun pump** slides back and forward after each shot, and the **sniper bolt** turns up, slides back and forward again.
 - **LMG reload**: your left hand flips the feed cover up, pulls the ammo box off, hangs a full one on, and slams the cover shut.
-- **Aiming** lines up each gun's real sights: the pistol's rear notch and front post (the solid rear sight was given a notch), the rifle's front post in the middle of its rear ring, the shotgun's brass bead, new iron sights on the SMG (it had only a rail), and the LMG's front post inside its rear ring. The sniper uses its scope.
+- **Aiming** lines up each gun's real sights: the pistol's rear notch and front post (the solid rear sight was given a notch), the rifle's front post in the middle of its rear ring, the shotgun's brass bead, new iron sights on the SMG (it had only a rail), and, on the LMG, the front post seen over the top rail. The sniper uses its scope.
 - **Camos** cover them like the old guns, and the bots carry the same models.
 
 The finished models are in `src/assets/models/weapons/`. They're made from the downloaded originals in `scripts/weapon-sources/` by `node scripts/bake-weapons.mjs`, which turns and sizes them, cuts out the moving parts, and adds the sight and hand points (all the settings are at the top of that file). The LMG is built by `node scripts/build-lmg.mjs`, where each piece is traced in pixels of the reference picture.
