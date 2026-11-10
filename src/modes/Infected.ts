@@ -11,7 +11,7 @@ const INFECTED = 1;
 /** Seconds before the first bot turns. */
 const GRACE = 6;
 /** The infected glow a sickly green. */
-const GLOW = new THREE.Color(0.05, 0.28, 0.04);
+const GLOW = new THREE.Color(0.02, 0.07, 0.01);
 
 /**
  * Infected: everyone starts as a survivor (Blue). A few seconds in, one bot

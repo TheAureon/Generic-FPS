@@ -38,6 +38,8 @@ const MODE_LIST: { id: ModeId; group: ModeGroup; name: string; info: string; ico
   { id: 'infected', group: 'party', name: 'Infected', info: 'One bot turns, and everyone it kills turns too. The infected are fast with shotguns. Survive the clock.', icon: 'bio', limit: 'Minutes to survive' },
   { id: 'oitc', group: 'party', name: 'One in the Chamber', info: 'A pistol with one bullet, every hit kills, a kill gives the bullet back. Last one with lives left wins.', icon: 'bullet', limit: 'Lives' },
   { id: 'headhunter', group: 'party', name: 'Headhunter', info: 'Free for all where only headshot kills score. The bots go for heads too.', icon: 'target', limit: 'Headshot kills' },
+  { id: 'zombies', group: 'coop', name: 'Zombies', info: 'You and two bot allies against endless zombie waves. Kills earn points: buy guns and perks at stations with F.', icon: 'skull' },
+  { id: 'ladder', group: 'coop', name: 'Arena Ladder', info: '1v1 duels against seven ever-tougher bots, from Rookie to Champion. Lose a duel and your run ends.', icon: 'stairs', limit: 'Kills per duel' },
   { id: 'hardpoint', group: 'objective', name: 'Hardpoint', info: 'Teams. One zone at a time, moving every minute. Capture it, then score while no enemy stands in it.', icon: 'zones', limit: 'Points' },
   { id: 'snd', group: 'objective', name: 'Search & Destroy', info: 'Teams, rounds, one life. Plant the bomb at A or B, or stop the plant and defuse. Sides swap each round.', icon: 'bomb', limit: 'Rounds to win' },
   { id: 'escort', group: 'objective', name: 'Escort', info: 'Teams. Push the cart along its route to the enemy side before time runs out. Checkpoints add time.', icon: 'cart', limit: 'Minutes' },
@@ -299,7 +301,8 @@ export class Menus {
     const pair = div('field-pair', p);
     const bots = div('pair-item', pair);
     const team = TEAM_MODES.includes(c.mode);
-    div('section-title', bots).textContent = c.mode === 'survival' ? 'Bots in wave 1' : 'Bots';
+    div('section-title', bots).textContent = c.mode === 'survival' ? 'Bots in wave 1' : c.mode === 'zombies' ? 'Zombies in wave 1' : 'Bots';
+    if (c.mode === 'ladder') bots.style.display = 'none';
     // Team modes: you're on Blue with half the bots (rounded down); Red gets the rest.
     const split = (n: number) => `${n}  ·  you + ${Math.floor(n / 2)} vs ${n - Math.floor(n / 2)}`;
     slider(div('menu-control', bots), MATCH.minBots, MATCH.maxBots, 1, c.botCount, (v) => (team ? split(v) : String(v)), (v) => {
@@ -426,6 +429,8 @@ const ICONS = {
   bio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="6" r="3.5"/><circle cx="6.8" cy="15" r="3.5"/><circle cx="17.2" cy="15" r="3.5"/></svg>',
   bullet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 21V10c0-4 3-7 3-7s3 3 3 7v11z"/><path d="M9 16h6"/></svg>',
   jugg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M9 11h6M12 8v6"/></svg>',
+  skull: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3c-4.5 0-8 3-8 7.5 0 2.6 1.3 4.2 3 5.2V19h10v-3.3c1.7-1 3-2.6 3-5.2C20 6 16.5 3 12 3z"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="11" r="1.6"/><path d="M10 19v2M14 19v2"/></svg>',
+  stairs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg>',
   bomb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="14" r="7"/><path d="M15 9l3-3M18 3v2M21 6h-2M20 4l-1 1"/></svg>',
   cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7h18l-2 9H5z"/><circle cx="8" cy="19" r="2"/><circle cx="16" cy="19" r="2"/></svg>',
   box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>',

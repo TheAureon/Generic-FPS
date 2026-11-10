@@ -28,6 +28,8 @@ import { Hardpoint } from '../modes/Hardpoint';
 import { SearchAndDestroy } from '../modes/SearchAndDestroy';
 import { Escort } from '../modes/Escort';
 import { PropHunt } from '../modes/PropHunt';
+import { Zombies } from '../modes/Zombies';
+import { ArenaLadder } from '../modes/ArenaLadder';
 import { Pickups, type Collector } from '../pickups/Pickups';
 import { Player } from '../player/Player';
 import { PlayerController } from '../player/PlayerController';
@@ -155,6 +157,7 @@ export class Match {
       get weapons() { return self.weapons; },
       award: (label, points) => self.rewards.objective(label, points),
       hud,
+      input: d.input,
       loadout: (c, guns, opts = {}) => {
         if (c === (this.player as Combatant)) {
           this.weapons.setLoadout(guns, opts);
@@ -533,6 +536,8 @@ function createMode(ctx: ModeContext): GameMode {
     case 'snd': return new SearchAndDestroy(ctx);
     case 'escort': return new Escort(ctx);
     case 'prophunt': return new PropHunt(ctx);
+    case 'zombies': return new Zombies(ctx);
+    case 'ladder': return new ArenaLadder(ctx);
     default: return new Deathmatch(ctx);
   }
 }

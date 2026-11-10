@@ -8,12 +8,14 @@ import type { Damageable } from '../core/Hitbox';
 import type { MapDef, PickupType, SpawnPoint } from '../map/MapTypes';
 import type { WeaponSystem } from '../weapons/WeaponSystem';
 import type { Hud } from '../ui/Hud';
+import type { Input } from '../core/Input';
 import type { Player, Trackable } from '../player/Player';
 
 export type ModeId =
   | 'deathmatch' | 'tdm' | 'koh' | 'coh' | 'ctf' | 'control' | 'br' | 'survival'
   | 'gungame' | 'killconfirmed' | 'infected' | 'oitc' | 'headhunter' | 'juggernaut'
-  | 'hardpoint' | 'snd' | 'escort' | 'prophunt';
+  | 'hardpoint' | 'snd' | 'escort' | 'prophunt'
+  | 'zombies' | 'ladder';
 
 /** Everything chosen in the match menu. */
 export interface MatchConfig {
@@ -122,6 +124,8 @@ export interface ModeContext {
   /** Your guns (built after the mode: use from start() on). */
   readonly weapons: WeaponSystem;
   readonly hud: Hud;
+  /** Keyboard and mouse (for a mode's own keys, like F to buy). */
+  readonly input: Input;
   /**
    * Give someone a mode loadout: only these guns (bots carry the first), with
    * this ammo (rounds in the gun, spare rounds) and grenades. guns = null:

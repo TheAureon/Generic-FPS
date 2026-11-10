@@ -11,7 +11,7 @@ import {
 const J = PARTY_MODES.juggernaut;
 /** Seconds before the first Juggernaut is picked. */
 const GRACE = 5;
-const GLOW = new THREE.Color(0.32, 0.12, 0.0);
+const GLOW = new THREE.Color(0.08, 0.03, 0.0);
 /** Points per second as the Juggernaut (given when your reign ends). */
 const POINTS_PER_SECOND = 10;
 

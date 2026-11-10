@@ -47,6 +47,11 @@ export class Bot implements Damageable, Trackable {
   grenadesPerLife = 1;
   /** A glow a mode gives this bot (Infected, Juggernaut), or null. */
   tint: THREE.Color | null = null;
+  /** Zombies: no gun, a claw swipe at whoever is this close (damage, seconds between swipes). */
+  melee: { range: number; damage: number; every: number } | null = null;
+  private meleeTimer = 0;
+  /** No gun in its hands (zombies reach out with empty hands). */
+  hideGun = false;
   /** Holding still (Prop Hunt): no walking at all. */
   frozen = false;
   /** Prop Hunt: the prop this bot is hiding as (its body is hidden), or null. */
@@ -177,6 +182,28 @@ export class Bot implements Damageable, Trackable {
     return this.prop !== null;
   }
 
+  /** Zombies: claw the nearest enemy in reach. */
+  private swipe(): boolean {
+    const m = this.melee!;
+    if (this.time < this.meleeTimer) return false;
+    let best: (Damageable & Trackable) | null = null;
+    let bestD = m.range;
+    for (const e of this.ctx.getEnemies() as readonly (Damageable & Partial<Trackable>)[]) {
+      if (!e.isAlive() || !e.position) continue;
+      const d = Math.hypot(e.position.x - this.position.x, e.position.z - this.position.z);
+      if (d < bestD && Math.abs(e.position.y - this.position.y) < 1.8) {
+        bestD = d;
+        best = e as Damageable & Trackable;
+      }
+    }
+    if (!best) return false;
+    this.meleeTimer = this.time + m.every;
+    this.anim.fire();
+    audio.play('impact', { position: this.position, volume: 0.9 });
+    best.takeDamage({ amount: m.damage, part: 'body', attacker: this.name, weapon: 'claws', from: this.eyePosition().clone() });
+    return true;
+  }
+
   /** A full gun: the mode's ammo if it set one, else a magazine and the starting spare rounds. */
   refillAmmo(): void {
     const o = this.ammoOverride;
@@ -239,7 +266,7 @@ export class Bot implements Damageable, Trackable {
     this.aim.pitch = 0;
     // Same ammo as the player gets: a full magazine and the starting spare rounds.
     this.refillAmmo();
-    this.weaponModel.visible = true;
+    this.weaponModel.visible = !this.hideGun;
     this.perception.reset();
     this.lastAttacker = null;
     this.lastDamagedAt = -Infinity;
@@ -288,6 +315,7 @@ export class Bot implements Damageable, Trackable {
    * error on top of the gun's own spread.
    */
   tryFire(): boolean {
+    if (this.melee) return this.swipe();
     const w = this.weapon;
     if (w.ammo <= 0 && !w.reloading) {
       w.startReload(); // (only if there are spare rounds left)

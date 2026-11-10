@@ -55,6 +55,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'allModes', name: 'Jack of All Trades', info: 'Win a match in every mode (except Survival)', tier: 'gold', icon: 'x5', check: (c) => WINNABLE_MODES.every((m) => (c.modesWon[m] ?? 0) > 0) },
   { id: 'partyAll', name: 'Life of the Party', info: 'Win a match in every party mode (Gun Game, Kill Confirmed, Infected, One in the Chamber, Headhunter, Juggernaut, Prop Hunt)', tier: 'gold', icon: 'x5', check: (c) => PARTY_MODE_IDS.every((m) => (c.modesWon[m] ?? 0) > 0) },
   { id: 'objectiveAll', name: 'Mission Specialist', info: 'Win a Hardpoint, a Search & Destroy and an Escort match', tier: 'gold', icon: 'shield', check: (c) => OBJECTIVE_MODE_IDS.every((m) => (c.modesWon[m] ?? 0) > 0) },
+  { id: 'zombies10', name: 'Undead Slayer', info: 'Clear wave 10 in Zombies', tier: 'gold', icon: 'skull', check: (_c, m) => m.mode === 'zombies' && m.win },
+  { id: 'ladderChamp', name: 'Arena Champion', info: 'Beat all seven opponents in the Arena Ladder', tier: 'legend', icon: 'crown', check: (_c, m) => m.mode === 'ladder' && m.win },
   { id: 'gungameWin', name: 'Gun Runner', info: 'Win a Gun Game', tier: 'bronze', icon: 'rise', check: (_c, m) => m.win && m.mode === 'gungame' },
   { id: 'infectedWin', name: 'Patient Zero', info: 'Win a game of Infected', tier: 'silver', icon: 'shield', check: (_c, m) => m.win && m.mode === 'infected' },
   { id: 'allMaps', name: 'Tourist', info: 'Play a match to the end on every map', tier: 'bronze', icon: 'drop', check: (c) => CAREER_MAPS.every((m) => (c.mapsFinished[m] ?? 0) > 0) },

@@ -253,7 +253,7 @@ export const WEAPONS = {
 
 export type WeaponId = keyof typeof WEAPONS;
 /** What dealt damage: a gun, a grenade, or the Battle Royale zone. */
-export type DamageSource = WeaponId | 'grenade' | 'zone';
+export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws';
 
 /** Frag grenades (G to throw). */
 export const GRENADES = {
@@ -530,6 +530,28 @@ export const PARTY_MODES = {
    * the bots hide as props and you seek. `hideTime` s to hide, `roundTime` s per round.
    */
   prophunt: { hideTime: 20, roundTime: 120, decoys: 28 },
+  /**
+   * Zombies (co-op): endless waves of zombies against you and two bot allies.
+   * Kills and hits earn points to buy guns and perks at stations (press F).
+   */
+  zombies: {
+    allies: 2,
+    extraPerWave: 2,
+    /** Most zombies on the map at once (more come as these die). */
+    maxAlive: 14,
+    intermission: 8,
+    points: { kill: 60, headshot: 40, hit: 10 },
+    /** Gun stations: price to buy (buying a gun you have refills its ammo for half). */
+    guns: { smg: 500, shotgun: 750, rifle: 1000, sniper: 1250, lmg: 1500 } as Partial<Record<WeaponId, number>>,
+    /** Perk stations: price and what it does. */
+    perks: {
+      tough: { name: 'Tough Skin', price: 2000, info: 'take 35% less damage', color: 0xd83a3a },
+      quick: { name: 'Quick Feet', price: 1500, info: 'move 12% faster', color: 0x3ad86a },
+      doubletap: { name: 'Double Tap', price: 2500, info: 'deal 40% more damage', color: 0xe0a030 },
+    },
+  },
+  /** Arena Ladder: 1v1 duels against ever tougher bots. `limit` kills win a duel. */
+  ladder: { limits: [3, 5, 7], defaultLimit: 3 },
 };
 
 export const SURVIVAL = {
