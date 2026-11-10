@@ -37,6 +37,8 @@ const DEFAULTS: NavOptions = { spacing: 1.25, radius: 0.36, height: 1.8, stepHei
 
 export class NavGraph {
   nodes: NavNode[] = [];
+  /** Nodes nobody can walk through right now (closed doors), by id. */
+  readonly blocked = new Set<number>();
   readonly opts: NavOptions;
   private cells = new Map<number, number[]>();
   private originX = 0;
@@ -252,6 +254,7 @@ export class NavGraph {
       if (closed[cur]) continue;
       closed[cur] = 1;
       for (const e of this.nodes[cur].edges) {
+        if (this.blocked.has(e.to)) continue;
         const ng = g[cur] + e.cost;
         if (ng < g[e.to]) {
           g[e.to] = ng;

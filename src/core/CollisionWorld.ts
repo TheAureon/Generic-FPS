@@ -137,7 +137,7 @@ export class CollisionWorld {
   }
 
   /** @param rayTransparent glass: blocks walking, but bullets and eyesight pass through */
-  addBox(b: BoxDef, rayTransparent = false): void {
+  addBox(b: BoxDef, rayTransparent = false): AABB {
     const box: AABB = {
       minX: b.x - b.w / 2,
       maxX: b.x + b.w / 2,
@@ -148,6 +148,15 @@ export class CollisionWorld {
     };
     this.boxes.push(box);
     if (!rayTransparent) this.solids.push({ planes: boxPlanes(box), bounds: box });
+    this.gridDirty = true;
+    return box;
+  }
+
+  /** Take a box back out (a door that was opened). */
+  removeBox(box: AABB): void {
+    const i = this.boxes.indexOf(box);
+    if (i >= 0) this.boxes.splice(i, 1);
+    this.solids = this.solids.filter((s) => s.bounds !== box);
     this.gridDirty = true;
   }
 
