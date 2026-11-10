@@ -85,6 +85,8 @@ export class ViewmodelArms {
   private slide: MovingPart | null = null;
   private pump: MovingPart | null = null;
   private bolt: MovingPart | null = null;
+  /** Where the right hand holds the bolt knob (bolt coordinates). */
+  private knob = BOLT_KNOB.clone();
 
   constructor(parent: THREE.Object3D) {
     const mats: ArmMaterials = (this.mats = {
@@ -126,6 +128,10 @@ export class ViewmodelArms {
     this.slide = part('slide');
     this.pump = part('pump');
     this.bolt = part('bolt');
+    // A custom model can mark the bolt knob ('grip_bolt').
+    const knob = markerPosition(model, 'grip_bolt');
+    const boltHome = this.bolt ? markerPosition(model, 'bolt') : null;
+    this.knob.copy(knob && boltHome ? knob.sub(boltHome) : BOLT_KNOB);
 
     // Hand points: a custom model's markers win over the defaults.
     const d = HANDS[id];
@@ -157,7 +163,7 @@ export class ViewmodelArms {
     _a.copy(hands.right);
     if (this.bolt) {
       this.bolt.set(v0.set(0, 0, bolt.back), bolt.lift * BOLT.liftAngle);
-      if (bolt.reach > 0) _a.lerp(this.bolt.pointInGun(BOLT_KNOB, _b), bolt.reach);
+      if (bolt.reach > 0) _a.lerp(this.bolt.pointInGun(this.knob, _b), bolt.reach);
     }
     _a.applyMatrix4(m);
     this.place(this.right, _a, ELBOWS.right);

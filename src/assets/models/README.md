@@ -12,8 +12,12 @@ Put one `.glb` file per gun in `weapons/`, named after the gun:
 | `weapons/rifle.glb` | Assault Rifle |
 | `weapons/shotgun.glb` | Shotgun |
 | `weapons/sniper.glb` | Sniper Rifle |
+| `weapons/smg.glb` | SMG |
+| `weapons/lmg.glb` | LMG |
 
 A gun without a file keeps its built-in model, so you can add them one at a time. The model is used both in your hands and in the bots' hands.
+
+The guns in `weapons/` now were made by `scripts/bake-weapons.mjs` from downloaded models (in `scripts/weapon-sources/`) that came as one solid piece: the script turns and sizes them, cuts out the moving parts, adds the markers below and names the materials for camos (`metal:…`, `dark:…`, `wood:…`; anything else isn't painted). Change its settings and run `node scripts/bake-weapons.mjs` to remake them.
 
 ### Preparing a model (e.g. in Blender)
 
