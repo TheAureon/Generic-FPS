@@ -4,6 +4,7 @@ import type { CollisionWorld } from '../core/CollisionWorld';
 import type { CharacterBody } from '../core/CharacterBody';
 import type { Damageable } from '../core/Hitbox';
 import { events } from '../core/events';
+import { rules } from '../core/MatchRules';
 import type { Effects } from '../effects/Effects';
 import type { BuiltMap } from '../map/MapBuilder';
 import type { SpawnPoint } from '../map/MapTypes';
@@ -95,7 +96,7 @@ export class BotManager {
 
     bot.grenadeTimer -= dt;
     const t = brain.target;
-    if (bot.grenades <= 0 || bot.grenadeTimer > 0 || !t || !bot.perception.canSee) return;
+    if (bot.grenades <= 0 || bot.grenadeTimer > 0 || !t || !bot.perception.canSee || !rules.grenades(bot.name)) return;
     bot.grenadeTimer = 2 + Math.random() * 3;
     const dist = bot.position.distanceTo(t.position);
     // Only at a middle distance, and only sometimes (more often for aggressive bots).
@@ -116,6 +117,11 @@ export class BotManager {
   private enemiesOf(bot: Bot): readonly Fighter[] {
     if (this.d.teams) return this.combatants.filter((c) => c !== bot && c.team !== bot.team);
     return this.d.freeForAll ? this.combatants.filter((c) => c !== bot) : this.onlyPlayer;
+  }
+
+  /** Someone changed team (Infected): everyone's list of enemies again. */
+  refreshTeams(): void {
+    this.bots.forEach((b, j) => (this.enemyLists[j] = this.enemiesOf(b)));
   }
 
   /** Stop listening to game events (call when the match ends). */

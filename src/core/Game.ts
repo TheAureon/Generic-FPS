@@ -190,6 +190,7 @@ export class Game {
       ['Kills', s.breakdown.kills],
       ['Headshots', s.breakdown.headshots],
       ['Medals & streaks', s.breakdown.medals],
+      ...(s.breakdown.objective ? [['Objective', s.breakdown.objective] as [string, number]] : []),
       ['Match completed', REWARDS.points.finish],
     ];
     if (result.win) xpLines.push(['Victory', REWARDS.points.win]);

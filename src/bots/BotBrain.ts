@@ -477,7 +477,7 @@ export class BotBrain {
     const p = bot.perception;
 
     const tp = target.position;
-    this._aim.set(tp.x, tp.y + target.height * 0.65, tp.z);
+    this._aim.set(tp.x, tp.y + target.height * this.bot.aimHeight, tp.z);
     const want = bot.anglesTo(this._aim);
     const dist = bot.eyePosition().distanceTo(this._aim);
 

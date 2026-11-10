@@ -406,6 +406,11 @@ export class Hud {
     setStyle(this.scope, 'display', scoped ? 'block' : 'none');
   }
 
+  /** A mode's loadout: show only these guns' slot chips (null = all). */
+  setAllowedWeapons(ids: WeaponId[] | null): void {
+    for (const [id, s] of this.slots) s.style.display = !ids || ids.includes(id) ? '' : 'none';
+  }
+
   updateAmmo(a: AmmoInfo): void {
     // Only touch the page when something changed (keeps the frame rate smooth).
     if (a.weapon !== this.pipWeapon) this.buildPips(a.weapon, a.magazine);

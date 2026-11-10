@@ -7,6 +7,7 @@ import type { CollisionWorld } from '../core/CollisionWorld';
 import type { Damageable, HitPart } from '../core/Hitbox';
 import type { Input } from '../core/Input';
 import { events } from '../core/events';
+import { rules } from '../core/MatchRules';
 import type { Effects } from '../effects/Effects';
 import type { PlayerController } from '../player/PlayerController';
 import type { Hud } from '../ui/Hud';
@@ -108,18 +109,49 @@ export class WeaponSystem {
 
   /** Restore full ammo on every weapon (e.g. on respawn). */
   resetAmmo(): void {
-    this.grenades = GRENADES.start;
+    this.grenades = this.grenadeOverride ?? GRENADES.start;
     this.grenadeCooldown = 0;
     for (const w of this.weapons) {
-      w.ammo = w.stats.magazineSize;
-      w.reserve = w.stats.startingReserve;
+      w.ammo = this.ammoOverride ? this.ammoOverride.ammo : w.stats.magazineSize;
+      w.reserve = this.ammoOverride ? this.ammoOverride.reserve : w.stats.startingReserve;
       w.cancelReload();
       w.bloom = 0;
     }
   }
 
+  /**
+   * A mode's loadout (Gun Game, One in the Chamber...): only these guns can be
+   * used (the first is equipped right away), with these ammo amounts instead
+   * of the normal ones, and this many grenades. null = back to everything.
+   */
+  setLoadout(guns: WeaponId[] | null, opts: { ammo?: number; reserve?: number; grenades?: number } = {}): void {
+    this.allowed = guns ? new Set(guns) : null;
+    this.d.hud.setAllowedWeapons(guns);
+    this.ammoOverride = opts.ammo !== undefined ? { ammo: opts.ammo, reserve: opts.reserve ?? 0 } : null;
+    this.grenadeOverride = opts.grenades ?? null;
+    this.resetAmmo();
+    if (guns) {
+      const i = this.weapons.findIndex((w) => w.id === guns[0]);
+      if (i !== this.index || this.switchTo >= 0) {
+        this.lastIndex = i;
+        this.equipImmediately(i);
+        this.raiseTimer = this.current.stats.equipTime;
+      }
+    }
+  }
+
+  /** May this gun be used (in this mode)? */
+  allows(id: WeaponId): boolean {
+    return !this.allowed || this.allowed.has(id);
+  }
+
+  private allowed: Set<WeaponId> | null = null;
+  private ammoOverride: { ammo: number; reserve: number } | null = null;
+  private grenadeOverride: number | null = null;
+
   private requestSwitch(i: number): void {
     if (i < 0 || i >= this.weapons.length) return;
+    if (!this.allows(this.weapons[i].id)) return;
     const target = this.switchTo >= 0 ? this.switchTo : this.index;
     if (i === target) return;
     this.current.cancelReload();
@@ -161,7 +193,7 @@ export class WeaponSystem {
     // ---- Tell the player about aiming effects ------------------------------
     const s = this.current.stats;
     player.zoom = 1 + (s.aimZoom - 1) * this.ads;
-    player.speedMultiplier = (1 + (COMBAT.aimMoveSpeedMultiplier - 1) * this.ads) * (s.moveSpeed ?? 1);
+    player.speedMultiplier = (1 + (COMBAT.aimMoveSpeedMultiplier - 1) * this.ads) * (s.moveSpeed ?? 1) * rules.speed(this.d.ownerName);
     player.sprintBlocked = this.ads > 0.05 || this.sprintBlockTimer > 0;
     player.recoilRecovery = s.recoilRecovery * DEG;
 
@@ -204,7 +236,14 @@ export class WeaponSystem {
     if (wheel !== 0) {
       const from = this.switchTo >= 0 ? this.switchTo : this.index;
       const n = this.weapons.length;
-      this.requestSwitch((from + (wheel > 0 ? 1 : -1) + n) % n);
+      // The next gun this mode allows.
+      for (let k = 1; k < n; k++) {
+        const i = (from + (wheel > 0 ? k : -k) + n * k) % n;
+        if (this.allows(this.weapons[i].id)) {
+          this.requestSwitch(i);
+          break;
+        }
+      }
     }
     // E: back to the last weapon.
     if (input.wasPressed('KeyE')) this.requestSwitch(this.lastIndex);
@@ -224,7 +263,7 @@ export class WeaponSystem {
     if (input.wasPressed('KeyR') && !busy && w.startReload()) audio.play('reload_start');
 
     // G: throw a grenade.
-    if (input.wasPressed('KeyG') && this.grenades > 0 && this.grenadeCooldown <= 0 && this.d.throwGrenade) {
+    if (input.wasPressed('KeyG') && this.grenades > 0 && this.grenadeCooldown <= 0 && this.d.throwGrenade && rules.grenades(this.d.ownerName)) {
       this.throwGrenadeNow();
       return;
     }

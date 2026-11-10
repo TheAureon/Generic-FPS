@@ -121,6 +121,12 @@ export class CharacterAnimator {
     this.recoilVel += 9;
   }
 
+  /** Hold a different gun (its grip points). */
+  setGun(gun: THREE.Object3D | null, grips: GunGrips): void {
+    this.gun = gun;
+    this.grips = grips;
+  }
+
   hit(): void {
     this.flinch = 1;
     this.flinchSide = Math.random() < 0.5 ? -1 : 1;

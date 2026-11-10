@@ -1,4 +1,4 @@
-import { DIFFICULTIES, MATCH, MODES, REWARDS } from '../config';
+import { DIFFICULTIES, MATCH, MODES, PARTY_MODES, REWARDS } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
@@ -30,8 +30,15 @@ const MODE_LIST: { id: ModeId; name: string; info: string; icon: keyof typeof IC
   { id: 'control', name: 'Control', info: 'Capture zones A, B and C. Each zone your team holds scores a point a second.', icon: 'zones', limit: 'Points' },
   { id: 'br', name: 'Battle Royale', info: 'One life each, a shrinking safe zone. Last one standing wins.', icon: 'circle' },
   { id: 'survival', name: 'Survival', info: 'Waves of bots hunt you, each wave bigger and tougher. One life. Clearing a wave heals you a bit.', icon: 'waves' },
+  // Party modes.
+  { id: 'gungame', name: 'Gun Game', info: 'Every kill gives you the next gun: SMG, rifle, shotgun, LMG, sniper, pistol. A kill with the pistol wins. Grenade deaths knock you back.', icon: 'ladder', limit: 'Kills per gun' },
+  { id: 'killconfirmed', name: 'Kill Confirmed', info: 'Teams. Kills drop dog tags: grab enemy tags to score, grab your team’s to deny them.', icon: 'tag', limit: 'Confirmed kills' },
+  { id: 'infected', name: 'Infected', info: 'One bot turns, and everyone it kills turns too. The infected are fast with shotguns. Survive the clock.', icon: 'bio', limit: 'Minutes to survive' },
+  { id: 'oitc', name: 'One in the Chamber', info: 'A pistol with one bullet, every hit kills, a kill gives the bullet back. Last one with lives left wins.', icon: 'bullet', limit: 'Lives' },
+  { id: 'headhunter', name: 'Headhunter', info: 'Free for all where only headshot kills score. The bots go for heads too.', icon: 'target', limit: 'Headshot kills' },
+  { id: 'juggernaut', name: 'Juggernaut', info: 'One armored Juggernaut with an LMG; kill it to become it. Seconds as the Juggernaut win.', icon: 'jugg', limit: 'Seconds to win' },
 ];
-const TEAM_MODES: ModeId[] = ['tdm', 'coh', 'ctf', 'control'];
+const TEAM_MODES: ModeId[] = ['tdm', 'coh', 'ctf', 'control', 'killconfirmed'];
 
 /** All the menu screens (plain HTML on top of the game). */
 export class Menus {
@@ -287,7 +294,8 @@ export class Menus {
     if (mode.limit) {
       const kl = div('pair-item', pair);
       div('section-title', kl).textContent = mode.limit;
-      const choices = c.mode === 'deathmatch' ? MATCH.killLimits : MODES[c.mode as keyof typeof MODES & ('tdm' | 'koh' | 'coh' | 'ctf' | 'control')].limits;
+      const limits = { ...MODES, ...PARTY_MODES } as Record<string, { limits?: number[] }>;
+      const choices = c.mode === 'deathmatch' ? MATCH.killLimits : limits[c.mode]?.limits ?? [];
       segmented(div('menu-control', kl), choices.map((k) => [String(k), String(k)] as [string, string]), String(modeLimit(c)), (v) => {
         if (c.mode === 'deathmatch') c.killLimit = Number(v);
         else c.limits = { ...c.limits, [c.mode]: Number(v) };
@@ -398,6 +406,11 @@ const ICONS = {
   map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>',
   health: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7z"/></svg>',
   ear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9a6 6 0 1 1 12 0c0 4-4 5-4 9a3 3 0 0 1-6 0"/><path d="M10 9a2 2 0 1 1 4 0"/></svg>',
+  ladder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 3v18M17 3v18M7 7h10M7 12h10M7 17h10"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="7" width="12" height="15" rx="3"/><circle cx="11" cy="11" r="1"/><path d="M11 7V3l6 2"/></svg>',
+  bio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="6" r="3.5"/><circle cx="6.8" cy="15" r="3.5"/><circle cx="17.2" cy="15" r="3.5"/></svg>',
+  bullet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 21V10c0-4 3-7 3-7s3 3 3 7v11z"/><path d="M9 16h6"/></svg>',
+  jugg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M9 11h6M12 8v6"/></svg>',
   target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
 };
 

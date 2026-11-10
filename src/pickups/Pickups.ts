@@ -37,6 +37,16 @@ export class Pickups {
     }
   }
 
+  /** Take some kinds of pickups out of this match (e.g. no ammo in One in the Chamber). */
+  remove(types: readonly PickupType[]): void {
+    for (let i = this.items.length - 1; i >= 0; i--) {
+      const it = this.items[i];
+      if (!types.includes(it.def.type)) continue;
+      it.model.removeFromParent();
+      this.items.splice(i, 1);
+    }
+  }
+
   update(dt: number, collectors: readonly Collector[]): void {
     this.time += dt;
     for (const it of this.items) {

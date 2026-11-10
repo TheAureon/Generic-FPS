@@ -125,6 +125,15 @@ Every mode has a 10-minute time limit (then the highest score wins). In team mod
 - **Battle Royale**: last one standing. Everyone has one life, and a safe zone (the blue wall) shrinks in four stages: outside it you lose health every second, more each stage. If you're eliminated you see where you placed.
 - **Survival**: waves of bots hunt you. Wave 1 has the number of bots you chose, and each wave adds one (up to 12). Bots get faster and more accurate each wave until wave 6. You have one life, and clearing a wave gives you back 30 health. Your score is how many waves you survive.
 
+**Party modes:**
+
+- **Gun Game**: everyone starts with the SMG. Every kill (1, 2 or 3 per gun, your choice) moves you to the next gun: SMG → Assault Rifle → Shotgun → LMG → Sniper → Pistol. A kill with the pistol wins. Getting killed by a grenade (or your own) knocks you back one gun. Each player carries one grenade per life.
+- **Kill Confirmed** (teams): every death drops a spinning dog tag in the dead player's team color. Grab an enemy tag to confirm the kill (a point for your team, +50); grab a teammate's to deny the enemy theirs (+25). Tags vanish after 30 seconds (they blink at the end). Bots go for tags near them.
+- **Infected**: everyone starts as a survivor. Six seconds in, one bot turns: the infected glow green, move 15% faster, carry only a shotgun and no grenades. Anyone they kill comes back infected, you included. Survivors win if anyone is still human when the clock (2, 3 or 5 minutes) runs out; you win with whichever side you're on at the end (+500 for surviving).
+- **One in the Chamber**: a pistol with one bullet, and any hit kills. A kill gives you a bullet back. If you're empty for 10 seconds, a bullet comes back on its own. No ammo pickups or grenades. You have 3, 5 or 7 lives; the last one with lives left wins.
+- **Headhunter**: free for all where only headshot kills score (+50 each). The bots aim for heads in this mode.
+- **Juggernaut**: five seconds in, one fighter becomes the Juggernaut: it glows orange, takes 30% of normal damage, moves 15% slower, and carries an LMG with plenty of ammo and no grenades. Everyone hunts it, and whoever kills it becomes the next one. Every second as the Juggernaut scores (+10 points a second for you); first to the limit wins. An orange **J** marks the Juggernaut.
+
 When a match ends, the scoreboard shows the result, your kills, deaths, and accuracy, with buttons to play again or return to the main menu.
 
 ### On screen
@@ -198,7 +207,7 @@ The finished models are in `src/assets/models/weapons/`. They're made from the d
 - **Personal bests**: your best score, kills, streak, longest kill, damage, multikill and accuracy (with 10+ kills) in a single match. Beat one and the match report marks it **New best!**
 - **Map stars**: ★ for winning on a map, ★★ for winning on Hard or Insane, ★★★ for winning on Insane. They show on the map cards when you set up a match.
 - **Survival records**: your most waves cleared on each map (shown on the map cards when Survival is picked). Clearing waves 5, 10, 15 and 20 earns the **Survivor**, **Last Stand**, **Unbreakable** and **Immortal** medals with bonus points.
-- **Achievements**: 28 career milestones, from *Centurion* (100 kills) and *Tourist* (finish a match on every map) to *Flawless* (win with 10+ kills and no deaths), *Jack of All Trades* (win every mode) and *All-Star* (all 18 map stars). Each is earned once and gives XP: 500 (bronze), 1,000 (silver), 2,500 (gold) or 5,000 (legendary). The list is in `src/core/Achievements.ts`.
+- **Achievements**: 39 career milestones, from *Centurion* (100 kills) and *Tourist* (finish a match on every map) to *Flawless* (win with 10+ kills and no deaths), *Jack of All Trades* (win every classic mode), *Life of the Party* (win every party mode) and *All-Star* (all 18 map stars). Each is earned once and gives XP: 500 (bronze), 1,000 (silver), 2,500 (gold) or 5,000 (legendary). The list is in `src/core/Achievements.ts`.
 
 Like XP, none of this counts on Novice or Beginner.
 

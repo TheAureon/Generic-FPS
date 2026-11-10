@@ -2,13 +2,17 @@ import type * as THREE from 'three';
 import type { BotManager } from '../bots/BotManager';
 import type { Bot } from '../bots/Bot';
 import type { NavGraph } from '../bots/NavGraph';
-import { MATCH, MODES, TEAMS, type Difficulty } from '../config';
+import { MATCH, MODES, PARTY_MODES, TEAMS, type Difficulty, type WeaponId } from '../config';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { Damageable } from '../core/Hitbox';
-import type { MapDef, SpawnPoint } from '../map/MapTypes';
+import type { MapDef, PickupType, SpawnPoint } from '../map/MapTypes';
+import type { WeaponSystem } from '../weapons/WeaponSystem';
+import type { Hud } from '../ui/Hud';
 import type { Player, Trackable } from '../player/Player';
 
-export type ModeId = 'deathmatch' | 'tdm' | 'koh' | 'coh' | 'ctf' | 'control' | 'br' | 'survival';
+export type ModeId =
+  | 'deathmatch' | 'tdm' | 'koh' | 'coh' | 'ctf' | 'control' | 'br' | 'survival'
+  | 'gungame' | 'killconfirmed' | 'infected' | 'oitc' | 'headhunter' | 'juggernaut';
 
 /** Everything chosen in the match menu. */
 export interface MatchConfig {
@@ -25,7 +29,7 @@ export interface MatchConfig {
 /** What it takes to win this mode (from the menu choice, or the mode's default). */
 export function modeLimit(cfg: MatchConfig): number {
   if (cfg.mode === 'deathmatch') return cfg.killLimit;
-  const m = MODES[cfg.mode as keyof typeof MODES] as { defaultLimit?: number } | undefined;
+  const m = (MODES[cfg.mode as keyof typeof MODES] ?? PARTY_MODES[cfg.mode as keyof typeof PARTY_MODES]) as { defaultLimit?: number } | undefined;
   return cfg.limits?.[cfg.mode] ?? m?.defaultLimit ?? 0;
 }
 
@@ -112,6 +116,28 @@ export interface ModeContext {
   announce(title: string, subtitle?: string, seconds?: number): void;
   /** A short sound cue. */
   cue(kind: 'good' | 'bad' | 'info'): void;
+  /** Points for you (shown like kill points, and counted toward XP). */
+  award(label: string, points: number): void;
+  /** Your guns (built after the mode: use from start() on). */
+  readonly weapons: WeaponSystem;
+  readonly hud: Hud;
+  /**
+   * Give someone a mode loadout: only these guns (bots carry the first), with
+   * this ammo (rounds in the gun, spare rounds) and grenades. guns = null:
+   * back to normal.
+   */
+  loadout(c: Combatant, guns: WeaponId[] | null, opts?: Loadout): void;
+  /** Someone changed team: update who fights whom. */
+  refreshTeams(): void;
+  /** Bring someone back right now at a good spawn point (e.g. after a round). */
+  respawn(c: Combatant): void;
+}
+
+/** A mode loadout's ammo and grenades. */
+export interface Loadout {
+  ammo?: number;
+  reserve?: number;
+  grenades?: number;
 }
 
 /** A game mode: sets up the match, keeps score, and decides when it's over. */
@@ -145,6 +171,12 @@ export interface GameMode {
   botObjective?(bot: Bot): BotObjective | null;
   /** Shown on the death screen when you can't respawn. */
   readonly noRespawnNote?: string;
+  /** Team modes: which team bot number i starts on (default: split evenly). */
+  teamOf?(i: number): number;
+  /** Pickups this mode takes off the map. */
+  readonly removePickups?: readonly PickupType[];
+  /** Clean up (stop listening to events) when the match ends. */
+  dispose?(): void;
   /** Set once the match is over. */
   result: MatchResult | null;
 }

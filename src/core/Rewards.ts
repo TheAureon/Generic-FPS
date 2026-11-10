@@ -92,13 +92,13 @@ export interface MatchSummary {
   /** Headshot kills per gun. */
   weaponHeadshots: Partial<Record<Exclude<DamageSource, 'zone'>, number>>;
   /** Points by kind: kills, headshots, medals... (for the XP breakdown). */
-  breakdown: { kills: number; headshots: number; medals: number };
+  breakdown: { kills: number; headshots: number; medals: number; objective: number };
 }
 
 export class Rewards {
   readonly summary: MatchSummary = {
     score: 0, kills: 0, deaths: 0, headshots: 0, damage: 0, bestStreak: 0, bestMulti: 0, longestKill: 0,
-    medals: {}, weaponKills: {}, weaponHeadshots: {}, breakdown: { kills: 0, headshots: 0, medals: 0 },
+    medals: {}, weaponKills: {}, weaponHeadshots: {}, breakdown: { kills: 0, headshots: 0, medals: 0, objective: 0 },
   };
   private streak = 0;
   private multi = 0;
@@ -224,6 +224,14 @@ export class Rewards {
     } else if (medals.length) {
       audio.play('medal');
     }
+  }
+
+  /** Points for playing the mode's objective (confirming a kill, time as the Juggernaut...). */
+  objective(label: string, points: number): void {
+    if (points <= 0) return;
+    this.summary.score += points;
+    this.summary.breakdown.objective += points;
+    this.d.display.score([{ label, points }], this.summary.score);
   }
 
   /** Survival milestones: a medal, points and a call-out for clearing waves 5, 10, 15 and 20. */

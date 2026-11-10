@@ -437,7 +437,7 @@ export const BOT_DIFFICULTY: Record<Difficulty, {
  * =========================================================================== */
 export const MATCH = {
   /** What the match menu starts with (your last choices are remembered after that). */
-  defaultMode: 'deathmatch' as 'deathmatch' | 'tdm' | 'koh' | 'coh' | 'ctf' | 'control' | 'br' | 'survival',
+  defaultMode: 'deathmatch' as import('./modes/GameMode').ModeId,
   defaultMap: 'foundry',
   defaultDifficulty: 'medium' as Difficulty,
   defaultBotCount: 4,
@@ -487,6 +487,26 @@ export const MODES = {
       { wait: 20, shrink: 20, size: 0.03, damage: 12 },
     ],
   },
+};
+
+/* Party modes. */
+export const PARTY_MODES = {
+  /**
+   * Gun Game: every kill (`limit` kills per gun) moves you to the next gun on
+   * the ladder; a kill with the last one wins. Killed by a grenade (or your
+   * own): back one gun.
+   */
+  gungame: { limits: [1, 2, 3], defaultLimit: 2, ladder: ['smg', 'rifle', 'shotgun', 'lmg', 'sniper', 'pistol'] as WeaponId[] },
+  /** Kill Confirmed: a kill only scores when someone picks up the dog tag it drops. Tags vanish after `tagLife` seconds. */
+  killconfirmed: { limits: [20, 35, 50], defaultLimit: 35, tagLife: 30, touchRadius: 1.6 },
+  /** Infected: minutes the survivors must last. The infected move faster and carry a shotgun. */
+  infected: { limits: [2, 3, 5], defaultLimit: 3, infectedSpeed: 1.15 },
+  /** One in the Chamber: lives each. A pistol with one bullet; every hit kills; a kill gives the bullet back. */
+  oitc: { limits: [3, 5, 7], defaultLimit: 3 },
+  /** Headhunter: headshot kills to win (only headshots score). */
+  headhunter: { limits: [10, 15, 25], defaultLimit: 15 },
+  /** Juggernaut: seconds as the Juggernaut to win. It takes `armor` of normal damage and moves at `speed`. */
+  juggernaut: { limits: [60, 90, 150], defaultLimit: 90, armor: 0.3, speed: 0.85 },
 };
 
 export const SURVIVAL = {

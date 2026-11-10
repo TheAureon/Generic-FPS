@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../config';
 import { CharacterHitbox, type Damageable, type DamageInfo } from '../core/Hitbox';
 import { events } from '../core/events';
+import { rules } from '../core/MatchRules';
 import type { SpawnPoint } from '../map/MapTypes';
 import type { PlayerController } from './PlayerController';
 
@@ -50,6 +51,9 @@ export class Player implements Damageable, Trackable {
 
   takeDamage(info: DamageInfo): boolean {
     if (!this.isAlive()) return false;
+    const amount = rules.damage(info.attacker, this.name, info.amount, info.part);
+    if (amount <= 0) return false;
+    info = { ...info, amount };
     // Armor soaks up part of the hit.
     const absorbed = Math.min(this.armor, info.amount * P.armorAbsorption);
     this.armor -= absorbed;

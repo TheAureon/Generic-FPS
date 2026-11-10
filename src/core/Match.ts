@@ -18,6 +18,12 @@ import { KingOfTheHill } from '../modes/KingOfTheHill';
 import { teamSides } from '../modes/objectives';
 import { Survival } from '../modes/Survival';
 import { TeamDeathmatch } from '../modes/TeamDeathmatch';
+import { GunGame } from '../modes/GunGame';
+import { KillConfirmed } from '../modes/KillConfirmed';
+import { Infected } from '../modes/Infected';
+import { OneInTheChamber } from '../modes/OneInTheChamber';
+import { Headhunter } from '../modes/Headhunter';
+import { Juggernaut } from '../modes/Juggernaut';
 import { Pickups, type Collector } from '../pickups/Pickups';
 import { Player } from '../player/Player';
 import { PlayerController } from '../player/PlayerController';
@@ -27,6 +33,7 @@ import type { Viewmodel } from '../weapons/Viewmodel';
 import { Grenades, type GrenadeVictim } from '../weapons/Grenades';
 import { WeaponSystem } from '../weapons/WeaponSystem';
 import { events } from './events';
+import { resetRules } from './MatchRules';
 import { ChallengeTracker, type ChallengeStatus, type MatchView } from './Challenges';
 import { progress } from './Progress';
 import { Rewards } from './Rewards';
@@ -93,6 +100,7 @@ export class Match {
     private d: MatchDeps,
   ) {
     const { hud } = d;
+    resetRules();
     this.map = buildMap(getMap(config.map), this.scene);
     this.controller = new PlayerController(this.map.world, d.camera);
     this.player = new Player(this.controller);
@@ -140,6 +148,31 @@ export class Match {
       playBounds: this.map.playBounds,
       sides: this.sides,
       announce: (t, s, sec) => hud.announce(t, s, sec),
+      get weapons() { return self.weapons; },
+      award: (label, points) => self.rewards.objective(label, points),
+      hud,
+      loadout: (c, guns, opts = {}) => {
+        if (c === (this.player as Combatant)) {
+          this.weapons.setLoadout(guns, opts);
+          return;
+        }
+        const bot = c as BotManager['bots'][number];
+        bot.ammoOverride = opts.ammo !== undefined ? { ammo: opts.ammo, reserve: opts.reserve ?? 0 } : null;
+        bot.grenadesPerLife = opts.grenades ?? 1;
+        if (bot.isAlive()) bot.grenades = Math.min(bot.grenades, bot.grenadesPerLife);
+        if (guns) bot.setGun(guns[0]);
+        else bot.refillAmmo();
+      },
+      refreshTeams: () => this.bots.refreshTeams(),
+      respawn: (c) => {
+        if (c === (this.player as Combatant)) {
+          this.player.respawn(this.pickPlayerSpawn());
+          this.weapons.resetAmmo();
+          return;
+        }
+        const i = this.bots.bots.indexOf(c as BotManager['bots'][number]);
+        if (i >= 0) this.bots.revive(i, this.bots.bots[i].skill);
+      },
       cue: (kind) => audio.play(kind === 'good' ? 'objective_good' : kind === 'bad' ? 'objective_bad' : 'objective_info'),
     };
     this.mode = createMode(ctx);
@@ -161,7 +194,7 @@ export class Match {
       findHealth: (from) => this.pickups.nearest('health', from, 40),
       findAmmo: (from, maxDist, includeTaken) => this.pickups.nearest('ammo', from, maxDist, includeTaken),
     });
-    this.bots.spawnBots(this.mode.initialBots, config.difficulty, this.mode.teams ? (i) => (i < blueBots ? 0 : 1) : undefined);
+    this.bots.spawnBots(this.mode.initialBots, config.difficulty, this.mode.teams ? (i) => this.mode.teamOf?.(i) ?? (i < blueBots ? 0 : 1) : undefined);
     this.botDebug = new BotDebugView(this.bots, this.scene);
 
     this.weapons = new WeaponSystem({
@@ -237,6 +270,7 @@ export class Match {
       tryCollect: (type) => this.playerCollect(type),
     });
     for (const bot of this.bots.bots) this.addBotCollector(bot);
+    if (this.mode.removePickups) this.pickups.remove(this.mode.removePickups);
 
     this.mode.start();
   }
@@ -450,6 +484,9 @@ export class Match {
   /** Free GPU memory and stop listening to events. */
   dispose(): void {
     for (const u of this.unsubscribers) u();
+    this.mode.dispose?.();
+    this.weapons.setLoadout(null);
+    resetRules();
     (this.scene.userData.skyEnv as THREE.Texture | undefined)?.dispose();
     this.scene.traverse((o) => {
       if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments || o instanceof THREE.Line || o instanceof THREE.Points) {
@@ -469,6 +506,12 @@ function createMode(ctx: ModeContext): GameMode {
     case 'ctf': return new CaptureTheFlag(ctx);
     case 'control': return new Control(ctx);
     case 'br': return new BattleRoyale(ctx);
+    case 'gungame': return new GunGame(ctx);
+    case 'killconfirmed': return new KillConfirmed(ctx);
+    case 'infected': return new Infected(ctx);
+    case 'oitc': return new OneInTheChamber(ctx);
+    case 'headhunter': return new Headhunter(ctx);
+    case 'juggernaut': return new Juggernaut(ctx);
     default: return new Deathmatch(ctx);
   }
 }

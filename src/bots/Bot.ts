@@ -8,6 +8,7 @@ import { CharacterBody } from '../core/CharacterBody';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import { CharacterHitbox, type Damageable, type DamageInfo } from '../core/Hitbox';
 import { events } from '../core/events';
+import { rules } from '../core/MatchRules';
 import type { Effects } from '../effects/Effects';
 import type { SpawnPoint } from '../map/MapTypes';
 import type { Trackable } from '../player/Player';
@@ -39,7 +40,15 @@ export class Bot implements Damageable, Trackable {
   readonly hitbox = new CharacterHitbox(BOTS.height, BOTS.radius, 0.16);
   readonly body: CharacterBody;
   readonly model: CharacterModel;
-  readonly weapon: Weapon;
+  weapon: Weapon;
+  /** A mode's ammo for this bot's gun (rounds in the gun, spare rounds), instead of the gun's normal ammo. */
+  ammoOverride: { ammo: number; reserve: number } | null = null;
+  /** Grenades each life. */
+  grenadesPerLife = 1;
+  /** A glow a mode gives this bot (Infected, Juggernaut), or null. */
+  tint: THREE.Color | null = null;
+  /** Where on a target it aims, as a fraction of their height (0.65 = chest; Headhunter raises it). */
+  aimHeight = 0.65;
   readonly perception = new Perception();
   readonly aim = new BotAim();
   skill: (typeof BOT_DIFFICULTY)[Difficulty];
@@ -71,6 +80,7 @@ export class Bot implements Damageable, Trackable {
   private weaponModel: THREE.Group;
   private muzzle: THREE.Object3D;
   readonly anim: CharacterAnimator;
+  private gunId: WeaponId;
   private flash = 0;
   private lightTimer = Math.random() * 0.25;
   private lightTarget = new THREE.Color();
@@ -92,8 +102,8 @@ export class Bot implements Damageable, Trackable {
     readonly name: string,
     difficulty: Difficulty,
     private ctx: BotContext,
-    /** Team modes: 0 = Blue (your side), 1 = Red; null = no teams. */
-    readonly team: number | null = null,
+    /** Team modes: 0 = Blue (your side), 1 = Red; null = no teams. (Infected changes it mid-match.) */
+    public team: number | null = null,
     /** The gun it carries. */
     gun: WeaponId = BOTS.weapons[0],
   ) {
@@ -116,6 +126,37 @@ export class Bot implements Damageable, Trackable {
     this.model.root.visible = false; // until spawned
 
     this.weapon = new Weapon(gun);
+    this.gunId = gun;
+  }
+
+  /** Swap to another gun (Gun Game, Infected...): a fresh, fully loaded one. */
+  setGun(id: WeaponId): void {
+    if (id === this.gunId) {
+      this.refillAmmo();
+      return;
+    }
+    this.gunId = id;
+    this.weapon = new Weapon(id);
+    this.refillAmmo();
+    const old = this.weaponModel;
+    old.parent?.remove(old);
+    this.weaponModel = createWorldWeaponModel(id);
+    this.weaponModel.scale.setScalar(1.1);
+    this.model.hand.add(this.weaponModel);
+    this.gunHome.pos.copy(this.weaponModel.position);
+    this.gunHome.quat.copy(this.weaponModel.quaternion);
+    this.muzzle = this.weaponModel.getObjectByName('muzzle')!;
+    this.anim.setGun(this.weaponModel, gunGrips(this.weaponModel));
+    // Dead bots keep their dropped gun until they come back.
+    if (!this.isAlive()) this.weaponModel.visible = false;
+  }
+
+  /** A full gun: the mode's ammo if it set one, else a magazine and the starting spare rounds. */
+  refillAmmo(): void {
+    const o = this.ammoOverride;
+    this.weapon.ammo = o ? o.ammo : this.weapon.stats.magazineSize;
+    this.weapon.reserve = o ? o.reserve : this.weapon.stats.startingReserve;
+    this.weapon.cancelReload();
   }
 
   get position(): THREE.Vector3 {
@@ -161,7 +202,7 @@ export class Bot implements Damageable, Trackable {
 
   spawn(sp: SpawnPoint): void {
     this.health = BOTS.maxHealth;
-    this.grenades = 1;
+    this.grenades = this.grenadesPerLife;
     this.grenadeTimer = 5 + Math.random() * 8;
     this.fleeDir = null;
     this.respawnTimer = 0;
@@ -171,9 +212,8 @@ export class Bot implements Damageable, Trackable {
     this.aim.yaw = sp.yaw * DEG;
     this.aim.pitch = 0;
     // Same ammo as the player gets: a full magazine and the starting spare rounds.
-    this.weapon.ammo = this.weapon.stats.magazineSize;
-    this.weapon.reserve = this.weapon.stats.startingReserve;
-    this.weapon.cancelReload();
+    this.refillAmmo();
+    this.weaponModel.visible = true;
     this.perception.reset();
     this.lastAttacker = null;
     this.lastDamagedAt = -Infinity;
@@ -186,6 +226,9 @@ export class Bot implements Damageable, Trackable {
 
   takeDamage(info: DamageInfo): boolean {
     if (!this.isAlive()) return false;
+    const amount = rules.damage(info.attacker, this.name, info.amount, info.part);
+    if (amount <= 0) return false;
+    info = { ...info, amount };
     const dealt = Math.min(info.amount, this.health);
     this.health -= info.amount;
     this.flash = 1;
@@ -292,7 +335,8 @@ export class Bot implements Damageable, Trackable {
         tvz = (dz / d) * speed;
       }
     }
-    this.body.accelerate(tvx, tvz, BOTS.acceleration, dt);
+    const k = rules.speed(this.name);
+    this.body.accelerate(tvx * k, tvz * k, BOTS.acceleration, dt);
     this.body.step(dt);
   }
 
@@ -305,6 +349,7 @@ export class Bot implements Damageable, Trackable {
     this.flash = Math.max(0, this.flash - dt * 8);
     const mat = this.model.material;
     mat.emissive.setRGB(this.flash * 0.7, this.flash * 0.25, this.flash * 0.2);
+    if (this.tint) mat.emissive.add(this.tint);
 
     // Pick up the color of nearby lamps (checked a few times a second, blended smoothly).
     if (this.ctx.sampleLight) {
