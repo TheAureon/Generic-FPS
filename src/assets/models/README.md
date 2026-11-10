@@ -41,6 +41,8 @@ Add empty objects (Blender: Add → Empty → Plain Axes) with these exact names
 | `grip_left` | Where the left hand holds the front (handguard, pump). |
 | `grip_reload` | Where the left hand grabs the magazine (or pushes shotgun shells in). |
 | `grip_slide` | Pistol: where the left hand grabs the slide to rack it. |
+| `grip_cover` | LMG: where the left hand lifts the feed cover. |
+| `grip_bolt` | Sniper: the bolt knob the right hand works. |
 
 Moving parts: name the actual mesh (or a parent object containing it) like this and it will be animated:
 
@@ -50,6 +52,7 @@ Moving parts: name the actual mesh (or a parent object containing it) like this 
 | `slide` | Pistol: pulled back and snaps forward at the end of a reload. |
 | `pump` | Shotgun: racked back and forward after each shot. |
 | `bolt` | Sniper: turned up, pulled back, pushed forward after each shot. Put its origin on the bore line so turning it swings the handle up. |
+| `cover` | LMG: the feed cover flips up at the start of a reload and shuts at the end. Put its origin on the hinge (its front edge). |
 
 ### Tuning the animations
 

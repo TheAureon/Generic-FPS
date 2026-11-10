@@ -12,7 +12,7 @@ Built with [Three.js](https://threejs.org/) (3D graphics) and [Vite](https://vit
 - **Match report**: the end screen counts up your stats, lists your medals, breaks down your XP and fills your XP bar, with a fanfare when you level up.
 - **New look**: new fonts, frosted menu panels, a numbered main menu, a sharper HUD and scoreboard.
 - **Gloves**: your first-person hands now wear tactical gloves.
-- **New guns**: the pistol, assault rifle, shotgun, sniper rifle and SMG are real 3D models now, with working magazines, pistol slide, shotgun pump and sniper bolt, and iron sights that line up when you aim. Camos paint them too. See [Gun models](#gun-models).
+- **New guns**: every gun is a real low-poly 3D model now, with working magazines, pistol slide, shotgun pump, sniper bolt and the LMG's flip-up feed cover, and iron sights that line up when you aim. Camos paint them too. See [Gun models](#gun-models).
 
 ---
 
@@ -181,14 +181,15 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 
 #### Gun models
 
-The pistol, assault rifle, shotgun, sniper rifle and SMG are low-poly 3D models (the LMG is still the built-in one). The models came as one solid piece each, so they were cut up to animate:
+Every gun is a low-poly 3D model. The pistol, assault rifle, shotgun, sniper rifle and SMG are downloaded models that came as one solid piece each, so they were cut up to animate. The LMG was built for this game from a reference picture (a belt-fed machine gun with a stock of two rods, a green ammo box and a belt of rounds running into its side):
 
 - **Magazines** come out and go back in with your left hand when you reload (the pistol's grip had no separate magazine, so one was added inside it, with a base plate showing underneath).
 - The **pistol slide** racks back at the end of a reload, the **shotgun pump** slides back and forward after each shot, and the **sniper bolt** turns up, slides back and forward again.
-- **Aiming** lines up each gun's real sights: the pistol's rear notch and front post (the solid rear sight was given a notch), the rifle's front post in the middle of its rear ring, the shotgun's brass bead, and new iron sights on the SMG (it had only a rail). The sniper uses its scope.
+- **LMG reload**: your left hand flips the feed cover up, pulls the ammo box off, hangs a full one on, and slams the cover shut.
+- **Aiming** lines up each gun's real sights: the pistol's rear notch and front post (the solid rear sight was given a notch), the rifle's front post in the middle of its rear ring, the shotgun's brass bead, new iron sights on the SMG (it had only a rail), and the LMG's front post inside its rear ring. The sniper uses its scope.
 - **Camos** cover them like the old guns, and the bots carry the same models.
 
-The finished models are in `src/assets/models/weapons/`. They're made from the downloaded originals in `scripts/weapon-sources/` by `node scripts/bake-weapons.mjs`, which turns and sizes them, cuts out the moving parts, and adds the sight and hand points (all the settings are at the top of that file).
+The finished models are in `src/assets/models/weapons/`. They're made from the downloaded originals in `scripts/weapon-sources/` by `node scripts/bake-weapons.mjs`, which turns and sizes them, cuts out the moving parts, and adds the sight and hand points (all the settings are at the top of that file). The LMG is built by `node scripts/build-lmg.mjs`, where each piece is traced in pixels of the reference picture.
 
 **Bots** carry an assault rifle, SMG or LMG (they take turns through the list in `BOTS.weapons`), and each has one grenade per life, which it may lob at you from 9 to 26 m away. Bots that notice a grenade near them run from it; on the easier levels they're slower to notice. Grenade kills earn the **Frag Out** medal.
 
@@ -410,6 +411,7 @@ src/
   entities/       Practice dummies (optional, per map)
 scripts/
   bake-weapons.mjs   Prepares downloaded gun models for the game (see Gun models)
+  build-lmg.mjs      Builds the LMG model from simple shapes
   weapon-sources/    The original downloaded gun models
 ```
 
@@ -419,6 +421,8 @@ Gun models, from [Poly Pizza](https://poly.pizza):
 - Pistol, Assault Rifle, Shotgun and Sniper Rifle by **Zsky** ([CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/))
 - Submachine Gun by **Quaternius** ([CC0](https://creativecommons.org/publicdomain/zero/1.0/), public domain)
 
+The LMG was modeled for this game, after a reference picture.
+
 They were resized, recolored, cut into moving parts and given extra sight pieces for this game.
 
 ## Other commands
@@ -426,6 +430,7 @@ They were resized, recolored, cut into moving parts and given extra sight pieces
 - `npm run build`: checks the code for errors and rebuilds `index.html` and `Play.html` from the source code (run this after changing anything if you play by double-clicking or host it on a website)
 - `npm run typecheck`: just checks the code for errors
 - `node scripts/bake-weapons.mjs`: rebuilds the gun models in `src/assets/models/weapons/` from the originals in `scripts/weapon-sources/` (then `npm run build`)
+- `node scripts/build-lmg.mjs`: rebuilds the LMG model (then `npm run build`)
 
 Files at the top level:
 - `index.html` / `Play.html`: the finished game (built, single file)

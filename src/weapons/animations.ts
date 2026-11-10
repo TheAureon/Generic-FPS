@@ -56,6 +56,8 @@ export interface HandPoints {
   reload: THREE.Vector3;
   /** Pistol: where the left hand grabs the back of the slide. */
   slide?: THREE.Vector3;
+  /** LMG: where the left hand lifts the feed cover (a model's 'grip_cover' marker). */
+  cover?: THREE.Vector3;
 }
 
 export const HANDS: Record<WeaponId, HandPoints> = {
@@ -83,8 +85,9 @@ export const ELBOWS = {
  * - reload: the magazine (or the shotgun's loading port)
  * - below / tap / away: offsets from 'reload' (see SPOT_OFFSETS)
  * - slide / slideBack / slideOff: the pistol slide grab, pulled back, let go
+ * - cover / coverUp: the LMG feed cover, closed and flipped open
  */
-export type Spot = 'grip' | 'reload' | 'below' | 'tap' | 'away' | 'slide' | 'slideBack' | 'slideOff';
+export type Spot = 'grip' | 'reload' | 'below' | 'tap' | 'away' | 'slide' | 'slideBack' | 'slideOff' | 'cover' | 'coverUp';
 /** [time 0..1, spot] pairs; the hand glides smoothly from one to the next. */
 export type KeyTable = [number, Spot][];
 
@@ -98,6 +101,11 @@ export const SPOT_OFFSETS = {
   away: v(-0.06, -0.32, 0.08),
   /** Letting go of the pistol slide: the hand flicks up and back (gun coordinates). */
   slideOff: v(-0.05, 0.015, 0.07),
+  /**
+   * The LMG feed cover held open (gun coordinates): where the 'cover' spot
+   * ends up when the cover turns up by its angle (it's 0.124 m behind the hinge).
+   */
+  coverUp: v(0, 0.093, -0.042),
 };
 
 export interface ReloadAnim {
@@ -122,6 +130,11 @@ export interface ReloadAnim {
     poseIn: [number, number];
     poseOut: [number, number];
   };
+  /**
+   * LMG feed cover (a model part named 'cover', hinged at its front): flips
+   * open over open[0]..[1] and shuts over close[0]..[1]; angle in radians.
+   */
+  cover?: { open: [number, number]; close: [number, number]; angle: number };
 }
 
 const MAGAZINE: KeyTable = [
@@ -163,8 +176,30 @@ export const RELOADS: Record<WeaponId, ReloadAnim> = {
   rifle: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 1 },
   sniper: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 1 },
   smg: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 1 },
-  // The LMG's ammo box swap: same moves, the gun tilts less (it's heavy).
-  lmg: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 0.6 },
+  lmg: {
+    // Flip the feed cover up, swap the ammo box, lay the belt in and slam the
+    // cover shut. The gun tilts less (it's heavy).
+    keys: [
+      [0, 'grip'],
+      [0.08, 'cover'],
+      [0.15, 'coverUp'], // flip the cover open
+      [0.24, 'reload'],
+      [0.3, 'reload'], // grab the ammo box
+      [0.45, 'away'], // pull it off and drop it out of view
+      [0.53, 'away'], // (grab a full one)
+      [0.64, 'below'],
+      [0.7, 'reload'], // hang it on
+      [0.74, 'tap'],
+      [0.77, 'reload'],
+      [0.85, 'coverUp'], // up to the open cover...
+      [0.9, 'cover'], // ...and slam it shut
+      [1, 'grip'],
+    ],
+    holdMag: [0.3, 0.7],
+    seatAt: 0.74,
+    tilt: 0.6,
+    cover: { open: [0.09, 0.15], close: [0.86, 0.9], angle: 0.85 },
+  },
   shotgun: {
     // One shell per cycle (the cycle repeats for each shell).
     keys: [

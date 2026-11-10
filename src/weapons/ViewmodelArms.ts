@@ -38,6 +38,7 @@ class MovingPart {
   private fromGun = new THREE.Matrix4();
   private homeInGun = new THREE.Vector3();
   private zAxis = new THREE.Vector3();
+  private xAxis = new THREE.Vector3();
 
   constructor(readonly node: THREE.Object3D, gun: THREE.Object3D) {
     this.homePos = node.position.clone();
@@ -48,6 +49,7 @@ class MovingPart {
     this.homeInGun.copy(this.homePos).applyMatrix4(this.toGun);
     // The gun's Z axis, seen from the part's parent (for turning the bolt).
     this.zAxis.set(0, 0, 1).transformDirection(this.fromGun);
+    this.xAxis.set(1, 0, 0).transformDirection(this.fromGun);
   }
 
   /** Offset from home (gun coordinates), plus an optional turn around the gun's length. */
@@ -55,6 +57,12 @@ class MovingPart {
     this.node.position.copy(_b.copy(this.homeInGun).add(offset).applyMatrix4(this.fromGun));
     if (turn) this.node.quaternion.copy(_q.setFromAxisAngle(this.zAxis, turn)).multiply(this.homeQuat);
     else this.node.quaternion.copy(this.homeQuat);
+  }
+
+  /** Tip the part up around the gun's side-to-side axis (back end rises), about its own origin. */
+  tip(angle: number): void {
+    this.node.position.copy(this.homePos);
+    this.node.quaternion.copy(_q.setFromAxisAngle(this.xAxis, -angle)).multiply(this.homeQuat);
   }
 
   reset(): void {
@@ -85,6 +93,7 @@ export class ViewmodelArms {
   private slide: MovingPart | null = null;
   private pump: MovingPart | null = null;
   private bolt: MovingPart | null = null;
+  private cover: MovingPart | null = null;
   /** Where the right hand holds the bolt knob (bolt coordinates). */
   private knob = BOLT_KNOB.clone();
 
@@ -118,7 +127,7 @@ export class ViewmodelArms {
   }
 
   setWeapon(id: WeaponId, model: THREE.Object3D): void {
-    for (const p of [this.mag, this.slide, this.pump, this.bolt]) p?.reset();
+    for (const p of [this.mag, this.slide, this.pump, this.bolt, this.cover]) p?.reset();
     this.weapon = id;
     const part = (name: string) => {
       const node = model.getObjectByName(name);
@@ -128,6 +137,7 @@ export class ViewmodelArms {
     this.slide = part('slide');
     this.pump = part('pump');
     this.bolt = part('bolt');
+    this.cover = part('cover');
     // A custom model can mark the bolt knob ('grip_bolt').
     const knob = markerPosition(model, 'grip_bolt');
     const boltHome = this.bolt ? markerPosition(model, 'bolt') : null;
@@ -141,6 +151,7 @@ export class ViewmodelArms {
       left: marker('grip_left', d.left)!,
       reload: marker('grip_reload', d.reload)!,
       slide: marker('grip_slide', d.slide),
+      cover: marker('grip_cover', d.cover),
     };
     this.leftInit = false;
   }
@@ -200,6 +211,12 @@ export class ViewmodelArms {
       this.slide.set(v0.set(0, 0, back * sl.travel));
     }
 
+    // LMG feed cover: flips open at the start of the reload and shuts at the end.
+    if (this.cover) {
+      const c = anim.cover;
+      this.cover.tip(c && reload >= 0 ? c.angle * window01(reload, c.open, c.close) : 0);
+    }
+
     // The magazine travels with the hand while it's out of the gun.
     if (this.mag) {
       if (holdingMag) this.mag.set(_dir.copy(this.leftLocal).sub(hands.reload));
@@ -233,6 +250,10 @@ export class ViewmodelArms {
         return out.copy(h.slide ?? h.left).add(SPOT_OFFSETS.slideOff).applyMatrix4(m);
       case 'reload':
         return out.copy(h.reload).applyMatrix4(m);
+      case 'cover':
+        return out.copy(h.cover ?? h.reload).applyMatrix4(m);
+      case 'coverUp':
+        return out.copy(h.cover ?? h.reload).add(SPOT_OFFSETS.coverUp).applyMatrix4(m);
       case 'below':
       case 'tap':
       case 'away':
