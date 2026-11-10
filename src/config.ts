@@ -507,6 +507,29 @@ export const PARTY_MODES = {
   headhunter: { limits: [10, 15, 25], defaultLimit: 15 },
   /** Juggernaut: seconds as the Juggernaut to win. It takes `armor` of normal damage and moves at `speed`. */
   juggernaut: { limits: [60, 90, 150], defaultLimit: 90, armor: 0.3, speed: 0.85 },
+  /**
+   * Hardpoint (teams): one zone at a time, moving every `moveEvery` seconds
+   * (the next spot shows `warn` seconds early). Capture it (`captureTime`
+   * seconds); your team scores a point a second while no enemy is in it.
+   */
+  hardpoint: { limits: [100, 150, 250], defaultLimit: 150, zoneRadius: 4.5, captureTime: 5, moveEvery: 60, warn: 10 },
+  /**
+   * Search & Destroy (teams, rounds, one life each): attackers plant the bomb
+   * at A or B (stand in the site `plantTime` s); it goes off after `bombTime`
+   * s unless defused (`defuseTime` s). Sides swap every round.
+   */
+  snd: { limits: [3, 4, 6], defaultLimit: 4, roundTime: 100, plantTime: 4, bombTime: 30, defuseTime: 6, siteRadius: 3, intermission: 5, blastRadius: 14 },
+  /**
+   * Escort (teams): your team pushes a cart from your side to theirs before
+   * time (minutes) runs out. It moves while your team is near it and theirs
+   * isn't; checkpoints add time.
+   */
+  escort: { limits: [2, 3, 4], defaultLimit: 3, pushRadius: 4.5, speed: [0, 0.55, 0.75, 0.9], rollback: 0.25, rollbackAfter: 8, checkpointBonus: 45 },
+  /**
+   * Prop Hunt: two rounds. First you hide as a prop while the bots seek; then
+   * the bots hide as props and you seek. `hideTime` s to hide, `roundTime` s per round.
+   */
+  prophunt: { hideTime: 20, roundTime: 120, decoys: 28 },
 };
 
 export const SURVIVAL = {

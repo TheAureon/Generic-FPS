@@ -115,8 +115,9 @@ export class BotManager {
 
   /** Who a bot may shoot at. */
   private enemiesOf(bot: Bot): readonly Fighter[] {
-    if (this.d.teams) return this.combatants.filter((c) => c !== bot && c.team !== bot.team);
-    return this.d.freeForAll ? this.combatants.filter((c) => c !== bot) : this.onlyPlayer;
+    const ok = (c: Fighter) => rules.canTarget(bot.name, c.name);
+    if (this.d.teams) return this.combatants.filter((c) => c !== bot && c.team !== bot.team && ok(c));
+    return (this.d.freeForAll ? this.combatants.filter((c) => c !== bot) : this.onlyPlayer).filter(ok);
   }
 
   /** Someone changed team (Infected): everyone's list of enemies again. */

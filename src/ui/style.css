@@ -2493,3 +2493,8 @@ body {
 .mt-row .map-stars { margin-left: 0; }
 .career-body .daily-card { animation: none; }
 @media (max-width: 760px) { .medal-sets { grid-template-columns: repeat(2, 1fr); } }
+
+/* Mode group tabs above the mode cards. */
+.mode-groups { margin: 0 0 12px; }
+.mode-groups .segmented { width: 100%; }
+.mode-groups .seg { flex: 1; }

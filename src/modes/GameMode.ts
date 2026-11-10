@@ -12,7 +12,8 @@ import type { Player, Trackable } from '../player/Player';
 
 export type ModeId =
   | 'deathmatch' | 'tdm' | 'koh' | 'coh' | 'ctf' | 'control' | 'br' | 'survival'
-  | 'gungame' | 'killconfirmed' | 'infected' | 'oitc' | 'headhunter' | 'juggernaut';
+  | 'gungame' | 'killconfirmed' | 'infected' | 'oitc' | 'headhunter' | 'juggernaut'
+  | 'hardpoint' | 'snd' | 'escort' | 'prophunt';
 
 /** Everything chosen in the match menu. */
 export interface MatchConfig {
@@ -131,6 +132,11 @@ export interface ModeContext {
   refreshTeams(): void;
   /** Bring someone back right now at a good spawn point (e.g. after a round). */
   respawn(c: Combatant): void;
+  /**
+   * A big blast at a point (S&D bomb): flash, sound, shake, and damage to
+   * everyone within `radius` (full at the middle, fading out).
+   */
+  explode(at: THREE.Vector3, radius: number, damage: number, attacker: string): void;
 }
 
 /** A mode loadout's ammo and grenades. */

@@ -125,6 +125,8 @@ Every mode has a 10-minute time limit (then the highest score wins). In team mod
 - **Battle Royale**: last one standing. Everyone has one life, and a safe zone (the blue wall) shrinks in four stages: outside it you lose health every second, more each stage. If you're eliminated you see where you placed.
 - **Survival**: waves of bots hunt you. Wave 1 has the number of bots you chose, and each wave adds one (up to 12). Bots get faster and more accurate each wave until wave 6. You have one life, and clearing a wave gives you back 30 health. Your score is how many waves you survive.
 
+The match menu sorts the modes into tabs: **Classic**, **Party**, **Objective** and **Co-op & solo**.
+
 **Party modes:**
 
 - **Gun Game**: everyone starts with the SMG. Every kill (1, 2 or 3 per gun, your choice) moves you to the next gun: SMG → Assault Rifle → Shotgun → LMG → Sniper → Pistol. A kill with the pistol wins. Getting killed by a grenade (or your own) knocks you back one gun. Each player carries one grenade per life.
@@ -133,6 +135,14 @@ Every mode has a 10-minute time limit (then the highest score wins). In team mod
 - **One in the Chamber**: a pistol with one bullet, and any hit kills. A kill gives you a bullet back. If you're empty for 10 seconds, a bullet comes back on its own. No ammo pickups or grenades. You have 3, 5 or 7 lives; the last one with lives left wins.
 - **Headhunter**: free for all where only headshot kills score (+50 each). The bots aim for heads in this mode.
 - **Juggernaut**: five seconds in, one fighter becomes the Juggernaut: it glows orange, takes 30% of normal damage, moves 15% slower, and carries an LMG with plenty of ammo and no grenades. Everyone hunts it, and whoever kills it becomes the next one. Every second as the Juggernaut scores (+10 points a second for you); first to the limit wins. An orange **J** marks the Juggernaut.
+
+- **Prop Hunt**: two rounds. First you hide: you're disguised as a prop (a barrel, crate, traffic cone, trash can or stack of tires), with no gun, while the bots wait 20 seconds and then search. A bot that gets a good look at you can spot you (much more likely if you're moving, and up close); then they all come shooting, until you stay out of sight for 8 seconds and they lose you. Survive 2 minutes to win the round. Then you seek: the screen goes dark for 20 seconds while the bots run off and turn into props among 28 decoy props. Shoot them to find them, but every shot that hits nothing costs you 3 health. Every 25 seconds a hidden prop whistles (a ♪ marker). Find them all in 2 minutes to win the round. Win at least one round to win the match.
+
+**More objective modes** (teams):
+
+- **Hardpoint**: one zone is live at a time, and it moves every minute (the next spot shows 10 seconds early, marked **Next**). Capture it like a Control zone (5 seconds); after that your team scores a point a second as long as no enemy stands in it. Enemies have to neutralize it, then capture it.
+- **Search & Destroy**: rounds, one life each. The attackers plant the bomb by standing in site **A** or **B** for 4 seconds (with no defender in it); the defenders stop them or defuse the bomb by standing on it for 6 seconds before its 30-second timer runs out. Wiping out the other team also wins the round, and so does running out the 100-second clock as a defender. Sides swap every round; first to 3, 4 or 6 round wins takes the match.
+- **Escort**: your team (Blue) pushes a cart along a route (drawn on the ground) from your side to theirs. It rolls while your team is within its ring and theirs isn't (faster with more of you), and rolls slowly back if nobody pushes for 8 seconds. Two checkpoints each add 45 seconds. Get it to the end before the clock (2, 3 or 4 minutes) runs out.
 
 When a match ends, the scoreboard shows the result, your kills, deaths, and accuracy, with buttons to play again or return to the main menu.
 
@@ -207,7 +217,7 @@ The finished models are in `src/assets/models/weapons/`. They're made from the d
 - **Personal bests**: your best score, kills, streak, longest kill, damage, multikill and accuracy (with 10+ kills) in a single match. Beat one and the match report marks it **New best!**
 - **Map stars**: ★ for winning on a map, ★★ for winning on Hard or Insane, ★★★ for winning on Insane. They show on the map cards when you set up a match.
 - **Survival records**: your most waves cleared on each map (shown on the map cards when Survival is picked). Clearing waves 5, 10, 15 and 20 earns the **Survivor**, **Last Stand**, **Unbreakable** and **Immortal** medals with bonus points.
-- **Achievements**: 39 career milestones, from *Centurion* (100 kills) and *Tourist* (finish a match on every map) to *Flawless* (win with 10+ kills and no deaths), *Jack of All Trades* (win every classic mode), *Life of the Party* (win every party mode) and *All-Star* (all 18 map stars). Each is earned once and gives XP: 500 (bronze), 1,000 (silver), 2,500 (gold) or 5,000 (legendary). The list is in `src/core/Achievements.ts`.
+- **Achievements**: 40 career milestones, from *Centurion* (100 kills) and *Tourist* (finish a match on every map) to *Flawless* (win with 10+ kills and no deaths), *Jack of All Trades* (win every classic mode), *Life of the Party* (win every party mode), *Mission Specialist* (win Hardpoint, Search & Destroy and Escort) and *All-Star* (all 18 map stars). Each is earned once and gives XP: 500 (bronze), 1,000 (silver), 2,500 (gold) or 5,000 (legendary). The list is in `src/core/Achievements.ts`.
 
 Like XP, none of this counts on Novice or Beginner.
 

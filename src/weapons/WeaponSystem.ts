@@ -145,6 +145,8 @@ export class WeaponSystem {
     return !this.allowed || this.allowed.has(id);
   }
 
+  /** Guns put away (Prop Hunt while hiding): no gun on screen, no shooting. */
+  holstered = false;
   private allowed: Set<WeaponId> | null = null;
   private ammoOverride: { ammo: number; reserve: number } | null = null;
   private grenadeOverride: number | null = null;
@@ -165,7 +167,8 @@ export class WeaponSystem {
     const w = this.current;
     const { player } = this.d;
 
-    if (canAct) this.handleInput(dt, input);
+    if (canAct && !this.holstered) this.handleInput(dt, input);
+    if (this.holstered) this.ads = 0;
 
     // ---- Switching ---------------------------------------------------------
     let lowered = 0;
@@ -199,7 +202,7 @@ export class WeaponSystem {
 
     // ---- Viewmodel ---------------------------------------------------------
     this.sprintBlend += ((player.sprinting ? 1 : 0) - this.sprintBlend) * Math.min(1, dt * 8);
-    this.viewmodel.visible = !this.scoped;
+    this.viewmodel.visible = !this.scoped && !this.holstered;
     this.viewmodel.update(dt, {
       ads: this.ads,
       sprint: this.sprintBlend,

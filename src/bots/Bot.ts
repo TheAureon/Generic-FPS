@@ -47,6 +47,10 @@ export class Bot implements Damageable, Trackable {
   grenadesPerLife = 1;
   /** A glow a mode gives this bot (Infected, Juggernaut), or null. */
   tint: THREE.Color | null = null;
+  /** Holding still (Prop Hunt): no walking at all. */
+  frozen = false;
+  /** Prop Hunt: the prop this bot is hiding as (its body is hidden), or null. */
+  private prop: THREE.Object3D | null = null;
   /** Where on a target it aims, as a fraction of their height (0.65 = chest; Headhunter raises it). */
   aimHeight = 0.65;
   readonly perception = new Perception();
@@ -149,6 +153,28 @@ export class Bot implements Damageable, Trackable {
     this.anim.setGun(this.weaponModel, gunGrips(this.weaponModel));
     // Dead bots keep their dropped gun until they come back.
     if (!this.isAlive()) this.weaponModel.visible = false;
+  }
+
+  /**
+   * Hide as a prop (Prop Hunt): the body and gun vanish and `prop` stands in
+   * their place; the hitbox shrinks to the prop's height. null: back to normal.
+   */
+  disguise(prop: THREE.Object3D | null, height = BOTS.height): void {
+    this.prop?.removeFromParent();
+    this.prop = prop;
+    this.model.mesh.visible = !prop;
+    this.weaponModel.visible = !prop && this.isAlive();
+    this.hitbox.height = height;
+    this.hitbox.radius = prop ? Math.max(BOTS.radius, 0.4) : BOTS.radius;
+    if (prop) {
+      // Stand it upright where the bot is (not turned with the body).
+      this.ctx.scene.add(prop);
+      prop.position.copy(this.position);
+    }
+  }
+
+  get disguised(): boolean {
+    return this.prop !== null;
   }
 
   /** A full gun: the mode's ammo if it set one, else a magazine and the starting spare rounds. */
@@ -315,6 +341,11 @@ export class Bot implements Damageable, Trackable {
     if (!this.isAlive()) {
       // Dead bodies still fall to the floor.
       this.body.accelerate(0, 0, BOTS.acceleration, dt);
+      this.body.step(dt);
+      return;
+    }
+    if (this.frozen) {
+      this.body.accelerate(0, 0, BOTS.acceleration * 3, dt);
       this.body.step(dt);
       return;
     }

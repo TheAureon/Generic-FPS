@@ -24,6 +24,10 @@ import { Infected } from '../modes/Infected';
 import { OneInTheChamber } from '../modes/OneInTheChamber';
 import { Headhunter } from '../modes/Headhunter';
 import { Juggernaut } from '../modes/Juggernaut';
+import { Hardpoint } from '../modes/Hardpoint';
+import { SearchAndDestroy } from '../modes/SearchAndDestroy';
+import { Escort } from '../modes/Escort';
+import { PropHunt } from '../modes/PropHunt';
 import { Pickups, type Collector } from '../pickups/Pickups';
 import { Player } from '../player/Player';
 import { PlayerController } from '../player/PlayerController';
@@ -164,6 +168,19 @@ export class Match {
         else bot.refillAmmo();
       },
       refreshTeams: () => this.bots.refreshTeams(),
+      explode: (at, radius, damage, attacker) => {
+        this.effects.explosion(at);
+        audio.play('explosion', { position: at });
+        const d = at.distanceTo(this.player.position);
+        if (d < 50) this.controller.addShake(1.4 * (1 - d / 50) ** 2);
+        music.duck(0.8, 2);
+        for (const v of this.combatants()) {
+          if (!v.isAlive()) continue;
+          const dist = v.position.distanceTo(at);
+          if (dist >= radius) continue;
+          v.takeDamage({ amount: damage * (1 - (dist / radius) ** 2), part: 'body', attacker, weapon: 'grenade', from: at.clone() });
+        }
+      },
       respawn: (c) => {
         if (c === (this.player as Combatant)) {
           this.player.respawn(this.pickPlayerSpawn());
@@ -512,6 +529,10 @@ function createMode(ctx: ModeContext): GameMode {
     case 'oitc': return new OneInTheChamber(ctx);
     case 'headhunter': return new Headhunter(ctx);
     case 'juggernaut': return new Juggernaut(ctx);
+    case 'hardpoint': return new Hardpoint(ctx);
+    case 'snd': return new SearchAndDestroy(ctx);
+    case 'escort': return new Escort(ctx);
+    case 'prophunt': return new PropHunt(ctx);
     default: return new Deathmatch(ctx);
   }
 }

@@ -21,24 +21,30 @@ type Screen = 'title' | 'main' | 'controls' | 'setup' | 'pause' | 'settings' | '
 const CONFIG_KEY = 'generic-fps-match';
 
 /** The match menu's mode cards: name, description, icon, and what the "to win" setting means. */
-const MODE_LIST: { id: ModeId; name: string; info: string; icon: keyof typeof ICONS; limit?: string }[] = [
-  { id: 'deathmatch', name: 'Free for All', info: 'Everyone for themselves. First to the kill limit wins. Everyone respawns.', icon: 'crosshair', limit: 'Kill limit' },
-  { id: 'tdm', name: 'Team Deathmatch', info: 'You and your bots (Blue) against Red. First team to the kill limit wins.', icon: 'team', limit: 'Team kills' },
-  { id: 'koh', name: 'King of the Hill', info: 'Stand in the hill alone to score a point a second. The hill moves every minute. Free for all.', icon: 'crown', limit: 'Seconds to win' },
-  { id: 'coh', name: 'Court of the Hill', info: 'King of the Hill in teams: your team scores while only your team is in the hill.', icon: 'hill', limit: 'Team seconds' },
-  { id: 'ctf', name: 'Capture the Flag', info: 'Grab the Red flag and bring it to your base while yours is safe at home.', icon: 'flag', limit: 'Captures' },
-  { id: 'control', name: 'Control', info: 'Capture zones A, B and C. Each zone your team holds scores a point a second.', icon: 'zones', limit: 'Points' },
-  { id: 'br', name: 'Battle Royale', info: 'One life each, a shrinking safe zone. Last one standing wins.', icon: 'circle' },
-  { id: 'survival', name: 'Survival', info: 'Waves of bots hunt you, each wave bigger and tougher. One life. Clearing a wave heals you a bit.', icon: 'waves' },
+type ModeGroup = 'classic' | 'party' | 'objective' | 'coop';
+const MODE_GROUPS: [ModeGroup, string][] = [['classic', 'Classic'], ['party', 'Party'], ['objective', 'Objective'], ['coop', 'Co-op & solo']];
+const MODE_LIST: { id: ModeId; group: ModeGroup; name: string; info: string; icon: keyof typeof ICONS; limit?: string }[] = [
+  { id: 'deathmatch', group: 'classic', name: 'Free for All', info: 'Everyone for themselves. First to the kill limit wins. Everyone respawns.', icon: 'crosshair', limit: 'Kill limit' },
+  { id: 'tdm', group: 'classic', name: 'Team Deathmatch', info: 'You and your bots (Blue) against Red. First team to the kill limit wins.', icon: 'team', limit: 'Team kills' },
+  { id: 'koh', group: 'objective', name: 'King of the Hill', info: 'Stand in the hill alone to score a point a second. The hill moves every minute. Free for all.', icon: 'crown', limit: 'Seconds to win' },
+  { id: 'coh', group: 'objective', name: 'Court of the Hill', info: 'King of the Hill in teams: your team scores while only your team is in the hill.', icon: 'hill', limit: 'Team seconds' },
+  { id: 'ctf', group: 'objective', name: 'Capture the Flag', info: 'Grab the Red flag and bring it to your base while yours is safe at home.', icon: 'flag', limit: 'Captures' },
+  { id: 'control', group: 'objective', name: 'Control', info: 'Capture zones A, B and C. Each zone your team holds scores a point a second.', icon: 'zones', limit: 'Points' },
+  { id: 'br', group: 'classic', name: 'Battle Royale', info: 'One life each, a shrinking safe zone. Last one standing wins.', icon: 'circle' },
+  { id: 'survival', group: 'coop', name: 'Survival', info: 'Waves of bots hunt you, each wave bigger and tougher. One life. Clearing a wave heals you a bit.', icon: 'waves' },
   // Party modes.
-  { id: 'gungame', name: 'Gun Game', info: 'Every kill gives you the next gun: SMG, rifle, shotgun, LMG, sniper, pistol. A kill with the pistol wins. Grenade deaths knock you back.', icon: 'ladder', limit: 'Kills per gun' },
-  { id: 'killconfirmed', name: 'Kill Confirmed', info: 'Teams. Kills drop dog tags: grab enemy tags to score, grab your team’s to deny them.', icon: 'tag', limit: 'Confirmed kills' },
-  { id: 'infected', name: 'Infected', info: 'One bot turns, and everyone it kills turns too. The infected are fast with shotguns. Survive the clock.', icon: 'bio', limit: 'Minutes to survive' },
-  { id: 'oitc', name: 'One in the Chamber', info: 'A pistol with one bullet, every hit kills, a kill gives the bullet back. Last one with lives left wins.', icon: 'bullet', limit: 'Lives' },
-  { id: 'headhunter', name: 'Headhunter', info: 'Free for all where only headshot kills score. The bots go for heads too.', icon: 'target', limit: 'Headshot kills' },
-  { id: 'juggernaut', name: 'Juggernaut', info: 'One armored Juggernaut with an LMG; kill it to become it. Seconds as the Juggernaut win.', icon: 'jugg', limit: 'Seconds to win' },
+  { id: 'gungame', group: 'party', name: 'Gun Game', info: 'Every kill gives you the next gun: SMG, rifle, shotgun, LMG, sniper, pistol. A kill with the pistol wins. Grenade deaths knock you back.', icon: 'ladder', limit: 'Kills per gun' },
+  { id: 'killconfirmed', group: 'party', name: 'Kill Confirmed', info: 'Teams. Kills drop dog tags: grab enemy tags to score, grab your team’s to deny them.', icon: 'tag', limit: 'Confirmed kills' },
+  { id: 'infected', group: 'party', name: 'Infected', info: 'One bot turns, and everyone it kills turns too. The infected are fast with shotguns. Survive the clock.', icon: 'bio', limit: 'Minutes to survive' },
+  { id: 'oitc', group: 'party', name: 'One in the Chamber', info: 'A pistol with one bullet, every hit kills, a kill gives the bullet back. Last one with lives left wins.', icon: 'bullet', limit: 'Lives' },
+  { id: 'headhunter', group: 'party', name: 'Headhunter', info: 'Free for all where only headshot kills score. The bots go for heads too.', icon: 'target', limit: 'Headshot kills' },
+  { id: 'hardpoint', group: 'objective', name: 'Hardpoint', info: 'Teams. One zone at a time, moving every minute. Capture it, then score while no enemy stands in it.', icon: 'zones', limit: 'Points' },
+  { id: 'snd', group: 'objective', name: 'Search & Destroy', info: 'Teams, rounds, one life. Plant the bomb at A or B, or stop the plant and defuse. Sides swap each round.', icon: 'bomb', limit: 'Rounds to win' },
+  { id: 'escort', group: 'objective', name: 'Escort', info: 'Teams. Push the cart along its route to the enemy side before time runs out. Checkpoints add time.', icon: 'cart', limit: 'Minutes' },
+  { id: 'prophunt', group: 'party', name: 'Prop Hunt', info: 'Round 1: hide as a prop while the bots seek. Round 2: the bots hide among decoy props and you hunt them.', icon: 'box' },
+  { id: 'juggernaut', group: 'party', name: 'Juggernaut', info: 'One armored Juggernaut with an LMG; kill it to become it. Seconds as the Juggernaut win.', icon: 'jugg', limit: 'Seconds to win' },
 ];
-const TEAM_MODES: ModeId[] = ['tdm', 'coh', 'ctf', 'control', 'killconfirmed'];
+const TEAM_MODES: ModeId[] = ['tdm', 'coh', 'ctf', 'control', 'killconfirmed', 'hardpoint', 'snd', 'escort'];
 
 /** All the menu screens (plain HTML on top of the game). */
 export class Menus {
@@ -52,6 +58,8 @@ export class Menus {
   private stopReport: (() => void) | null = null;
   /** Shown on the pause screen, e.g. when the mouse couldn't be captured. */
   private pauseHint = '';
+  /** The match menu's open mode group (tab). */
+  private modeGroup: ModeGroup | null = null;
   /** The Career screen's open tab. */
   private careerTab: CareerTab = 'armory';
 
@@ -240,7 +248,14 @@ export class Menus {
     head(p, 'Ready up', 'New match');
 
     div('section-title', p).textContent = 'Mode';
-    choiceCards(p, MODE_LIST.map((m) => [m.id, m.name, m.info, ICONS[m.icon]] as [string, string, string, string]), c.mode, (v) => {
+    // Modes come in groups (tabs); the tab of the chosen mode opens first.
+    this.modeGroup ??= MODE_LIST.find((m) => m.id === c.mode)?.group ?? 'classic';
+    segmented(div('mode-groups', p), MODE_GROUPS, this.modeGroup, (v) => {
+      this.modeGroup = v as ModeGroup;
+      this.show('setup');
+    });
+    const shown = MODE_LIST.filter((m) => m.group === this.modeGroup);
+    choiceCards(p, shown.map((m) => [m.id, m.name, m.info, ICONS[m.icon]] as [string, string, string, string]), c.mode, (v) => {
       c.mode = v as MatchConfig['mode'];
       this.show('setup');
     }, 'small modes');
@@ -411,6 +426,9 @@ const ICONS = {
   bio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="6" r="3.5"/><circle cx="6.8" cy="15" r="3.5"/><circle cx="17.2" cy="15" r="3.5"/></svg>',
   bullet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 21V10c0-4 3-7 3-7s3 3 3 7v11z"/><path d="M9 16h6"/></svg>',
   jugg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M9 11h6M12 8v6"/></svg>',
+  bomb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="14" r="7"/><path d="M15 9l3-3M18 3v2M21 6h-2M20 4l-1 1"/></svg>',
+  cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7h18l-2 9H5z"/><circle cx="8" cy="19" r="2"/><circle cx="16" cy="19" r="2"/></svg>',
+  box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>',
   target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
 };
 

@@ -24,7 +24,9 @@ export const ACHIEVEMENT_XP: Record<MedalTier, number> = { bronze: 500, silver: 
 /** Modes that can be won (Survival is about how long you last). */
 export const WINNABLE_MODES = ['deathmatch', 'tdm', 'koh', 'coh', 'ctf', 'control', 'br'];
 /** The party modes (Gun Game, Infected...): winning each of them is its own achievement. */
-export const PARTY_MODE_IDS = ['gungame', 'killconfirmed', 'infected', 'oitc', 'headhunter', 'juggernaut'];
+export const PARTY_MODE_IDS = ['gungame', 'killconfirmed', 'infected', 'oitc', 'headhunter', 'juggernaut', 'prophunt'];
+/** The newer objective modes. */
+export const OBJECTIVE_MODE_IDS = ['hardpoint', 'snd', 'escort'];
 /** The real maps (not the test room). */
 export const CAREER_MAPS = ['foundry', 'office', 'museum', 'forest', 'mountains', 'flatlands'];
 
@@ -51,7 +53,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'win50', name: 'Champion', info: 'Win 50 matches', tier: 'gold', icon: 'crown', check: (c) => c.wins >= 50 },
   { id: 'matches100', name: 'Regular', info: 'Play 100 matches to the end', tier: 'silver', icon: 'rise', check: (c) => c.matches >= 100 },
   { id: 'allModes', name: 'Jack of All Trades', info: 'Win a match in every mode (except Survival)', tier: 'gold', icon: 'x5', check: (c) => WINNABLE_MODES.every((m) => (c.modesWon[m] ?? 0) > 0) },
-  { id: 'partyAll', name: 'Life of the Party', info: 'Win a match in every party mode (Gun Game, Kill Confirmed, Infected, One in the Chamber, Headhunter, Juggernaut)', tier: 'gold', icon: 'x5', check: (c) => PARTY_MODE_IDS.every((m) => (c.modesWon[m] ?? 0) > 0) },
+  { id: 'partyAll', name: 'Life of the Party', info: 'Win a match in every party mode (Gun Game, Kill Confirmed, Infected, One in the Chamber, Headhunter, Juggernaut, Prop Hunt)', tier: 'gold', icon: 'x5', check: (c) => PARTY_MODE_IDS.every((m) => (c.modesWon[m] ?? 0) > 0) },
+  { id: 'objectiveAll', name: 'Mission Specialist', info: 'Win a Hardpoint, a Search & Destroy and an Escort match', tier: 'gold', icon: 'shield', check: (c) => OBJECTIVE_MODE_IDS.every((m) => (c.modesWon[m] ?? 0) > 0) },
   { id: 'gungameWin', name: 'Gun Runner', info: 'Win a Gun Game', tier: 'bronze', icon: 'rise', check: (_c, m) => m.win && m.mode === 'gungame' },
   { id: 'infectedWin', name: 'Patient Zero', info: 'Win a game of Infected', tier: 'silver', icon: 'shield', check: (_c, m) => m.win && m.mode === 'infected' },
   { id: 'allMaps', name: 'Tourist', info: 'Play a match to the end on every map', tier: 'bronze', icon: 'drop', check: (c) => CAREER_MAPS.every((m) => (c.mapsFinished[m] ?? 0) > 0) },

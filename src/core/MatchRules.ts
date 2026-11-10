@@ -13,12 +13,19 @@ export interface MatchRules {
   speed(name: string): number;
   /** Can this person throw grenades? */
   grenades(name: string): boolean;
+  /**
+   * May a bot go after this person at all (Prop Hunt: not until it has
+   * spotted you)? Bots' enemy lists are cached: call the mode context's
+   * refreshTeams() after the answer changes.
+   */
+  canTarget(attacker: string, victim: string): boolean;
 }
 
 const normal: MatchRules = {
   damage: (_a, _v, amount) => amount,
   speed: () => 1,
   grenades: () => true,
+  canTarget: () => true,
 };
 
 export const rules: MatchRules = { ...normal };
