@@ -30,7 +30,7 @@ export const HIP_POSE = v(0.14, -0.12, -0.43);
  * (y > 0 turns the muzzle toward the middle of the screen).
  */
 export const HIP_ADJUST: Partial<Record<WeaponId, { offset: THREE.Vector3; turn: THREE.Vector3 }>> = {
-  lmg: { offset: v(0.03, -0.01, -0.12), turn: v(0, 0.22, 0.07) },
+  lmg: { offset: v(0.02, -0.01, -0.1), turn: v(0, 0.05, 0.05) },
 };
 
 /** Gun position when aiming down sights, so the sights line up with the screen center. */

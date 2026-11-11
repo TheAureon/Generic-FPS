@@ -152,7 +152,7 @@ for (let px = 975; px < 1240; px += 30) cbox(px, px + 14, 145, 153, 0.03, M.dark
 
 // No rear sight: when aiming you look along the top of the rail at the
 // front sight post. AP is the post's tip (py), the aiming point.
-const AP = 118;
+const AP = 133;
 const apZ0 = 864, apZ1 = 874; // where your eye line starts (the back of the receiver)
 
 // Right side: ejection window (a round showing) and the charging handle.
@@ -188,8 +188,8 @@ tube(1740, 1768, 252, 0.015, M.steel);
 cbox(1690, 1762, 205, 262, 0.032, M.steel);
 cside([[1600, 193], [1705, 205], [1705, 222], [1612, 214]], 0.024, M.steel);
 cbox(1710, 1750, 168, 206, 0.028, M.steel); // front sight base
-cbox(1725, 1735, AP, 170, 0.006, M.steel); // post (its tip is the aiming point)
-for (const x of [-0.016, 0.01]) box(1714, 1746, AP - 8, 172, x, x + 0.006, M.steel); // protective ears
+cbox(1722, 1738, AP, 170, 0.013, M.steel); // post (its tip is the aiming point)
+for (const x of [-0.024, 0.016]) box(1712, 1748, AP - 7, 172, x, x + 0.008, M.steel); // protective ears
 
 // Ammo box (comes off on reloads): chamfered on the top left, with a latch,
 // and the belt of rounds running up into the left side.
@@ -267,7 +267,9 @@ const mark = (name, x, py, px) => {
   o.position.set(x, Y(py), Z(px));
   root.add(o);
 };
-mark('sight', 0, AP, (apZ0 + apZ1) / 2);
+// Aiming puts this point 0.2 m in front of your eye: it's behind the receiver, so your eye is
+// further back and the receiver doesn't fill the bottom of the screen.
+mark('sight', 0, AP, (apZ0 + apZ1) / 2 - 0.15 / K);
 mark('muzzle', 0, 222, 1895);
 mark('eject', 0.036, 185, 1186);
 mark('grip_right', 0, 330, 992);
