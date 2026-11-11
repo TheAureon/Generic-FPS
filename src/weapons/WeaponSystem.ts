@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { settings } from '../core/Settings';
-import { COMBAT, CONFIG, GRENADES, WEAPONS, type WeaponId } from '../config';
+import { COMBAT, CONFIG, GRENADES, MELEE, WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
 import type { CollisionWorld } from '../core/CollisionWorld';
@@ -57,6 +57,8 @@ export class WeaponSystem {
   /** Frag grenades carried, and seconds until the next throw. */
   grenades = GRENADES.start;
   private grenadeCooldown = 0;
+  /** Seconds since the last katana slash started (99 = none yet). */
+  private meleeT = 99;
 
   private _origin = new THREE.Vector3();
   private _dir = new THREE.Vector3();
@@ -107,8 +109,14 @@ export class WeaponSystem {
     return used;
   }
 
+  /** Mid katana slash (no shooting, aiming or reloading until it's done). */
+  get slashing(): boolean {
+    return this.meleeT < MELEE.swingTime;
+  }
+
   /** Restore full ammo on every weapon (e.g. on respawn). */
   resetAmmo(): void {
+    this.meleeT = 99;
     this.grenades = this.grenadeOverride ?? GRENADES.start;
     this.grenadeCooldown = 0;
     for (const w of this.weapons) {
@@ -192,6 +200,9 @@ export class WeaponSystem {
     this.triggerBuffer = Math.max(0, this.triggerBuffer - dt);
     this.grenadeCooldown = Math.max(0, this.grenadeCooldown - dt);
     this.sprintBlockTimer = Math.max(0, this.sprintBlockTimer - dt);
+    const prevMelee = this.meleeT;
+    this.meleeT += dt;
+    if (prevMelee < MELEE.hitAt && this.meleeT >= MELEE.hitAt) this.meleeHit();
 
     // ---- Tell the player about aiming effects ------------------------------
     const s = this.current.stats;
@@ -251,8 +262,11 @@ export class WeaponSystem {
     // E: back to the last weapon.
     if (input.wasPressed('KeyE')) this.requestSwitch(this.lastIndex);
 
-    const busy = this.switchTo >= 0 || this.raiseTimer > 0;
     const w = this.current;
+    // V: slash with the katana (any time, whatever gun is out).
+    if (input.wasPressed('KeyV') && this.meleeT >= MELEE.swingTime + MELEE.cooldown) this.slash();
+
+    const busy = this.switchTo >= 0 || this.raiseTimer > 0 || this.slashing;
 
     // Aim down sights: hold right mouse and/or Q (Settings → Aim / scope).
     // (The sniper also comes off the scope while its bolt is being worked.)
@@ -266,7 +280,7 @@ export class WeaponSystem {
     if (input.wasPressed('KeyR') && !busy && w.startReload()) audio.play('reload_start');
 
     // G: throw a grenade.
-    if (input.wasPressed('KeyG') && this.grenades > 0 && this.grenadeCooldown <= 0 && this.d.throwGrenade && rules.grenades(this.d.ownerName)) {
+    if (input.wasPressed('KeyG') && !this.slashing && this.grenades > 0 && this.grenadeCooldown <= 0 && this.d.throwGrenade && rules.grenades(this.d.ownerName)) {
       this.throwGrenadeNow();
       return;
     }
@@ -285,6 +299,76 @@ export class WeaponSystem {
       this.triggerBuffer = 0;
       if (w.startReload()) audio.play('reload_start');
       else audio.play('dry_fire');
+    }
+  }
+
+  private slash(): void {
+    this.meleeT = 0;
+    this.ads = 0;
+    this.triggerBuffer = 0;
+    this.sprintBlockTimer = MELEE.swingTime;
+    this.current.cancelReload();
+    this.viewmodel.slash();
+    audio.play('katana_swing');
+  }
+
+  /**
+   * The blade connects: whoever you're looking at within reach, or else the
+   * nearest enemy close to your crosshair (you don't need pinpoint aim up close).
+   */
+  private meleeHit(): void {
+    const { camera, world, effects, hud } = this.d;
+    camera.updateMatrixWorld();
+    const o = camera.getWorldPosition(this._origin);
+    const dir = camera.getWorldDirection(this._dir);
+    const targets = this.d.getTargets();
+    let best: Damageable | null = null;
+    let part: HitPart = 'body';
+    const point = new THREE.Vector3();
+
+    const r = traceShot(world, targets, o, dir, MELEE.range + 0.3);
+    if (r.target && r.part) {
+      best = r.target;
+      part = r.part;
+      point.copy(r.point);
+    } else {
+      const cosMax = Math.cos(MELEE.assistAngle * DEG);
+      let bestCos = cosMax;
+      for (const t of targets) {
+        if (!t.isAlive()) continue;
+        const h = t.hitbox;
+        const flat = Math.hypot(h.x - o.x, h.z - o.z);
+        // Nearest point of their body to your eyes (height-wise).
+        const y = THREE.MathUtils.clamp(o.y, h.y + 0.2, h.y + h.height - 0.1);
+        if (flat - h.radius > MELEE.range || Math.abs(y - o.y) > MELEE.range) continue;
+        const to = this._pellet.set(h.x - o.x, y - o.y, h.z - o.z);
+        const len = to.length();
+        if (len < 1e-3) continue;
+        const cos = to.dot(dir) / len;
+        // Right on top of them always connects; otherwise they must be near the crosshair.
+        if ((cos > bestCos || (flat < h.radius + 0.4 && cos > 0)) && world.hasLineOfSight(o.x, o.y, o.z, h.x, y, h.z)) {
+          bestCos = Math.max(cos, bestCos);
+          best = t;
+          point.set(h.x, y, h.z).addScaledVector(to, -h.radius / len);
+        }
+      }
+    }
+
+    if (best) {
+      const killed = best.takeDamage({ amount: MELEE.damage, part, attacker: this.d.ownerName, weapon: 'katana', from: o.clone() });
+      this.d.onHit?.(point, MELEE.damage, part === 'head', killed);
+      effects.bloodPuff(point, dir);
+      hud.showHitmarker(killed ? 'kill' : part === 'head' ? 'head' : 'hit');
+      audio.play('katana_hit');
+      if (killed) audio.play('kill');
+      this.d.player.addShake(1.2);
+      return;
+    }
+    const wall = world.raycast(o.x, o.y, o.z, dir.x, dir.y, dir.z, MELEE.range);
+    if (wall) {
+      point.copy(o).addScaledVector(dir, wall.distance);
+      effects.impact(point, new THREE.Vector3(wall.nx, wall.ny, wall.nz));
+      audio.play('impact', { position: point, volume: 0.8 });
     }
   }
 

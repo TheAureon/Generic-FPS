@@ -3,7 +3,7 @@ import { rules } from '../core/MatchRules';
 import type { Bot } from '../bots/Bot';
 import { formatTime, modeLimit, scoreRows, TIME_LIMIT, type Combatant, type GameMode, type MatchResult, type ModeContext, type ScoreRow } from './GameMode';
 
-/** Seconds with an empty gun before you're given a bullet back (there's no melee). */
+/** Seconds with an empty gun before you're given a bullet back (meanwhile, there's the katana). */
 const EMPTY_REFILL = 10;
 
 /**

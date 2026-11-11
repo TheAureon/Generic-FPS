@@ -28,7 +28,7 @@ const ICON = {
 };
 
 /** Short weapon names for the slot chips. */
-const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade', claws: 'Claws' };
+const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade', claws: 'Claws', katana: 'Katana' };
 
 /**
  * In-game heads-up display: crosshair, hit markers, health/armor, weapon and

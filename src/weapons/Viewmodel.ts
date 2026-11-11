@@ -7,6 +7,7 @@ import { camoTextures } from '../assets/camos';
 import { createWeaponModel, markerPosition, mats } from '../assets/weaponModels';
 import { CAMOS, GLOVES, type Loadout } from '../core/Cosmetics';
 import { AIM_POSE, BOLT, EJECT_PORT, HIP_ADJUST, HIP_POSE, PUMP, RELOADS, SIGHT_DISTANCE, smoothstep, window01 } from './animations';
+import { KatanaView } from './Katana';
 import { ViewmodelArms } from './ViewmodelArms';
 
 /**
@@ -63,6 +64,7 @@ export class Viewmodel {
   private boltT = 99;
   private bolt = { reach: 0, lift: 0, back: 0 };
   private arms: ViewmodelArms;
+  private katana: KatanaView;
   private flashTimer = 0;
   private time = 0;
   /** Seconds since a grenade throw started (99 = not throwing). */
@@ -120,6 +122,7 @@ export class Viewmodel {
       this.flashes.set(id, flash);
     }
     this.arms = new ViewmodelArms(this.rig);
+    this.katana = new KatanaView(this.camera, this.arms.makeRightArm());
 
     // The grenade you throw: swung up from low on the left and lobbed forward.
     this.grenade = new THREE.Group();
@@ -179,7 +182,9 @@ export class Viewmodel {
     for (const m of this.models.values()) m.visible = true;
     for (const f of this.flashes.values()) f.visible = true;
     for (const c of this.casings) c.mesh.visible = true;
+    this.katana.showForCompile(true);
     renderer.compile(this.scene, this.camera);
+    this.katana.showForCompile(false);
     for (const c of this.casings) c.mesh.visible = false;
     [...this.models.values()].forEach((m, i) => (m.visible = saved[i]));
     for (const f of this.flashes.values()) f.visible = false;
@@ -270,6 +275,11 @@ export class Viewmodel {
     this.arms.setGloveColor(GLOVES.find((g) => g.id === l.gloves)?.value ?? GLOVES[0].value);
   }
 
+  /** Slash with the katana (the gun dips out of the way meanwhile). */
+  slash(): void {
+    this.katana.slash();
+  }
+
   /** Start the grenade throw animation (the gun dips while the grenade is lobbed). */
   throwGrenade(): void {
     this.throwT = 0;
@@ -280,7 +290,8 @@ export class Viewmodel {
     const model = this.models.get(this.current)!;
     // Grenade throw: the gun dips out of the way, the grenade swings up and flies off.
     this.throwT += dt;
-    const dip = window01(this.throwT, [0, 0.1], [0.32, 0.55]);
+    this.katana.update(dt);
+    const dip = Math.max(window01(this.throwT, [0, 0.1], [0.32, 0.55]), this.katana.gunDip * 2.2);
     const gt = this.throwT / 0.3;
     this.grenade.visible = gt < 1;
     if (gt < 1) {

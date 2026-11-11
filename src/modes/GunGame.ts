@@ -7,8 +7,8 @@ const G = PARTY_MODES.gungame;
 /**
  * Gun Game: everyone starts with the first gun on the ladder. Every kill
  * (or every few, from the menu) moves you up to the next gun; a kill with
- * the last gun wins. Getting killed by a grenade (or blowing yourself up)
- * knocks you back one gun. Free for all, everyone respawns.
+ * the last gun wins. Getting killed by a grenade or the katana (or blowing
+ * yourself up) knocks you back one gun. Free for all, everyone respawns.
  */
 export class GunGame implements GameMode {
   readonly id = 'gungame' as const;
@@ -41,7 +41,7 @@ export class GunGame implements GameMode {
 
   start(): void {
     for (const c of this.ctx.combatants()) this.setLevel(c, 0);
-    this.off = events.on('kill', (e) => this.onKill(e.killer, e.victim, e.weapon === 'grenade'));
+    this.off = events.on('kill', (e) => this.onKill(e.killer, e.victim, e.weapon === 'grenade' || e.weapon === 'katana'));
     this.ctx.announce('Gun Game', `${G.ladder.length} guns. A kill with the last one wins`, 3);
   }
 
@@ -60,11 +60,11 @@ export class GunGame implements GameMode {
     this.ctx.loadout(c, [gun], { grenades: 1 });
   }
 
-  private onKill(killer: string, victim: string, grenade: boolean): void {
+  private onKill(killer: string, victim: string, humiliating: boolean): void {
     if (this.result) return;
-    // Killed by a grenade, or your own: back one gun.
+    // Killed by a grenade or the katana, or your own grenade: back one gun.
     const v = this.find(victim);
-    if (v && (grenade || killer === victim)) {
+    if (v && (humiliating || killer === victim)) {
       const lv = this.level.get(victim) ?? 0;
       if (lv > 0) {
         this.setLevel(v, lv - 1);

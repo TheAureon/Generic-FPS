@@ -85,6 +85,7 @@ Chrome is recommended. Safari and Firefox also work.
 | R                   | Reload                                        |
 | 1 2 3 4 5 6         | Pistol, assault rifle, shotgun, sniper rifle, SMG, LMG |
 | G                   | Throw a grenade                               |
+| V                   | Slash with the katana (any time, whatever gun you're holding) |
 | Mouse wheel         | Next / previous weapon                        |
 | E                   | Switch back to the last weapon                |
 | Tab (hold)          | Scoreboard                                    |
@@ -137,10 +138,10 @@ The match menu sorts the modes into tabs: **Classic**, **Party**, **Objective** 
 
 **Party modes:**
 
-- **Gun Game**: everyone starts with the SMG. Every kill (1, 2 or 3 per gun, your choice) moves you to the next gun: SMG → Assault Rifle → Shotgun → LMG → Sniper → Pistol. A kill with the pistol wins. Getting killed by a grenade (or your own) knocks you back one gun. Each player carries one grenade per life.
+- **Gun Game**: everyone starts with the SMG. Every kill (1, 2 or 3 per gun, your choice) moves you to the next gun: SMG → Assault Rifle → Shotgun → LMG → Sniper → Pistol. A kill with the pistol wins. Getting killed by a grenade or the katana (or your own grenade) knocks you back one gun. Each player carries one grenade per life.
 - **Kill Confirmed** (teams): every death drops a spinning dog tag in the dead player's team color. Grab an enemy tag to confirm the kill (a point for your team, +50); grab a teammate's to deny the enemy theirs (+25). Tags vanish after 30 seconds (they blink at the end). Bots go for tags near them.
 - **Infected**: everyone starts as a survivor. Six seconds in, one bot turns: the infected glow green, move 15% faster, carry only a shotgun and no grenades. Anyone they kill comes back infected, you included. Survivors win if anyone is still human when the clock (2, 3 or 5 minutes) runs out; you win with whichever side you're on at the end (+500 for surviving).
-- **One in the Chamber**: a pistol with one bullet, and any hit kills. A kill gives you a bullet back. If you're empty for 10 seconds, a bullet comes back on its own. No ammo pickups or grenades. You have 3, 5 or 7 lives; the last one with lives left wins.
+- **One in the Chamber**: a pistol with one bullet, and any hit kills. A kill gives you a bullet back. If you're empty for 10 seconds, a bullet comes back on its own (or go in close with the katana). No ammo pickups or grenades. You have 3, 5 or 7 lives; the last one with lives left wins.
 - **Headhunter**: free for all where only headshot kills score (+50 each). The bots aim for heads in this mode.
 - **Juggernaut**: five seconds in, one fighter becomes the Juggernaut: it glows orange, takes 30% of normal damage, moves 15% slower, and carries an LMG with plenty of ammo and no grenades. Everyone hunts it, and whoever kills it becomes the next one. Every second as the Juggernaut scores (+10 points a second for you); first to the limit wins. An orange **J** marks the Juggernaut.
 - **Prop Hunt**: two rounds. First you hide: you're disguised as a prop (a barrel, crate, traffic cone, trash can or stack of tires), with no gun, while the bots wait 20 seconds and then search. A bot that gets a good look at you can spot you (much more likely if you're moving, and up close); then they all come shooting, until you stay out of sight for 8 seconds and they lose you. Survive 2 minutes to win the round. Then you seek: the screen goes dark for 20 seconds while the bots run off and turn into props among 28 decoy props. Shoot them to find them, but every shot that hits nothing costs you 3 health. Every 25 seconds a hidden prop whistles (a ♪ marker). Find them all in 2 minutes to win the round. Win at least one round to win the match.
@@ -202,8 +203,11 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 | 5 | SMG | Very fast fire, accurate while moving; weak at range |
 | 6 | LMG | A 100-round box magazine for holding a lane; heavy (you walk 15% slower with it, and it's slow to raise and reload) |
 | G | Frag grenade | Clearing corners and groups behind cover |
+| V | Katana | A silent one-hit kill up close, without switching guns |
 
 **Grenades**: you carry 2 (up to 4; ammo pickups give one more). Press **G** to lob one where you're aiming; it bounces off walls and floors and goes off after about 2 seconds, with a blinking red light while the fuse runs. The blast hurts everyone within 7 m who isn't behind cover, the more the closer they are, including you (at half strength). A red **!** marker warns you when a live grenade lands near you.
+
+**Katana**: press **V** any time, whatever gun you're holding, and your gun dips while you draw the katana and slash diagonally across the screen. It kills anyone in one hit (the Juggernaut takes three, and zombies from wave 4 on take two), reaching about 2.6 m. You don't have to aim exactly: it finds an enemy within about 35° of your crosshair. It makes no gunshot, so bots don't hear it. A slash takes half a second, during which you can't shoot. A katana kill earns the **Sliced** medal (+50), and in Gun Game it knocks the victim back a gun. Its numbers (damage, reach, speed) are in `MELEE` in `src/config.ts`.
 
 #### Gun models
 

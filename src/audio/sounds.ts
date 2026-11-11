@@ -46,6 +46,9 @@ export type SoundId =
   | 'levelup'
   | 'stat_slam'
   | 'grenade_throw'
+  | 'katana_draw'
+  | 'katana_swing'
+  | 'katana_hit'
   | 'grenade_bounce'
   | 'explosion'
   | 'challenge';
@@ -129,6 +132,22 @@ export const SYNTHS: Record<SoundId, Synth> = {
     noiseBurst(s, { type: 'bandpass', freq: 1000, q: 0.6, gain: 0.9, decay: 0.12 });
     noiseBurst(s, { type: 'lowpass', freq: 400, gain: 0.85, decay: 0.22 });
     tone(s, { type: 'triangle', from: 120, to: 38, gain: 0.75, decay: 0.14 });
+  },
+  katana_draw: (s) => {
+    // Steel sliding out of the scabbard: a bright scrape with a faint ring.
+    noiseBurst(s, { type: 'highpass', freq: 4500, gain: 0.12, decay: 0.12, attack: 0.04 });
+    tone(s, { type: 'sine', from: 3100, to: 3000, gain: 0.025, decay: 0.3, delay: 0.05 });
+  },
+  katana_swing: (s) => {
+    // A fast swish through the air.
+    noiseBurst(s, { type: 'bandpass', freq: 1400, q: 1.6, gain: 0.32, decay: 0.12, attack: 0.07, delay: 0.04 });
+    noiseBurst(s, { type: 'bandpass', freq: 3200, q: 2, gain: 0.12, decay: 0.08, attack: 0.05, delay: 0.06 });
+  },
+  katana_hit: (s) => {
+    // The blade connecting: a wet slice and a dull thud.
+    noiseBurst(s, { type: 'bandpass', freq: 2400, q: 1.2, gain: 0.4, decay: 0.09 });
+    noiseBurst(s, { type: 'lowpass', freq: 420, gain: 0.55, decay: 0.12 });
+    tone(s, { type: 'sine', from: 160, to: 60, gain: 0.35, decay: 0.1 });
   },
   shot_shotgun: (s) => {
     noiseBurst(s, { type: 'lowpass', freq: 2200, gain: 1.0, decay: 0.32 });

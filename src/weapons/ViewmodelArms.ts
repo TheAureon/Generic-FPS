@@ -120,6 +120,11 @@ export class ViewmodelArms {
     parent.add(this.right, this.left);
   }
 
+  /** Another right arm (same sleeve and gloves), for the katana slash. */
+  makeRightArm(): THREE.Group {
+    return makeArm(this.mats, 1);
+  }
+
   /** Glove color (from the equipped gloves); the knuckle guard is a lighter shade. */
   setGloveColor(color: string): void {
     (this.mats.glove as THREE.MeshStandardMaterial).color.set(color);

@@ -33,6 +33,7 @@ export const MEDALS: Record<string, MedalDef> = {
   collateral: { name: 'Collateral', tier: 'gold', icon: 'pierce', info: 'Two kills with one shot' },
   avenger: { name: 'Avenger', tier: 'bronze', icon: 'shield', info: 'Kill an enemy who just killed a teammate' },
   frag: { name: 'Frag Out', tier: 'bronze', icon: 'grenade', info: 'Kill with a grenade' },
+  sliced: { name: 'Sliced', tier: 'bronze', icon: 'blade', info: 'Kill with the katana' },
   wave5: { name: 'Survivor', tier: 'bronze', icon: 'shield', info: 'Clear wave 5 in Survival' },
   wave10: { name: 'Last Stand', tier: 'silver', icon: 'shield', info: 'Clear wave 10 in Survival' },
   wave15: { name: 'Unbreakable', tier: 'gold', icon: 'shield', info: 'Clear wave 15 in Survival' },
@@ -175,6 +176,7 @@ export class Rewards {
     }
     if (firstBlood) bonus('firstBlood', P.firstBlood);
     if (weapon === 'grenade') bonus('frag', P.grenadeKill);
+    if (weapon === 'katana') bonus('sliced', P.katanaKill);
     if (dist >= REWARDS.longshotDistance) bonus('longshot', P.longshot);
     else if (dist > 0 && dist <= REWARDS.pointBlankDistance) bonus('pointBlank', P.pointBlank);
     if (this.d.player.health > 0 && this.d.player.health <= REWARDS.closeCallHealth) bonus('closeCall', P.closeCall);

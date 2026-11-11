@@ -253,7 +253,23 @@ export const WEAPONS = {
 
 export type WeaponId = keyof typeof WEAPONS;
 /** What dealt damage: a gun, a grenade, or the Battle Royale zone. */
-export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws';
+export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana';
+
+/** The katana (V to slash): a quick melee attack, any time, without switching away from your gun. */
+export const MELEE = {
+  /** Damage of one slash (100 = a full-health bot; Juggernauts and zombies take more). */
+  damage: 150,
+  /** How far it reaches (meters, from your eyes to the edge of their body). */
+  range: 2.6,
+  /** It still connects if they're this far off your crosshair (degrees): you don't have to aim exactly. */
+  assistAngle: 35,
+  /** Seconds from pressing V until the blade hits. */
+  hitAt: 0.13,
+  /** Seconds the whole slash takes (you can't shoot until it's over). */
+  swingTime: 0.5,
+  /** Rest between slashes (seconds, counted after a slash ends). */
+  cooldown: 0.12,
+};
 
 /** Frag grenades (G to throw). */
 export const GRENADES = {
@@ -596,6 +612,8 @@ export const REWARDS = {
     collateral: 100,
     avenger: 50,
     grenadeKill: 50,
+    /** Bonus for a katana kill. */
+    katanaKill: 50,
     /** Survival: clearing wave 5, 10, 15 and 20. */
     survivalWave: { 5: 250, 10: 500, 15: 1000, 20: 2000 } as Record<number, number>,
     /** Multikills: double, triple, quad, and 5 or more. */
