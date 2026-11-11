@@ -28,7 +28,7 @@ export const PARTY_MODE_IDS = ['gungame', 'killconfirmed', 'infected', 'oitc', '
 /** The newer objective modes. */
 export const OBJECTIVE_MODE_IDS = ['hardpoint', 'snd', 'escort'];
 /** The real maps (not the test room). */
-export const CAREER_MAPS = ['foundry', 'office', 'museum', 'forest', 'mountains', 'flatlands'];
+export const CAREER_MAPS = ['foundry', 'office', 'museum', 'forest', 'mountains', 'flatlands', 'harbor', 'metro', 'outpost'];
 
 /** Has every medal (of a tier) been earned at least once? */
 const hasAll = (c: Career, tier?: MedalTier) => Object.entries(MEDALS).filter(([, m]) => !tier || m.tier === tier).every(([id]) => (c.medals[id] ?? 0) > 0);
@@ -63,7 +63,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'winHard', name: 'Hardened', info: 'Win a match on Hard or Insane', tier: 'silver', icon: 'shield', check: (_c, m) => m.win && (m.difficulty === 'hard' || m.difficulty === 'insane') },
   { id: 'winInsane', name: 'Insane', info: 'Win a match on Insane', tier: 'gold', icon: 'flame', check: (_c, m) => m.win && m.difficulty === 'insane' },
   { id: 'stars9', name: 'Rising Star', info: 'Earn 9 map stars', tier: 'silver', icon: 'burst', check: (c) => totalStars(c) >= 9 },
-  { id: 'stars18', name: 'All-Star', info: 'Earn all 18 map stars', tier: 'legend', icon: 'burst', check: (c) => totalStars(c) >= 18 },
+  // (The id dates from when there were 18 stars; it now means every star on every map.)
+  { id: 'stars18', name: 'All-Star', info: `Earn all ${CAREER_MAPS.length * 3} map stars`, tier: 'legend', icon: 'burst', check: (c) => totalStars(c) >= CAREER_MAPS.length * 3 },
   // Feats in one match
   { id: 'flawless', name: 'Flawless', info: 'Win a match with 10+ kills and no deaths', tier: 'gold', icon: 'shield', check: (_c, m) => m.win && m.kills >= 10 && m.deaths === 0 },
   { id: 'streak10', name: 'Untouchable', info: 'Get a 10-kill streak', tier: 'silver', icon: 'flame', check: (_c, m) => m.bestStreak >= 10 },

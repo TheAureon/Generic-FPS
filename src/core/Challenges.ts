@@ -36,7 +36,7 @@ export const tierName = (t: number): string => TIER_NAMES[t];
 
 const GUNS: WeaponId[] = ['pistol', 'rifle', 'shotgun', 'sniper', 'smg', 'lmg'];
 const MODE_NAMES: Record<string, string> = { deathmatch: 'Free for All', tdm: 'Team Deathmatch', koh: 'King of the Hill', ctf: 'Capture the Flag', control: 'Control', br: 'Battle Royale' };
-const MAP_NAMES: Record<string, string> = { foundry: 'Foundry', office: 'Office', museum: 'Museum', forest: 'Forest', mountains: 'Mountain Plains', flatlands: 'Flatlands' };
+const MAP_NAMES: Record<string, string> = { foundry: 'Foundry', office: 'Office', museum: 'Museum', forest: 'Forest', mountains: 'Mountain Plains', flatlands: 'Flatlands', harbor: 'Harbor', metro: 'Metro', outpost: 'Outpost' };
 const HARD_OR_MORE: Difficulty[] = ['hard', 'insane'];
 
 const medals = (m: MatchView, ...ids: string[]) => ids.reduce((a, id) => a + (m.summary.medals[id] ?? 0), 0);
