@@ -12,6 +12,8 @@ export type SoundId =
   | 'shot_rifle'
   | 'shot_shotgun'
   | 'shot_sniper'
+  | 'shot_smg'
+  | 'shot_lmg'
   | 'reload_start'
   | 'reload_end'
   | 'shell_insert'
@@ -115,6 +117,18 @@ export const SYNTHS: Record<SoundId, Synth> = {
     noiseBurst(s, { type: 'bandpass', freq: 1300, q: 0.6, gain: 0.85, decay: 0.1 });
     noiseBurst(s, { type: 'lowpass', freq: 500, gain: 0.7, decay: 0.16 });
     tone(s, { type: 'triangle', from: 140, to: 45, gain: 0.6, decay: 0.1 });
+  },
+  shot_smg: (s) => {
+    // Lighter and snappier than the rifle (it fires very fast).
+    noiseBurst(s, { type: 'bandpass', freq: 2100, q: 0.8, gain: 0.7, decay: 0.07 });
+    noiseBurst(s, { type: 'lowpass', freq: 700, gain: 0.5, decay: 0.1 });
+    tone(s, { type: 'triangle', from: 190, to: 70, gain: 0.45, decay: 0.07 });
+  },
+  shot_lmg: (s) => {
+    // Heavier than the rifle: more low end and a longer tail.
+    noiseBurst(s, { type: 'bandpass', freq: 1000, q: 0.6, gain: 0.9, decay: 0.12 });
+    noiseBurst(s, { type: 'lowpass', freq: 400, gain: 0.85, decay: 0.22 });
+    tone(s, { type: 'triangle', from: 120, to: 38, gain: 0.75, decay: 0.14 });
   },
   shot_shotgun: (s) => {
     noiseBurst(s, { type: 'lowpass', freq: 2200, gain: 1.0, decay: 0.32 });

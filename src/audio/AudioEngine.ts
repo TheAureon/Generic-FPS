@@ -9,6 +9,16 @@ export interface PlayOptions {
 }
 
 /**
+ * Most new sounds in a short moment: past this, faraway ones are skipped
+ * (and past twice this, all of them) so a huge firefight can't overload the
+ * sound system.
+ */
+const BURST_MAX = 24;
+const BURST_WINDOW = 0.25;
+/** How long a generated sound effect is kept connected (seconds). */
+const SYNTH_LIFETIME = 4;
+
+/**
  * Plays sound effects. Browsers only allow audio after a click, see `unlock()`.
  *
  * Keeping sound alive: a browser can pause a page's sound by itself (Safari
@@ -27,6 +37,10 @@ class AudioEngine {
   private resetListeners: (() => void)[] = [];
   private noise!: AudioBuffer;
   private samples = new Map<SoundId, AudioBuffer>();
+  /** Where the listener (camera) is, and when the latest sounds started (audio clock). */
+  private ear = { x: 0, y: 0, z: 0 };
+  private recent: number[] = [];
+  private missing = new Set<string>();
 
   /** Call from a click/keypress handler. Safe to call repeatedly. */
   unlock(): void {
@@ -124,18 +138,23 @@ class AudioEngine {
     const l = this.ctx.listener;
     const e = camera.matrixWorld.elements;
     if (!e.every((v) => Number.isFinite(v))) return;
-    const t = this.ctx.currentTime;
+    this.ear.x = e[12];
+    this.ear.y = e[13];
+    this.ear.z = e[14];
     // Camera looks down its -Z axis; Y is up.
+    // (Set the values directly. Scheduling a change every frame instead piles
+    // up thousands of entries a minute in the browser's audio timeline; Safari
+    // never clears them out, and sooner or later the sound just stops.)
     if (l.positionX) {
-      l.positionX.setValueAtTime(e[12], t);
-      l.positionY.setValueAtTime(e[13], t);
-      l.positionZ.setValueAtTime(e[14], t);
-      l.forwardX.setValueAtTime(-e[8], t);
-      l.forwardY.setValueAtTime(-e[9], t);
-      l.forwardZ.setValueAtTime(-e[10], t);
-      l.upX.setValueAtTime(e[4], t);
-      l.upY.setValueAtTime(e[5], t);
-      l.upZ.setValueAtTime(e[6], t);
+      l.positionX.value = e[12];
+      l.positionY.value = e[13];
+      l.positionZ.value = e[14];
+      l.forwardX.value = -e[8];
+      l.forwardY.value = -e[9];
+      l.forwardZ.value = -e[10];
+      l.upX.value = e[4];
+      l.upY.value = e[5];
+      l.upZ.value = e[6];
     } else {
       // Older Safari
       l.setPosition(e[12], e[13], e[14]);
@@ -150,30 +169,47 @@ class AudioEngine {
       this.resume();
       return;
     }
+    // A sound that doesn't exist is skipped (with one warning), never an error mid-game.
+    if (!SYNTHS[id] && !this.samples.has(id)) {
+      if (!this.missing.has(id)) console.warn(`Sound "${id}" doesn't exist.`);
+      this.missing.add(id);
+      return;
+    }
     // Never feed the mixer a broken position or volume (see healIfBroken).
     const p = opts.position;
     if (p && !(Math.abs(p.x) < 1e4 && Math.abs(p.y) < 1e4 && Math.abs(p.z) < 1e4)) return;
     if (opts.volume !== undefined && !(opts.volume >= 0 && opts.volume < 10)) return;
 
-    let out: AudioNode = this.master;
-    const vol = opts.volume ?? 1;
-    if (vol !== 1) {
-      const g = ctx.createGain();
-      g.gain.value = vol;
-      g.connect(out);
-      out = g;
-    }
-    if (opts.position) {
-      const p = ctx.createPanner();
-      p.panningModel = 'HRTF';
-      p.distanceModel = 'inverse';
-      p.refDistance = 4;
-      p.rolloffFactor = 1.2;
-      p.positionX.value = opts.position.x;
-      p.positionY.value = opts.position.y;
-      p.positionZ.value = opts.position.z;
-      p.connect(out);
-      out = p;
+    // Too much at once (a big firefight): skip faraway sounds rather than overload the sound system.
+    const dist = p ? Math.hypot(p.x - this.ear.x, p.y - this.ear.y, p.z - this.ear.z) : 0;
+    const now = ctx.currentTime;
+    while (this.recent.length && this.recent[0] < now - BURST_WINDOW) this.recent.shift();
+    if (this.recent.length >= BURST_MAX && (dist > 12 || this.recent.length >= BURST_MAX * 2)) return;
+    this.recent.push(now);
+
+    // Every sound gets its own volume node, so the whole chain can be let go when it's over.
+    const voice = ctx.createGain();
+    voice.gain.value = opts.volume ?? 1;
+    voice.connect(this.master);
+    let out: AudioNode = voice;
+    let done = false;
+    const release = () => {
+      if (done) return;
+      done = true;
+      voice.disconnect();
+    };
+    if (p) {
+      const pan = ctx.createPanner();
+      // Proper 3D (HRTF) close by; the much cheaper simple panning further away.
+      pan.panningModel = dist < 18 ? 'HRTF' : 'equalpower';
+      pan.distanceModel = 'inverse';
+      pan.refDistance = 4;
+      pan.rolloffFactor = 1.2;
+      pan.positionX.value = p.x;
+      pan.positionY.value = p.y;
+      pan.positionZ.value = p.z;
+      pan.connect(out);
+      out = pan;
     }
 
     const sample = this.samples.get(id);
@@ -182,10 +218,14 @@ class AudioEngine {
       src.buffer = sample;
       src.playbackRate.value = 0.95 + Math.random() * 0.1;
       src.connect(out);
+      src.onended = release;
       src.start();
+      window.setTimeout(release, (sample.duration / 0.95 + 0.5) * 1000);
       return;
     }
     SYNTHS[id]({ ctx, out, t: ctx.currentTime + 0.005, noise: this.noise });
+    // Generated sounds are all short (the longest are about 2 s).
+    window.setTimeout(release, SYNTH_LIFETIME * 1000);
   }
 }
 

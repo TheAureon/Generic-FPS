@@ -82,6 +82,8 @@ class Music {
   private noise!: AudioBuffer;
   /** Layers whose loudness follows the match's intensity. */
   private layers!: { pad: GainNode; bass: GainNode; drums: GainNode; arp: GainNode };
+  /** The level each layer was last set to (so it's only changed when it needs to be). */
+  private layerLevel = new Map<GainNode, number>();
 
   private track: MusicTrack = null;
   private wanted: MusicTrack = null;
@@ -241,6 +243,7 @@ class Music {
       return g;
     };
     this.layers = { pad: layer(), bass: layer(), drums: layer(), arp: layer() };
+    this.layerLevel.clear();
     this.layers.arp.connect(this.delay);
 
   }
@@ -258,7 +261,16 @@ class Music {
   /** How loud each layer is, from the track and the intensity. */
   private applyLayers(): void {
     const t = this.ctx!.currentTime, k = this.intensity;
-    const set = (g: GainNode, v: number) => g.gain.setTargetAtTime(v, t, 0.15);
+    // Called every frame: only touch a layer when its level really changes, and
+    // replace (not add to) what's scheduled. Adding a new scheduled change every
+    // frame piles up in the browser's audio timeline until the sound stops.
+    const set = (g: GainNode, v: number) => {
+      const last = this.layerLevel.get(g);
+      if (last !== undefined && Math.abs(last - v) < 0.01) return;
+      this.layerLevel.set(g, v);
+      g.gain.cancelScheduledValues(t);
+      g.gain.setTargetAtTime(v, t, 0.15);
+    };
     if (this.track === 'match') {
       set(this.layers.pad, 0.75 - 0.25 * k);
       set(this.layers.bass, 0.25 + 0.75 * smooth((k - 0.1) / 0.4));
