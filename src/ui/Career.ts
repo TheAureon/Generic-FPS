@@ -175,7 +175,7 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
     });
     if (rec.stars[1] > rec.stars[0]) {
       const it = add(list, 'rr-item');
-      it.innerHTML = `<div class="rr-stars">${'★'.repeat(rec.stars[1])}<span>${'★'.repeat(3 - rec.stars[1])}</span></div><div class="rr-text"><div class="rr-eyebrow">New map star${rec.stars[1] - rec.stars[0] > 1 ? 's' : ''}</div><div class="rr-name">${r.map}</div><div class="rr-info">★ win · ★★ win on Hard or Insane · ★★★ win on Insane</div></div>`;
+      it.innerHTML = `<div class="rr-stars">${'★'.repeat(rec.stars[1])}<span>${'★'.repeat(3 - rec.stars[1])}</span></div><div class="rr-text"><div class="rr-eyebrow">New map star${rec.stars[1] - rec.stars[0] > 1 ? 's' : ''}</div><div class="rr-name">${r.map}</div><div class="rr-info">★ win · ★★ win on Hard or harder · ★★★ win on Master or Insane</div></div>`;
     }
     if (rec.survivalRecord) {
       const it = add(list, 'rr-item');

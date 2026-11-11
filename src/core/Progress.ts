@@ -25,7 +25,7 @@ export interface Career {
   bests: Bests;
   /** Survival: most waves cleared on each map. */
   survivalBest: Record<string, number>;
-  /** Stars per map, as bits: 1 = won, 2 = won on Hard or Insane, 4 = won on Insane. */
+  /** Stars per map, as bits: 1 = won, 2 = won on Hard or harder, 4 = won on Master or Insane. */
   mapStars: Record<string, number>;
   /** Wins per mode, and matches finished per map. */
   modesWon: Record<string, number>;
@@ -215,12 +215,12 @@ class Progress {
       }
     }
 
-    // Map stars: a win, a win on Hard or Insane, a win on Insane.
+    // Map stars: a win, a win on Hard or harder, a win on Master or Insane.
     const starsBefore = stars(d.mapStars[m.map]);
     if (m.win) {
       let bits = 1;
-      if (m.difficulty === 'hard' || m.difficulty === 'insane') bits |= 2;
-      if (m.difficulty === 'insane') bits |= 4;
+      if (m.difficulty === 'hard' || m.difficulty === 'master' || m.difficulty === 'insane') bits |= 2;
+      if (m.difficulty === 'master' || m.difficulty === 'insane') bits |= 4;
       d.mapStars[m.map] = (d.mapStars[m.map] ?? 0) | bits;
     }
 

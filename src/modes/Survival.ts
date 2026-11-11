@@ -124,6 +124,8 @@ export class Survival implements GameMode {
       burstPause: [lerp(base.burstPause[0], top.burstPause[0]), lerp(base.burstPause[1], top.burstPause[1])],
       aggression: lerp(base.aggression, top.aggression),
       damageMultiplier: lerp(base.damageMultiplier, top.damageMultiplier),
+      // Insane's extras (head aim, wide view, long memory) stay as they are.
+      headAim: base.headAim, settle: base.settle, fieldOfView: base.fieldOfView, memory: base.memory,
     };
   }
 

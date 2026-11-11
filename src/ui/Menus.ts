@@ -263,7 +263,7 @@ export class Menus {
     }, 'small modes');
 
     div('section-title', p).textContent = 'Map';
-    // Each map shows its stars (★ win, ★★ win on Hard+, ★★★ win on Insane) and, in Survival, your best wave.
+    // Each map shows its stars (★ win, ★★ win on Hard+, ★★★ win on Master or Insane) and, in Survival, your best wave.
     const career = progress.get();
     const mapName = (id: string, name: string) => {
       if (id === 'test-room') return name;

@@ -37,7 +37,7 @@ export const tierName = (t: number): string => TIER_NAMES[t];
 const GUNS: WeaponId[] = ['pistol', 'rifle', 'shotgun', 'sniper', 'smg', 'lmg'];
 const MODE_NAMES: Record<string, string> = { deathmatch: 'Free for All', tdm: 'Team Deathmatch', koh: 'King of the Hill', ctf: 'Capture the Flag', control: 'Control', br: 'Battle Royale' };
 const MAP_NAMES: Record<string, string> = { foundry: 'Foundry', office: 'Office', museum: 'Museum', forest: 'Forest', mountains: 'Mountain Plains', flatlands: 'Flatlands', harbor: 'Harbor', metro: 'Metro', outpost: 'Outpost' };
-const HARD_OR_MORE: Difficulty[] = ['hard', 'insane'];
+const HARD_OR_MORE: Difficulty[] = ['hard', 'master', 'insane'];
 
 const medals = (m: MatchView, ...ids: string[]) => ids.reduce((a, id) => a + (m.summary.medals[id] ?? 0), 0);
 const allMedals = (m: MatchView) => Object.entries(m.summary.medals).reduce((a, [id, n]) => a + (id === 'headshot' ? 0 : n), 0);
@@ -77,7 +77,7 @@ function pool(): Challenge[] {
   add('nade8', 2, 'Get 8 grenade kills', 8, (m) => m.summary.weaponKills.grenade ?? 0);
   add('snipehs10', 2, 'Get 10 headshot kills with the sniper rifle', 10, (m) => m.summary.weaponHeadshots.sniper ?? 0);
   add('long5', 2, 'Get 5 Longshots', 5, (m) => medals(m, 'longshot'));
-  add('winhard', 2, 'Win a match on Hard or Insane', 1, (m) => (m.finished && m.win && HARD_OR_MORE.includes(m.difficulty) ? 1 : 0));
+  add('winhard', 2, 'Win a match on Hard or harder', 1, (m) => (m.finished && m.win && HARD_OR_MORE.includes(m.difficulty) ? 1 : 0));
   add('kd3', 2, 'Finish a match with 10+ kills and a K/D of 3 or better', 1,
     (m) => (m.finished && m.summary.kills >= 10 && m.summary.kills >= 3 * Math.max(1, m.summary.deaths) ? 1 : 0), 'best');
   return out;

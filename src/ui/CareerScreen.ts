@@ -222,7 +222,7 @@ function records(p: HTMLElement): void {
       const n = starCount(c.mapStars[id]);
       return `<div class="mt-row"><span>${MAPS.find((m) => m.id === id)?.name ?? id}</span><span class="map-stars">${'★'.repeat(n)}<span>${'★'.repeat(3 - n)}</span></span><span>${c.survivalBest[id] ? `wave ${c.survivalBest[id]}` : '—'}</span><span>${c.mapsFinished[id] ?? 0}</span></div>`;
     }).join('');
-  div('career-note', p).textContent = '★ win · ★★ win on Hard or Insane · ★★★ win on Insane.';
+  div('career-note', p).textContent = '★ win · ★★ win on Hard or harder · ★★★ win on Master or Insane.';
 }
 
 // ---- Challenges: daily and weekly -----------------------------------------------------------------

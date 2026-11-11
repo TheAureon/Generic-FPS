@@ -33,7 +33,7 @@ export const CAREER_MAPS = ['foundry', 'office', 'museum', 'forest', 'mountains'
 /** Has every medal (of a tier) been earned at least once? */
 const hasAll = (c: Career, tier?: MedalTier) => Object.entries(MEDALS).filter(([, m]) => !tier || m.tier === tier).every(([id]) => (c.medals[id] ?? 0) > 0);
 const count = (rec: Record<string, number>) => Object.values(rec).reduce((a, b) => a + b, 0);
-/** Stars on a map: 1 for a win, 2 for a win on Hard or harder, 3 for a win on Insane. */
+/** Stars on a map: 1 for a win, 2 for a win on Hard or harder, 3 for a win on Master or Insane. */
 export const starCount = (mask = 0) => (mask & 1 ? 1 : 0) + (mask & 2 ? 1 : 0) + (mask & 4 ? 1 : 0);
 const totalStars = (c: Career) => CAREER_MAPS.reduce((a, m) => a + starCount(c.mapStars[m]), 0);
 
@@ -60,8 +60,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'gungameWin', name: 'Gun Runner', info: 'Win a Gun Game', tier: 'bronze', icon: 'rise', check: (_c, m) => m.win && m.mode === 'gungame' },
   { id: 'infectedWin', name: 'Patient Zero', info: 'Win a game of Infected', tier: 'silver', icon: 'shield', check: (_c, m) => m.win && m.mode === 'infected' },
   { id: 'allMaps', name: 'Tourist', info: 'Play a match to the end on every map', tier: 'bronze', icon: 'drop', check: (c) => CAREER_MAPS.every((m) => (c.mapsFinished[m] ?? 0) > 0) },
-  { id: 'winHard', name: 'Hardened', info: 'Win a match on Hard or Insane', tier: 'silver', icon: 'shield', check: (_c, m) => m.win && (m.difficulty === 'hard' || m.difficulty === 'insane') },
-  { id: 'winInsane', name: 'Insane', info: 'Win a match on Insane', tier: 'gold', icon: 'flame', check: (_c, m) => m.win && m.difficulty === 'insane' },
+  { id: 'winHard', name: 'Hardened', info: 'Win a match on Hard or harder', tier: 'silver', icon: 'shield', check: (_c, m) => m.win && (m.difficulty === 'hard' || m.difficulty === 'master' || m.difficulty === 'insane') },
+  { id: 'winMaster', name: 'Mastered', info: 'Win a match on Master or Insane', tier: 'gold', icon: 'crown', check: (_c, m) => m.win && (m.difficulty === 'master' || m.difficulty === 'insane') },
+  { id: 'winInsane', name: 'Insane', info: 'Win a match on Insane', tier: 'legend', icon: 'flame', check: (_c, m) => m.win && m.difficulty === 'insane' },
   { id: 'stars9', name: 'Rising Star', info: 'Earn 9 map stars', tier: 'silver', icon: 'burst', check: (c) => totalStars(c) >= 9 },
   // (The id dates from when there were 18 stars; it now means every star on every map.)
   { id: 'stars18', name: 'All-Star', info: `Earn all ${CAREER_MAPS.length * 3} map stars`, tier: 'legend', icon: 'burst', check: (c) => totalStars(c) >= CAREER_MAPS.length * 3 },

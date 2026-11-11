@@ -365,7 +365,7 @@ export const BOTS = {
   names: ['Viper', 'Ghost', 'Hammer', 'Rook', 'Blaze', 'Echo', 'Nova', 'Tank', 'Jinx', 'Raven', 'Moss', 'Flint'],
 };
 
-export type Difficulty = 'novice' | 'beginner' | 'easy' | 'medium' | 'advanced' | 'hard' | 'insane';
+export type Difficulty = 'novice' | 'beginner' | 'easy' | 'medium' | 'advanced' | 'hard' | 'master' | 'insane';
 
 /** The difficulty levels in order (easiest first), with their names and a short description for the menu. */
 export const DIFFICULTIES: { id: Difficulty; name: string; info: string }[] = [
@@ -375,15 +375,17 @@ export const DIFFICULTIES: { id: Difficulty; name: string; info: string }[] = [
   { id: 'medium', name: 'Medium', info: 'A fair fight: decent aim and reactions, and they will push you.' },
   { id: 'advanced', name: 'Advanced', info: 'Quick reactions and good aim; bots play aggressively.' },
   { id: 'hard', name: 'Hard', info: 'Fast, accurate and aggressive. Keep moving and use cover.' },
-  { id: 'insane', name: 'Insane', info: 'Near-instant reactions, tight aim, relentless. Same damage as you.' },
+  { id: 'master', name: 'Master', info: 'Near-instant reactions, tight aim, relentless. Same damage as you.' },
+  { id: 'insane', name: 'Insane', info: 'Not meant to be fair: instant reactions, aim for your head, see almost all around them, never forget you, and hit 40% harder than you.' },
 ];
 
 /**
  * Difficulty levels. Aim error is in degrees: the bigger it is, the more
  * they miss. It grows with distance and when you or the bot is moving.
  * Bots never get more health, speed or ammo than you on any level; only
- * their reactions, aim, firing rhythm, aggression and damage change (damage
- * tops out at the same as yours).
+ * their reactions, aim, firing rhythm, aggression and damage change. Damage
+ * tops out at the same as yours, except on Insane, which is meant to be
+ * unfair (it also uses the optional extras at the bottom of the list).
  */
 export const BOT_DIFFICULTY: Record<Difficulty, {
   /** Seconds between first seeing you and starting to shoot. */
@@ -403,6 +405,15 @@ export const BOT_DIFFICULTY: Record<Difficulty, {
   aggression: number;
   /** Multiplies the damage of bot bullets. */
   damageMultiplier: number;
+  /** Optional extras (used by Insane): */
+  /** 0..1: how far up from the chest toward the head they aim (1 = right at the head). */
+  headAim?: number;
+  /** Extra aim error in the first moments of a fight, before they settle (normally 0.8 = +80%). */
+  settle?: number;
+  /** Width of their view cone (degrees; normally BOTS.fieldOfView). */
+  fieldOfView?: number;
+  /** How long they remember where you were (seconds; normally BOTS.memoryTime). */
+  memory?: number;
 }> = {
   novice: {
     reactionTime: 1.4, aimError: 8, turnSpeed: 90,
@@ -440,11 +451,18 @@ export const BOT_DIFFICULTY: Record<Difficulty, {
     burstSize: [4, 8], burstPause: [0.25, 0.55],
     aggression: 0.9, damageMultiplier: 1,
   },
-  insane: {
+  master: {
     reactionTime: 0.15, aimError: 1.3, turnSpeed: 560,
     movingTargetPenalty: 0.9, selfMovingPenalty: 0.3,
     burstSize: [5, 10], burstPause: [0.15, 0.4],
     aggression: 1, damageMultiplier: 1,
+  },
+  insane: {
+    reactionTime: 0.05, aimError: 0.5, turnSpeed: 1100,
+    movingTargetPenalty: 0.3, selfMovingPenalty: 0.1,
+    burstSize: [12, 25], burstPause: [0.05, 0.15],
+    aggression: 1, damageMultiplier: 1.4,
+    headAim: 0.75, settle: 0.1, fieldOfView: 300, memory: 30,
   },
 };
 
@@ -636,7 +654,7 @@ export const REWARDS = {
    * Novice and Beginner, more the harder the bots. A difficulty set to 0
    * is practice: its matches don't count toward career stats either.
    */
-  xpMultiplier: { novice: 0, beginner: 0, easy: 1, medium: 1.25, advanced: 1.5, hard: 2, insane: 3 } as Record<Difficulty, number>,
+  xpMultiplier: { novice: 0, beginner: 0, easy: 1, medium: 1.25, advanced: 1.5, hard: 2, master: 3, insane: 5 } as Record<Difficulty, number>,
   /** Level where you can prestige (start over at level 1 for a prestige star), and the most prestiges. */
   prestigeLevel: 50,
   maxPrestige: 10,

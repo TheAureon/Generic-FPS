@@ -28,6 +28,10 @@ export class Perception {
   hasNoise = false;
   private noiseAt = -Infinity;
 
+  /** View cone width (degrees) and memory (seconds); a difficulty can change them. */
+  fieldOfView = BOTS.fieldOfView;
+  memoryTime = BOTS.memoryTime;
+
   private now = 0;
   private checkTimer = Math.random() * VISION_INTERVAL;
 
@@ -66,9 +70,9 @@ export class Perception {
       this.hasLastSeen = true;
     } else {
       this.visibleTime = 0;
-      if (this.timeSinceSeen > BOTS.memoryTime) this.hasLastSeen = false;
+      if (this.timeSinceSeen > this.memoryTime) this.hasLastSeen = false;
     }
-    if (this.hasNoise && this.timeSinceNoise > BOTS.memoryTime) this.hasNoise = false;
+    if (this.hasNoise && this.timeSinceNoise > this.memoryTime) this.hasNoise = false;
   }
 
   /** Field of view + range + line of sight (walls and bushes block vision). */
@@ -82,7 +86,7 @@ export class Perception {
       // Angle between where the bot faces and the direction to the target.
       const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
       const cos = (fx * dx + fz * dz) / Math.max(flatDist, 1e-6);
-      if (cos < Math.cos((BOTS.fieldOfView / 2) * DEG)) return false;
+      if (cos < Math.cos((Math.min(359, this.fieldOfView) / 2) * DEG)) return false;
     }
 
     // Visible if the head or the chest can be seen.

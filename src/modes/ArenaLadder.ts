@@ -2,15 +2,15 @@ import { BOT_DIFFICULTY, WEAPONS, type Difficulty, type WeaponId } from '../conf
 import { events } from '../core/events';
 import { formatTime, modeLimit, scoreRows, type GameMode, type MatchResult, type ModeContext, type ScoreRow } from './GameMode';
 
-/** The rungs: a title, how good the bot is, and its gun. The last one is better than Insane. */
+/** The rungs: a title, how good the bot is, and its gun. The last one is between Master and Insane. */
 const RUNGS: { title: string; skill: Difficulty; gun: WeaponId; boost?: boolean }[] = [
   { title: 'Rookie', skill: 'beginner', gun: 'pistol' },
   { title: 'Brawler', skill: 'easy', gun: 'smg' },
   { title: 'Gunslinger', skill: 'medium', gun: 'shotgun' },
   { title: 'Veteran', skill: 'advanced', gun: 'rifle' },
   { title: 'Elite', skill: 'hard', gun: 'lmg' },
-  { title: 'Master', skill: 'insane', gun: 'sniper' },
-  { title: 'Champion', skill: 'insane', gun: 'rifle', boost: true },
+  { title: 'Master', skill: 'master', gun: 'sniper' },
+  { title: 'Champion', skill: 'master', gun: 'rifle', boost: true },
 ];
 /** Seconds between duels. */
 const BREAK = 4;

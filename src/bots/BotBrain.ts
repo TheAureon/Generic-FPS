@@ -184,6 +184,8 @@ export class BotBrain {
     this.obj = this.ctx.objective?.() ?? null;
     const urgent = !!this.obj?.urgent;
     const p = bot.perception;
+    p.fieldOfView = bot.skill.fieldOfView ?? BOTS.fieldOfView;
+    p.memoryTime = bot.skill.memory ?? BOTS.memoryTime;
     p.update(dt, bot.eyePosition(), bot.aim.yaw, this.target, this.ctx.world);
 
     // ---- Transitions that can happen from (almost) any state -------------
@@ -477,7 +479,9 @@ export class BotBrain {
     const p = bot.perception;
 
     const tp = target.position;
-    this._aim.set(tp.x, tp.y + target.height * this.bot.aimHeight, tp.z);
+    // Insane bots aim up toward the head (unless a mode set an aim height of its own).
+    const h = this.bot.aimHeight === 0.65 && skill.headAim ? 0.65 + (0.92 - 0.65) * skill.headAim : this.bot.aimHeight;
+    this._aim.set(tp.x, tp.y + target.height * h, tp.z);
     const want = bot.anglesTo(this._aim);
     const dist = bot.eyePosition().distanceTo(this._aim);
 
@@ -496,7 +500,7 @@ export class BotBrain {
       (0.7 + dist / 25) *
       (1 + skill.movingTargetPenalty * Math.min(1, targetSpeed / 5.5)) *
       (1 + skill.selfMovingPenalty * Math.min(1, selfSpeed / BOTS.walkSpeed)) *
-      (1 + settling * 0.8);
+      (1 + settling * (skill.settle ?? 0.8));
     bot.aim.updateWobble(dt, error);
 
     if (!allowFire || reacting) return;
