@@ -80,6 +80,8 @@ Chrome is recommended. Safari and Firefox also work.
 | Space               | Jump                                          |
 | Shift (hold)        | Sprint (while moving forward)                 |
 | C (hold)            | Crouch                                        |
+| C while sprinting   | Slide (you stay low and can shoot; jump to slide-jump) |
+| Space or W at a ledge | Climb onto it (up to about chest height)    |
 | Left click          | Shoot                                         |
 | Right click or Q (hold) | Aim down sights (scope on the sniper rifle). Both work by default; Settings can limit it to one |
 | R                   | Reload                                        |

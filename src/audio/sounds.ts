@@ -47,6 +47,8 @@ export type SoundId =
   | 'stat_slam'
   | 'grenade_throw'
   | 'katana_draw'
+  | 'slide'
+  | 'mantle'
   | 'katana_swing'
   | 'katana_hit'
   | 'grenade_bounce'
@@ -132,6 +134,16 @@ export const SYNTHS: Record<SoundId, Synth> = {
     noiseBurst(s, { type: 'bandpass', freq: 1000, q: 0.6, gain: 0.9, decay: 0.12 });
     noiseBurst(s, { type: 'lowpass', freq: 400, gain: 0.85, decay: 0.22 });
     tone(s, { type: 'triangle', from: 120, to: 38, gain: 0.75, decay: 0.14 });
+  },
+  slide: (s) => {
+    // Boots and clothes scraping along the floor.
+    noiseBurst(s, { type: 'bandpass', freq: 700, q: 0.7, gain: 0.3, decay: 0.55, attack: 0.04 });
+    noiseBurst(s, { type: 'highpass', freq: 3000, gain: 0.06, decay: 0.45, attack: 0.05 });
+  },
+  mantle: (s) => {
+    // Hands slapping onto the ledge, then a scuff as you pull up.
+    noiseBurst(s, { type: 'lowpass', freq: 900, gain: 0.35, decay: 0.07 });
+    noiseBurst(s, { type: 'bandpass', freq: 1200, q: 0.8, gain: 0.18, decay: 0.2, attack: 0.05, delay: 0.12 });
   },
   katana_draw: (s) => {
     // Steel sliding out of the scabbard: a bright scrape with a faint ring.

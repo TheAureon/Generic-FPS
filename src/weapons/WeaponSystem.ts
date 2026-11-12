@@ -59,6 +59,7 @@ export class WeaponSystem {
   private grenadeCooldown = 0;
   /** Seconds since the last katana slash started (99 = none yet). */
   private meleeT = 99;
+  private climbBlend = 0;
 
   private _origin = new THREE.Vector3();
   private _dir = new THREE.Vector3();
@@ -194,6 +195,10 @@ export class WeaponSystem {
       lowered = this.raiseTimer / this.current.stats.equipTime;
     }
 
+    // Climbing onto a ledge: the gun dips out of the way (hands on the ledge).
+    this.climbBlend += ((player.mantling ? 1 : 0) - this.climbBlend) * Math.min(1, dt * 16);
+    lowered = Math.max(lowered, this.climbBlend * 0.8);
+
     // ---- Timers (reload, cooldown, spread recovery) ----------------------
     const wasShell = w.reloading && w.stats.reloadStyle === 'perShell';
     if (w.update(dt) === 'reloaded') audio.play(wasShell && w.reloading ? 'shell_insert' : 'reload_end');
@@ -266,7 +271,7 @@ export class WeaponSystem {
     // V: slash with the katana (any time, whatever gun is out).
     if (input.wasPressed('KeyV') && this.meleeT >= MELEE.swingTime + MELEE.cooldown) this.slash();
 
-    const busy = this.switchTo >= 0 || this.raiseTimer > 0 || this.slashing;
+    const busy = this.switchTo >= 0 || this.raiseTimer > 0 || this.slashing || this.d.player.mantling;
 
     // Aim down sights: hold right mouse and/or Q (Settings → Aim / scope).
     // (The sniper also comes off the scope while its bolt is being worked.)

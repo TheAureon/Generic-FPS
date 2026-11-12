@@ -12,7 +12,7 @@ export class CharacterBody {
   onGround = false;
 
   constructor(
-    private world: CollisionWorld,
+    readonly world: CollisionWorld,
     public height: number,
     public radius: number,
     public stepHeight: number,

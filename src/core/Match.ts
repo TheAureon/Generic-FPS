@@ -249,6 +249,8 @@ export class Match {
 
     // ---- Scorekeeping and feedback --------------------------------------
     this.controller.onStep = () => audio.play('step', { volume: this.controller.sprinting ? 0.55 : 0.4 });
+    this.controller.onSlide = () => audio.play('slide');
+    this.controller.onMantle = () => audio.play('mantle');
     this.controller.onLand = (speed) => {
       audio.play('land', { volume: Math.min(1, speed / 10) });
       this.controller.addShake(Math.min(0.35, speed * 0.025));

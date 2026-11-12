@@ -24,6 +24,25 @@ export class PlayerController {
 
   crouching = false;
   sprinting = false;
+  /** Seconds left in a slide (0 = not sliding). */
+  slideTimer = 0;
+  private slideCooldown = 0;
+  private slideDir = new THREE.Vector3();
+  private crouchHeld = false;
+  /** Climbing onto a ledge: 0..1 through it, or -1. */
+  mantleT = -1;
+  private mantleFrom = new THREE.Vector3();
+  private mantleTo = new THREE.Vector3();
+  /** Called when a slide or a mantle starts (for sounds). */
+  onSlide: (() => void) | null = null;
+  onMantle: (() => void) | null = null;
+
+  get sliding(): boolean {
+    return this.slideTimer > 0;
+  }
+  get mantling(): boolean {
+    return this.mantleT >= 0;
+  }
 
   private bobPhase = 0;
   private bobAmount = 0;
@@ -79,6 +98,8 @@ export class PlayerController {
     this.body.height = P.height;
     this.body.onGround = false;
     this.crouching = false;
+    this.slideTimer = 0;
+    this.mantleT = -1;
     this.stepSmoothing = 0;
     this.recoilPitch = 0;
     this.recoilYaw = 0;
@@ -154,8 +175,51 @@ export class PlayerController {
     if (this.key(input, 'KeyD') || this.key(input, 'ArrowRight')) side += 1;
     if (this.key(input, 'KeyA') || this.key(input, 'ArrowLeft')) side -= 1;
 
+    // ---- Mantle: climbing onto a ledge takes over completely ----------------
+    if (this.mantleT >= 0) {
+      this.mantleT = Math.min(1, this.mantleT + dt / P.mantleTime);
+      const t = this.mantleT;
+      // Up first, then over the edge.
+      const up = 1 - (1 - Math.min(1, t / 0.7)) ** 2;
+      const over = t < 0.4 ? 0 : ((t - 0.4) / 0.6) ** 1.5;
+      this.position.set(
+        this.mantleFrom.x + (this.mantleTo.x - this.mantleFrom.x) * over,
+        this.mantleFrom.y + (this.mantleTo.y - this.mantleFrom.y) * up,
+        this.mantleFrom.z + (this.mantleTo.z - this.mantleFrom.z) * over,
+      );
+      this.velocity.set(0, 0, 0);
+      if (t >= 1) {
+        this.mantleT = -1;
+        this.onGround = true;
+        // Carry on forward a little if W is held.
+        if (fwd > 0) this.velocity.set(-Math.sin(this.yaw) * P.walkSpeed * 0.6, 0, -Math.cos(this.yaw) * P.walkSpeed * 0.6);
+      }
+      this.updateTimers(dt);
+      return;
+    }
+    const jumpHeld = this.key(input, 'Space');
+    if (fwd > 0 && (jumpHeld || !this.onGround) && this.tryMantle()) {
+      this.updateTimers(dt);
+      return;
+    }
+
+    // ---- Slide: C while sprinting --------------------------------------------
+    const crouchKey = this.key(input, 'KeyC');
+    const crouchPressed = crouchKey && !this.crouchHeld;
+    this.crouchHeld = crouchKey;
+    this.slideCooldown = Math.max(0, this.slideCooldown - dt);
+    if (crouchPressed && this.sprinting && this.onGround && this.slideCooldown <= 0) {
+      const sp = Math.max(P.slideSpeed, Math.hypot(this.velocity.x, this.velocity.z));
+      this.slideDir.set(this.velocity.x, 0, this.velocity.z).normalize();
+      if (this.slideDir.lengthSq() < 0.5) this.slideDir.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+      this.velocity.x = this.slideDir.x * sp;
+      this.velocity.z = this.slideDir.z * sp;
+      this.slideTimer = P.slideTime;
+      this.onSlide?.();
+    }
+
     // ---- Crouch (hold C) ---------------------------------------------------
-    const wantCrouch = this.key(input, 'KeyC');
+    const wantCrouch = crouchKey || this.sliding;
     if (wantCrouch) {
       this.crouching = true;
     } else if (this.crouching && this.body.hasHeadroom(P.height)) {
@@ -169,7 +233,7 @@ export class PlayerController {
 
     // ---- Sprint (hold Shift, forward only, not crouched) --------------------
     const wantSprint = this.key(input, 'ShiftLeft') || this.key(input, 'ShiftRight');
-    this.sprinting = wantSprint && fwd > 0 && !this.crouching && !this.sprintBlocked;
+    this.sprinting = wantSprint && fwd > 0 && !this.crouching && !this.sprintBlocked && !this.sliding;
     const speed = (this.crouching ? P.crouchSpeed : this.sprinting ? P.sprintSpeed : P.walkSpeed) * this.speedMultiplier;
 
     // ---- Desired horizontal velocity ----------------------------------------
@@ -181,12 +245,34 @@ export class PlayerController {
     if (len > 0) { wx /= len; wz /= len; }
     const targetVX = wx * speed, targetVZ = wz * speed;
 
-    // In the air with no keys held we keep our momentum.
-    const accel = this.onGround ? P.groundAcceleration : P.airAcceleration;
-    this.body.accelerate(targetVX, targetVZ, accel, dt, !this.onGround && len === 0);
+    if (this.sliding) {
+      // Sliding: glide along, slowing down, steering only a little.
+      this.slideTimer = Math.max(0, this.slideTimer - dt);
+      const v = Math.hypot(this.velocity.x, this.velocity.z);
+      const slow = Math.max(0, v - (P.slideSpeed - P.crouchSpeed) / P.slideTime * dt * 1.1);
+      const steer = 0.12;
+      const dx = this.slideDir.x * (1 - steer) + wx * steer, dz = this.slideDir.z * (1 - steer) + wz * steer;
+      const dl = Math.hypot(dx, dz) || 1;
+      this.slideDir.set(dx / dl, 0, dz / dl);
+      this.velocity.x = this.slideDir.x * slow;
+      this.velocity.z = this.slideDir.z * slow;
+      // Ends when it runs out, slows right down, or you leave the ground.
+      if (this.slideTimer <= 0 || slow < P.crouchSpeed * 1.1 || !this.onGround) this.endSlide();
+    } else {
+      // In the air with no keys held we keep our momentum.
+      const accel = this.onGround ? P.groundAcceleration : P.airAcceleration;
+      this.body.accelerate(targetVX, targetVZ, accel, dt, !this.onGround && len === 0);
+    }
 
-    // ---- Jump ---------------------------------------------------------------
-    if (this.key(input, 'Space') && this.onGround && !this.crouching) this.body.jump(P.jumpSpeed);
+    // ---- Jump (also out of a slide, keeping its speed) ------------------------
+    if (jumpHeld && this.onGround && (!this.crouching || (this.sliding && this.body.hasHeadroom(P.height)))) {
+      if (this.sliding) {
+        this.endSlide();
+        this.crouching = false;
+        this.body.height = P.height;
+      }
+      this.body.jump(P.jumpSpeed);
+    }
 
     // ---- Move, collide, fall -------------------------------------------------
     const wasAirborne = !this.onGround;
@@ -213,6 +299,51 @@ export class PlayerController {
     this.fovBoost += ((this.sprinting && hSpeed > 1 ? 1 : 0) - this.fovBoost) * Math.min(1, dt * 8);
     this.stepSmoothing *= Math.max(0, 1 - dt * 14);
 
+    this.updateTimers(dt);
+  }
+
+  private endSlide(): void {
+    if (this.slideTimer <= 0 && this.slideCooldown > 0) return;
+    this.slideTimer = 0;
+    this.slideCooldown = P.slideCooldown;
+  }
+
+  /**
+   * Is there a ledge right in front, low enough to climb (and room to crouch
+   * on top)? If so, start climbing onto it.
+   */
+  private tryMantle(): boolean {
+    const r = this.body.radius;
+    const feet = this.position.y;
+    const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
+    const world = this.body.world;
+    // Only when something is actually in the way at waist height.
+    const wx = this.position.x + fx * (r + 0.25), wz = this.position.z + fz * (r + 0.25);
+    // (In the air the ledge only has to be a little above your feet.)
+    const minRise = this.onGround ? P.stepHeight + 0.05 : 0.2;
+    if (world.groundHeight(wx, wz, 0.05, feet + P.mantleHeight) - feet < minRise) return false;
+    for (const d of [r + 0.35, r + 0.6]) {
+      const x = this.position.x + fx * d, z = this.position.z + fz * d;
+      const top = world.groundHeight(x, z, r * 0.8, feet + P.mantleHeight);
+      const rise = top - feet;
+      if (rise < minRise || rise > P.mantleHeight) continue;
+      // Room to get up there (crouched), and nothing in the way above our head on the climb.
+      if (world.ceilingHeight(x, z, r * 0.8, top + 0.02) - top < P.crouchHeight) continue;
+      if (world.ceilingHeight(this.position.x, this.position.z, r * 0.8, feet + this.height - 0.05) < top + this.height) continue;
+      this.mantleFrom.copy(this.position);
+      this.mantleTo.set(x, top + 0.01, z);
+      this.mantleT = 0;
+      this.slideTimer = 0;
+      this.velocity.set(0, 0, 0);
+      // Crouch for the climb if there's not room to stand up there.
+      if (world.ceilingHeight(x, z, r * 0.8, top + 0.02) - top < P.height) this.crouching = true;
+      this.onMantle?.();
+      return true;
+    }
+    return false;
+  }
+
+  private updateTimers(dt: number): void {
     // ---- Screen shake fades -------------------------------------------------
     this.shake = Math.max(0, this.shake - dt * 1.8);
     this.shakeTime += dt;
@@ -222,6 +353,8 @@ export class PlayerController {
     this.recoilPitch = Math.abs(this.recoilPitch) <= rec ? 0 : this.recoilPitch - Math.sign(this.recoilPitch) * rec;
     this.recoilYaw = Math.abs(this.recoilYaw) <= rec ? 0 : this.recoilYaw - Math.sign(this.recoilYaw) * rec;
   }
+
+  private slideLean = 0;
 
   /** Position the camera at the player's eyes. Called every rendered frame. */
   updateCamera(): void {
@@ -237,7 +370,10 @@ export class PlayerController {
     const sp = s * (Math.sin(t * 37) * 0.6 + Math.sin(t * 61) * 0.4);
     const sy = s * (Math.sin(t * 43 + 1.3) * 0.6 + Math.sin(t * 71 + 0.4) * 0.4);
     const sr = s * Math.sin(t * 29 + 2.1) * 0.7;
-    this.camera.rotation.set(this.viewPitch * (1 - d) + 0.3 * d + sp, this.yaw + this.recoilYaw + sy, 1.1 * d + sr, 'YXZ');
+    // A slight lean while sliding, and a dip of the head while climbing a ledge.
+    this.slideLean += ((this.sliding ? 1 : 0) - this.slideLean) * 0.2;
+    const mantleDip = this.mantleT >= 0 ? Math.sin(this.mantleT * Math.PI) * 0.12 : 0;
+    this.camera.rotation.set(this.viewPitch * (1 - d) + 0.3 * d + sp - mantleDip, this.yaw + this.recoilYaw + sy, 1.1 * d + sr + this.slideLean * 0.07, 'YXZ');
 
     // Zooming narrows the field of view (done on the tangent so it's a true zoom).
     const baseFov = settings.get().fov + this.fovBoost * CONFIG.camera.sprintFovBoost;

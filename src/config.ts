@@ -36,6 +36,17 @@ export const CONFIG = {
     /** How fast you crouch / stand up. */
     crouchTransitionSpeed: 10,
 
+    /** Slide: press C while sprinting. Starting speed, how long it lasts (seconds), and the wait before the next one. */
+    slideSpeed: 12,
+    slideTime: 0.8,
+    slideCooldown: 0.4,
+    /**
+     * Mantle: press Space (or keep holding forward in the air) against a ledge
+     * up to this high (meters above your feet) to climb onto it. Takes `mantleTime` seconds.
+     */
+    mantleHeight: 1.7,
+    mantleTime: 0.38,
+
     maxHealth: 100,
     /** Most armor you can have. Armor soaks up part of each hit. */
     maxArmor: 100,
