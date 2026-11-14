@@ -88,6 +88,9 @@ Chrome is recommended. Safari and Firefox also work.
 | 1 2 3 4 5 6         | Pistol, assault rifle, shotgun, sniper rifle, SMG, LMG |
 | G                   | Throw a grenade                               |
 | X                   | Use a killstreak reward (airstrike or attack dog) |
+| T                   | Throw a knife                                 |
+| Z                   | Throw a flashbang                             |
+| H                   | Throw a smoke grenade                         |
 | V                   | Slash with the katana (any time, whatever gun you're holding) |
 | Mouse wheel         | Next / previous weapon                        |
 | E                   | Switch back to the last weapon                |
@@ -210,6 +213,13 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 | V | Katana | A silent one-hit kill up close, without switching guns |
 
 **Grenades**: you carry 2 (up to 4; ammo pickups give one more). Press **G** to lob one where you're aiming; it bounces off walls and floors and goes off after about 2 seconds, with a blinking red light while the fuse runs. The blast hurts everyone within 7 m who isn't behind cover, the more the closer they are, including you (at half strength). A red **!** marker warns you when a live grenade lands near you.
+
+**Throwing knives, flashbangs and smoke**: you get 2 knives, 1 flashbang and 1 smoke grenade each life. The row under your guns shows how many you have left.
+- **Throwing knife (T)**: flies fast and almost straight along your aim, and kills in one hit. It's silent. It stays where it lands, and walking over it picks it back up.
+- **Flashbang (Z)**: goes off after about 1.5 seconds. Anyone who can see it, bots and you included, is blinded for up to 3.5 seconds (less if it's off to the side or far away). Blinded bots can't see or shoot. It doesn't hurt.
+- **Smoke grenade (H)**: pours out a thick cloud about 9 m across that lasts 14 seconds. Bots can't see through it (bullets still go through).
+
+Settings are in `TACTICAL` in `src/config.ts`. Modes without grenades don't give flashbangs or smoke either.
 
 **Kill-cam**: when a bot kills you, the last two seconds or so before you died play back from its eyes while you wait to respawn. You see where it was, what it saw and its shots. Turn it off with `KILLCAM.enabled` in `src/config.ts`.
 

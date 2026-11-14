@@ -2213,7 +2213,11 @@ body {
 .ch-panel {
   position: absolute;
   right: 20px;
-  top: 40%;
+  /* Just above the weapon panel (which grew with the killstreak and equipment rows). */
+  bottom: calc(36px + 236px * var(--hud-scale, 1));
+  /* ...and clear of the kill feed at the top (extra challenges are cut off on short screens). */
+  max-height: calc(100vh - 36px - 236px * var(--hud-scale, 1) - 200px);
+  overflow: hidden;
   width: 250px;
   padding: 10px 12px 8px;
   display: flex;
