@@ -87,6 +87,7 @@ Chrome is recommended. Safari and Firefox also work.
 | R                   | Reload                                        |
 | 1 2 3 4 5 6         | Pistol, assault rifle, shotgun, sniper rifle, SMG, LMG |
 | G                   | Throw a grenade                               |
+| X                   | Use a killstreak reward (airstrike or attack dog) |
 | V                   | Slash with the katana (any time, whatever gun you're holding) |
 | Mouse wheel         | Next / previous weapon                        |
 | E                   | Switch back to the last weapon                |
@@ -209,6 +210,13 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 | V | Katana | A silent one-hit kill up close, without switching guns |
 
 **Grenades**: you carry 2 (up to 4; ammo pickups give one more). Press **G** to lob one where you're aiming; it bounces off walls and floors and goes off after about 2 seconds, with a blinking red light while the fuse runs. The blast hurts everyone within 7 m who isn't behind cover, the more the closer they are, including you (at half strength). A red **!** marker warns you when a live grenade lands near you.
+
+**Killstreak rewards**: get kills in a row without dying to earn them. The bar above your guns shows how close you are.
+- **3 kills: UAV.** Every enemy shows on your minimap for 30 seconds. It starts by itself.
+- **5 kills: Airstrike.** Press **X** and a jet drops five bombs in a line through the spot you're looking at, 2 seconds later.
+- **7 kills: Attack dog.** Press **X** and a dog runs down the nearest enemy, bites, and moves on to the next one, for 30 seconds.
+
+Rewards never hurt you or your teammates. Kills they make don't count toward your next reward. Rewards you've earned but not used are kept when you die (your streak starts over). They're off in Gun Game, One in the Chamber, Prop Hunt and Arena Ladder. Settings are in `KILLSTREAKS` in `src/config.ts`.
 
 **Explosive barrels and glass**: every map has a few red barrels standing along walls. A few bullets, a grenade or the katana sets one off. It blows up a moment later and hurts everyone within 6 m, you included, and the kill counts as yours if you set it off. A blast also sets off any barrels nearby, so they can go up in a chain. Blown-up barrels come back after a minute. Windows, glass walls and glass railings shatter when shot, slashed or caught in a blast, and stay broken for the rest of the match, so you can walk or shoot through the gap. Bots' bullets break glass too. Settings are in `BREAKABLES` in `src/config.ts`.
 
