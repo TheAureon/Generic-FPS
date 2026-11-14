@@ -166,6 +166,22 @@ export class Effects {
     }
   }
 
+  /** A flashbang: a blinding white pop and a few sparks (no fire or smoke). */
+  flashBang(at: THREE.Vector3): void {
+    this.blastLight.position.copy(at);
+    this.blastLight.color.set(0xffffff);
+    this.blastLight.intensity = 90;
+    this.blastLightWhite = 0.25;
+    const f = this.fireballs.find((x, k) => k % 5 === 0 && x.life <= 0) ?? this.fireballs[0];
+    f.max = f.life = 0.22;
+    f.size = 9;
+    f.sprite.position.copy(at);
+    f.sprite.visible = true;
+    const up = this._v.set(0, 1, 0);
+    for (let i = 0; i < 25; i++) this.spawnParticle(at, up, 3 + Math.random() * 5, 1, 1, 0.9, 0.2 + Math.random() * 0.3, 10);
+  }
+  private blastLightWhite = 0;
+
   /** A muzzle flash out in the world (someone else's gun). */
   worldFlash(at: THREE.Vector3, size = 1, withLight = true): void {
     const f = this.flashes.find((x) => x.life <= 0) ?? this.flashes[0];
@@ -269,6 +285,8 @@ export class Effects {
   update(dt: number): void {
     this.flashLight.intensity = Math.max(0, this.flashLight.intensity - dt * 50);
     this.blastLight.intensity = Math.max(0, this.blastLight.intensity - dt * 150);
+    // Back to fire-orange after a flashbang's white light.
+    if (this.blastLightWhite > 0 && (this.blastLightWhite -= dt) <= 0) this.blastLight.color.set(0xff9a40);
     for (const f of this.fireballs) {
       if (f.life <= 0) continue;
       f.life -= dt;

@@ -264,7 +264,7 @@ export const WEAPONS = {
 
 export type WeaponId = keyof typeof WEAPONS;
 /** What dealt damage: a gun, a grenade, or the Battle Royale zone. */
-export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana' | 'barrel' | 'airstrike' | 'dog';
+export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana' | 'barrel' | 'airstrike' | 'dog' | 'knife';
 
 /** The katana (V to slash): a quick melee attack, any time, without switching away from your gun. */
 export const MELEE = {
@@ -329,6 +329,23 @@ export const BREAKABLES = {
     minFromSpawn: 8,
     minApart: 9,
   },
+};
+
+/**
+ * Tactical grenades and throwing knives.
+ * - Flashbang (Z): goes off `fuse` s after the throw; anyone within `range`
+ *   who can see it is blinded for up to `blind` s (less if it's off to the
+ *   side or far away). Doesn't hurt. Bots it blinds can't see or shoot.
+ * - Smoke (H): a thick cloud of `radius` m for `duration` s that blocks
+ *   eyesight (bots can't see through it), not bullets.
+ * - Throwing knife (T): flies fast and almost straight, kills in one hit,
+ *   silent. It stays where it lands: walk over it to pick it back up.
+ * `perLife`: how many you get each life.
+ */
+export const TACTICAL = {
+  flash: { perLife: 1, fuse: 1.4, range: 24, blind: 3.5 },
+  smoke: { perLife: 1, fuse: 1.2, radius: 4.5, duration: 14 },
+  knife: { perLife: 2, speed: 30, gravity: 5, damage: 150, cooldown: 0.5, pickupRadius: 1.3, lifetime: 45 },
 };
 
 /** Frag grenades (G to throw). */

@@ -48,6 +48,11 @@ export type SoundId =
   | 'grenade_throw'
   | 'katana_draw'
   | 'slide'
+  | 'flashbang'
+  | 'smoke_pop'
+  | 'ear_ring'
+  | 'knife_throw'
+  | 'knife_hit'
   | 'streak_ready'
   | 'jet'
   | 'bark'
@@ -161,6 +166,30 @@ export const SYNTHS: Record<SoundId, Synth> = {
       tone(s, { type: 'sawtooth', from: 520, to: 260, gain: 0.25, decay: 0.09, delay: d });
       noiseBurst(s, { type: 'bandpass', freq: 900, q: 1.2, gain: 0.25, decay: 0.08, delay: d });
     }
+  },
+  flashbang: (s) => {
+    // A sharp, ear-splitting crack.
+    noiseBurst(s, { type: 'highpass', freq: 1500, gain: 1, decay: 0.18 });
+    noiseBurst(s, { type: 'lowpass', freq: 700, gain: 0.6, decay: 0.3 });
+    tone(s, { type: 'square', from: 2600, to: 2400, gain: 0.08, decay: 0.15 });
+  },
+  smoke_pop: (s) => {
+    // A pop, then a long hiss of smoke pouring out.
+    noiseBurst(s, { type: 'lowpass', freq: 600, gain: 0.35, decay: 0.08 });
+    noiseBurst(s, { type: 'highpass', freq: 2500, gain: 0.18, decay: 2.2, attack: 0.15, delay: 0.05 });
+  },
+  ear_ring: (s) => {
+    // Ringing ears after a flashbang.
+    tone(s, { type: 'sine', from: 3600, to: 3500, gain: 0.07, decay: 3.2, attack: 0.05 });
+  },
+  knife_throw: (s) => {
+    // A quick whistle through the air.
+    noiseBurst(s, { type: 'bandpass', freq: 2600, q: 3, gain: 0.18, decay: 0.12, attack: 0.03 });
+  },
+  knife_hit: (s) => {
+    // A thunk into something.
+    noiseBurst(s, { type: 'lowpass', freq: 700, gain: 0.4, decay: 0.06 });
+    tone(s, { type: 'triangle', from: 300, to: 180, gain: 0.2, decay: 0.05 });
   },
   slide: (s) => {
     // Boots and clothes scraping along the floor.
