@@ -1426,6 +1426,23 @@ body {
   opacity: 0.75;
 }
 .death-screen.final .death-countdown { display: none; }
+
+/* Kill-cam: letterbox bars, the banner at the top, the death info moved to the bottom */
+.killcam-label { display: none; }
+.hud.killcam .killcam-label {
+  display: block;
+  position: absolute; top: 9%; left: 50%; transform: translateX(-50%);
+  padding: 4px 14px; border-radius: 4px;
+  font-size: 15px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase;
+  color: #fff; background: rgba(200, 40, 30, 0.85);
+}
+.hud.killcam .death-screen {
+  justify-content: flex-end;
+  padding-bottom: 9vh;
+  background: linear-gradient(180deg, #000 0 7%, transparent 7% 93%, #000 93%);
+}
+.hud.killcam .death-title { font-size: 30px; }
+.hud.killcam .death-countdown { display: none; }
 .hud.dead .crosshair,
 .hud.dead .hitmarker,
 .hud.dead .notice,
@@ -2522,3 +2539,11 @@ body {
 .mode-groups { margin: 0 0 12px; }
 .mode-groups .segmented { width: 100%; }
 .mode-groups .seg { flex: 1; }
+
+/* Kill-cam: only the replay, the banner and who got you */
+.hud.killcam .weapon-panel,
+.hud.killcam .vitals,
+.hud.killcam .ch-panel,
+.hud.killcam .crosshair,
+.hud.killcam .markers { opacity: 0; transition: opacity 0.2s; }
+body:has(.hud.killcam) .minimap { opacity: 0; }

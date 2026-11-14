@@ -50,6 +50,7 @@ export class Hud {
   private reloadBar: HTMLDivElement;
   private grenadeChip: HTMLDivElement;
   private streakRow: HTMLDivElement;
+  private killcamLabel!: HTMLDivElement;
   private streakKey = '';
   private lastGrenades = -1;
   private reloadFill: HTMLDivElement;
@@ -170,6 +171,7 @@ export class Hud {
 
     // ---- Death screen with a countdown ring ----
     this.deathScreen = el('div', 'death-screen', this.root);
+    this.killcamLabel = el('div', 'killcam-label', this.root);
     el('div', 'death-label', this.deathScreen).textContent = 'Eliminated';
     this.deathText = el('div', 'death-title', this.deathScreen);
     const timer = el('div', 'death-countdown', this.deathScreen);
@@ -390,6 +392,13 @@ export class Hud {
   }
 
   /** Death screen; pass null to hide. `seconds` < 0 means no respawn. */
+  /** The kill-cam banner (the killer's name), or null when no replay is showing. */
+  setKillcam(killer: string | null): void {
+    this.root.classList.toggle('killcam', !!killer);
+    const text = killer ? `Kill-cam · ${killer}` : '';
+    if (this.killcamLabel.textContent !== text) this.killcamLabel.textContent = text;
+  }
+
   setDeath(info: { killer: string; seconds: number; note?: string } | null): void {
     this.deathScreen.style.display = info ? 'flex' : 'none';
     this.root.classList.toggle('dead', !!info);

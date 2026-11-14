@@ -282,6 +282,13 @@ export const MELEE = {
   cooldown: 0.12,
 };
 
+/**
+ * Kill-cam: when a bot kills you, the last `length` seconds (up to `after`
+ * seconds past your death) are replayed from its eyes, starting `delay`
+ * seconds after you die. Keep delay + length under the respawn delay.
+ */
+export const KILLCAM = { enabled: true, length: 2.3, after: 0.25, delay: 0.5 };
+
 /** Killstreak rewards: kills in a row (without dying) to earn each one. */
 export const KILLSTREAKS = {
   /** All enemies on your minimap, for `duration` seconds (starts by itself). */

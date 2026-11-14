@@ -211,6 +211,8 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 
 **Grenades**: you carry 2 (up to 4; ammo pickups give one more). Press **G** to lob one where you're aiming; it bounces off walls and floors and goes off after about 2 seconds, with a blinking red light while the fuse runs. The blast hurts everyone within 7 m who isn't behind cover, the more the closer they are, including you (at half strength). A red **!** marker warns you when a live grenade lands near you.
 
+**Kill-cam**: when a bot kills you, the last two seconds or so before you died play back from its eyes while you wait to respawn. You see where it was, what it saw and its shots. Turn it off with `KILLCAM.enabled` in `src/config.ts`.
+
 **Killstreak rewards**: get kills in a row without dying to earn them. The bar above your guns shows how close you are.
 - **3 kills: UAV.** Every enemy shows on your minimap for 30 seconds. It starts by itself.
 - **5 kills: Airstrike.** Press **X** and a jet drops five bombs in a line through the spot you're looking at, 2 seconds later.

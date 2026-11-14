@@ -8,6 +8,7 @@ import { Effects } from '../effects/Effects';
 import { TargetDummy } from '../entities/TargetDummy';
 import { Breakables } from '../entities/Breakables';
 import { Killstreaks } from './Killstreaks';
+import { KillCam } from './KillCam';
 import { currentQuality } from '../render/quality';
 import { buildMap, type BuiltMap } from '../map/MapBuilder';
 import { getMap } from '../map/maps';
@@ -103,6 +104,9 @@ export class Match {
   breakables!: Breakables;
   /** Killstreak rewards (null in modes without them). */
   killstreaks: Killstreaks | null = null;
+  /** Replays your death from your killer's eyes. */
+  killcam!: KillCam;
+  private replayTracer!: (from: THREE.Vector3, to: THREE.Vector3) => void;
 
   /**
    * A blast (a barrel, or a mode's explosion): fire and smoke, a bang, and
@@ -254,6 +258,14 @@ export class Match {
       quality: currentQuality().materials,
       explode: (at, radius, damage, attacker, weapon) => this.explode(at, radius, damage, attacker, weapon),
     });
+    this.killcam = new KillCam(this.scene, this.mode.teams ? TEAMS.colors[0] : 0x3a7bd5);
+    // Every tracer is remembered for the kill-cam (which shows them again).
+    const tracer = this.effects.tracer.bind(this.effects);
+    this.replayTracer = tracer;
+    this.effects.tracer = (from, to) => {
+      this.killcam.recordTracer(from, to);
+      tracer(from, to);
+    };
     if (!this.mode.noKillstreaks) {
       this.killstreaks = new Killstreaks({
         scene: this.scene,
@@ -336,6 +348,10 @@ export class Match {
       () => this.grenades.dispose(),
       () => this.breakables.dispose(),
       () => this.killstreaks?.dispose(),
+      () => this.killcam.dispose(),
+      events.on('kill', (e) => {
+        if (e.victim === this.player.name && this.bots.bots.some((b) => b.name === e.killer)) this.killcam.start(e.killer);
+      }),
     );
 
     // Who can grab pickups.
@@ -455,6 +471,12 @@ export class Match {
     this.pickups.update(dt, this.collectors);
     this.grenades.update(dt);
     this.breakables.update(dt);
+    this.killcam.record(dt, [
+      { name: this.player.name, position: this.controller.position, yaw: this.controller.yaw, pitch: this.controller.pitch, alive: this.player.isAlive() },
+      ...this.bots.bots.map((b) => ({ name: b.name, position: b.position, yaw: b.aim.yaw, pitch: b.aim.pitch, alive: b.isAlive() })),
+    ]);
+    if (this.player.isAlive()) this.killcam.stop();
+    this.killcam.update(dt, this.replayTracer);
     this.killstreaks?.update(dt, this.player.isAlive());
     this.effects.update(dt);
     this.challengeTimer -= dt;

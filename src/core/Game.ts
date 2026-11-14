@@ -275,8 +275,12 @@ export class Game {
 
     if (m && this.state !== 'menu') {
       this.updateMatch(dt, m);
+      // Kill-cam: draw the replay from the killer's eyes (no gun in your hands).
+      const replay = m.killcam.beginRender(this.camera, m.bots.bots.map((b) => ({ name: b.name, root: b.model.root })), m.player.name);
+      this.hud.setKillcam(replay ? m.killcam.killer : null);
       this.pipeline.render(m.scene, this.camera, [this.viewmodel.scene]);
-      if (this.state === 'playing' || this.state === 'paused') this.viewmodel.render(this.renderer);
+      if (replay) m.killcam.endRender();
+      else if (this.state === 'playing' || this.state === 'paused') this.viewmodel.render(this.renderer);
     } else {
       this.renderMenuBackdrop(dt);
     }
