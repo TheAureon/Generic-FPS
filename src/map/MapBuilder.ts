@@ -1,3 +1,4 @@
+import type { Pane } from '../entities/Breakables';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { getMaterial, getTileSize, type SurfaceId } from '../assets/materials';
@@ -11,6 +12,11 @@ import { Tufts } from './grass';
 import { propFoliage, propGeometry, propRadius, propSolids } from './nature';
 import { fbm, seededRandom, smoothstep, terrainHeightAt, terrainRangeUnder } from './terrain';
 
+/** A plain pane of glass (thin, not a model or decoration): it can be shot out. */
+function isPane(b: BoxDef): boolean {
+  return b.material === 'glass' && !b.model && !b.decor && !b.hidden && Math.min(b.w, b.d) <= 0.12 && b.h >= 0.3;
+}
+
 export interface BuiltMap {
   def: MapDef;
   group: THREE.Group;
@@ -23,6 +29,8 @@ export interface BuiltMap {
   sampleLampLight(p: THREE.Vector3, out: THREE.Color): THREE.Color;
   /** Keep the sun's shadows centered on the viewer (call each frame with the camera position). */
   updateShadows(p: THREE.Vector3): void;
+  /** Breakable panes of glass (drawn by the match, not baked into the map). */
+  panes: Pane[];
 }
 
 /** Size of the lighting "tiles" baked onto surfaces (meters). Smaller = finer, slower to load. */
@@ -122,6 +130,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   const props: { geo: THREE.BufferGeometry; material: SurfaceId }[] = [];
   /** Boxes drawn as detailed models (furniture, cars, statues...). */
   const modelBoxes: BoxDef[] = [];
+  const panes: Pane[] = [];
   const detail = quality.mapDetail;
   /** Leafy trees and grass tufts. */
   const leafy = detail && quality.foliage;
@@ -185,6 +194,10 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
       // Yellow barriers are jersey barriers: their own shape and collision.
       for (const part of barrierCollision(b)) world.addBox(part);
       for (const g of jerseyBarrier(b)) props.push({ geo: g, material: 'trim' });
+      continue;
+    }
+    if (isPane(b)) {
+      panes.push({ def: b, box: world.addBox(b, true) });
       continue;
     }
     if (!b.decor) world.addBox(b, b.material === 'glass');
@@ -405,7 +418,7 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
     return out;
   };
 
-  return { def, group, world, bounds, playBounds, sky, sampleLampLight, updateShadows };
+  return { def, group, world, bounds, playBounds, sky, sampleLampLight, updateShadows, panes };
 }
 
 /**

@@ -48,6 +48,7 @@ export type SoundId =
   | 'grenade_throw'
   | 'katana_draw'
   | 'slide'
+  | 'glass_break'
   | 'mantle'
   | 'katana_swing'
   | 'katana_hit'
@@ -134,6 +135,12 @@ export const SYNTHS: Record<SoundId, Synth> = {
     noiseBurst(s, { type: 'bandpass', freq: 1000, q: 0.6, gain: 0.9, decay: 0.12 });
     noiseBurst(s, { type: 'lowpass', freq: 400, gain: 0.85, decay: 0.22 });
     tone(s, { type: 'triangle', from: 120, to: 38, gain: 0.75, decay: 0.14 });
+  },
+  glass_break: (s) => {
+    // A bright crash, then tinkling pieces.
+    noiseBurst(s, { type: 'highpass', freq: 3500, gain: 0.5, decay: 0.25 });
+    noiseBurst(s, { type: 'bandpass', freq: 1800, q: 1, gain: 0.3, decay: 0.12 });
+    for (let i = 0; i < 6; i++) tone(s, { type: 'sine', from: 3000 + Math.random() * 3000, to: 2800 + Math.random() * 2500, gain: 0.04, decay: 0.08, delay: 0.08 + Math.random() * 0.5 });
   },
   slide: (s) => {
     // Boots and clothes scraping along the floor.

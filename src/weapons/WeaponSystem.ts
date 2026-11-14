@@ -37,6 +37,8 @@ export interface WeaponSystemDeps {
   onHit?: (point: THREE.Vector3, damage: number, head: boolean, killed: boolean) => void;
   /** Throw a grenade from `from` with `velocity`. */
   throwGrenade?: (from: THREE.Vector3, velocity: THREE.Vector3) => void;
+  /** Each bullet's path (and the katana's reach): breaks glass along it. */
+  onBulletPath?: (origin: THREE.Vector3, dir: THREE.Vector3, dist: number) => void;
 }
 
 /** The player's guns: input, firing, reloading, switching, aiming. */
@@ -331,6 +333,7 @@ export class WeaponSystem {
     let part: HitPart = 'body';
     const point = new THREE.Vector3();
 
+    this.d.onBulletPath?.(o, dir, MELEE.range);
     const r = traceShot(world, targets, o, dir, MELEE.range + 0.3);
     if (r.target && r.part) {
       best = r.target;
@@ -340,7 +343,7 @@ export class WeaponSystem {
       const cosMax = Math.cos(MELEE.assistAngle * DEG);
       let bestCos = cosMax;
       for (const t of targets) {
-        if (!t.isAlive()) continue;
+        if (!t.isAlive() || t.isProp) continue;
         const h = t.hitbox;
         const flat = Math.hypot(h.x - o.x, h.z - o.z);
         // Nearest point of their body to your eyes (height-wise).
@@ -359,6 +362,11 @@ export class WeaponSystem {
       }
     }
 
+    if (best?.isProp) {
+      best.takeDamage({ amount: MELEE.damage, part: 'body', attacker: this.d.ownerName, weapon: 'katana', from: o.clone() });
+      audio.play('impact', { position: point, volume: 0.8 });
+      return;
+    }
     if (best) {
       const killed = best.takeDamage({ amount: MELEE.damage, part, attacker: this.d.ownerName, weapon: 'katana', from: o.clone() });
       this.d.onHit?.(point, MELEE.damage, part === 'head', killed);
@@ -430,6 +438,13 @@ export class WeaponSystem {
       const r = traceShot(world, targets, this._origin, this._pellet, w.stats.range);
       // Tracers: every bullet, but only a few shotgun pellets to avoid clutter.
       if (p < 3) effects.tracer(this._muzzle, r.point);
+      this.d.onBulletPath?.(this._origin, this._pellet, r.distance);
+      if (r.target?.isProp) {
+        // A barrel: no hit marker or damage number, it just takes the hit.
+        r.target.takeDamage({ amount: shotDamage(w.stats, r.distance, 'body'), part: 'body', attacker: this.d.ownerName, weapon: w.id, from: this._origin.clone() });
+        effects.impact(r.point, this._pellet.clone().negate());
+        continue;
+      }
       if (r.target && r.part) {
         const h = hits.get(r.target) ?? { damage: 0, part: 'body' as HitPart, point: r.point.clone() };
         h.damage += shotDamage(w.stats, r.distance, r.part);

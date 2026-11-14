@@ -1,11 +1,13 @@
 import * as THREE from 'three';
-import { CONFIG, GRENADES, PICKUPS, REWARDS, TEAMS } from '../config';
+import { CONFIG, GRENADES, PICKUPS, REWARDS, TEAMS, type DamageSource } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { music } from '../audio/Music';
 import { BotDebugView } from '../bots/BotDebugView';
 import { BotManager } from '../bots/BotManager';
 import { Effects } from '../effects/Effects';
 import { TargetDummy } from '../entities/TargetDummy';
+import { Breakables } from '../entities/Breakables';
+import { currentQuality } from '../render/quality';
 import { buildMap, type BuiltMap } from '../map/MapBuilder';
 import { getMap } from '../map/maps';
 import type { PickupType, SpawnPoint } from '../map/MapTypes';
@@ -97,6 +99,37 @@ export class Match {
   private radarTimer = 0;
   private radarVisible = new Set<string>();
   private _targets: Damageable[] = [];
+  breakables!: Breakables;
+
+  /**
+   * A blast (a barrel, or a mode's explosion): fire and smoke, a bang, and
+   * damage to everyone and every barrel within `radius` (less further out,
+   * none through walls), and glass nearby shatters.
+   */
+  explode(at: THREE.Vector3, radius: number, damage: number, attacker: string, weapon: DamageSource): void {
+    this.effects.explosion(at);
+    audio.play('explosion', { position: at });
+    const d = at.distanceTo(this.player.position);
+    if (d < 50) this.controller.addShake(1.4 * (1 - d / 50) ** 2);
+    music.duck(0.8, 2);
+    this.flare(1);
+    this.breakables?.blast(at, radius * 0.8);
+    const w = this.map.world;
+    for (const v of [...this.combatants(), ...(this.breakables?.barrels ?? [])] as Damageable[]) {
+      if (!v.isAlive()) continue;
+      const hb = v.hitbox;
+      const cy = hb.y + hb.height * 0.5;
+      const dist = Math.hypot(hb.x - at.x, cy - at.y, hb.z - at.z);
+      if (dist >= radius) continue;
+      if (!w.hasLineOfSight(at.x, at.y, at.z, hb.x, cy, hb.z) && !w.hasLineOfSight(at.x, at.y, at.z, hb.x, hb.headY, hb.z)) continue;
+      const amount = damage * (1 - (dist / radius) ** 2);
+      const killed = v.takeDamage({ amount, part: 'body', attacker, weapon, from: at.clone() });
+      if (attacker === this.player.name && !v.isProp && v.name !== this.player.name) {
+        this.d.hud.fx.damageNumber(new THREE.Vector3(hb.x, cy, hb.z), amount, false, killed);
+        this.d.hud.showHitmarker(killed ? 'kill' : 'hit');
+      }
+    }
+  }
   private collectors: Collector[] = [];
   /** Team modes: each team's spawn points. */
   private sides: [SpawnPoint[], SpawnPoint[]];
@@ -119,8 +152,9 @@ export class Match {
       scene: this.scene,
       world: this.map.world,
       effects: this.effects,
-      victims: () => [...this.combatants(), ...this.dummies] as GrenadeVictim[],
+      victims: () => [...this.combatants(), ...this.dummies, ...(this.breakables?.barrels ?? [])] as GrenadeVictim[],
       onExplode: (at) => {
+        this.breakables?.blast(at, GRENADES.radius * 0.7);
         // The closer the blast, the harder the shake (and the music ducks under it).
         const d = at.distanceTo(this.player.position);
         if (d < 30) this.controller.addShake(1.1 * (1 - d / 30) ** 2);
@@ -171,19 +205,7 @@ export class Match {
         else bot.refillAmmo();
       },
       refreshTeams: () => this.bots.refreshTeams(),
-      explode: (at, radius, damage, attacker) => {
-        this.effects.explosion(at);
-        audio.play('explosion', { position: at });
-        const d = at.distanceTo(this.player.position);
-        if (d < 50) this.controller.addShake(1.4 * (1 - d / 50) ** 2);
-        music.duck(0.8, 2);
-        for (const v of this.combatants()) {
-          if (!v.isAlive()) continue;
-          const dist = v.position.distanceTo(at);
-          if (dist >= radius) continue;
-          v.takeDamage({ amount: damage * (1 - (dist / radius) ** 2), part: 'body', attacker, weapon: 'grenade', from: at.clone() });
-        }
-      },
+      explode: (at, radius, damage, attacker) => this.explode(at, radius, damage, attacker, 'grenade'),
       respawn: (c) => {
         if (c === (this.player as Combatant)) {
           this.player.respawn(this.pickPlayerSpawn());
@@ -212,10 +234,20 @@ export class Match {
       sides: this.sides,
       objective: this.mode.botObjective ? (bot) => this.mode.botObjective!(bot) : undefined,
       findHealth: (from) => this.pickups.nearest('health', from, 40),
+      onBulletPath: (o, dir, dist) => this.breakables?.shot(o, dir, dist),
       findAmmo: (from, maxDist, includeTaken) => this.pickups.nearest('ammo', from, maxDist, includeTaken),
     });
     this.bots.spawnBots(this.mode.initialBots, config.difficulty, this.mode.teams ? (i) => this.mode.teamOf?.(i) ?? (i < blueBots ? 0 : 1) : undefined);
     this.botDebug = new BotDebugView(this.bots, this.scene);
+    this.breakables = new Breakables({
+      scene: this.scene,
+      world: this.map.world,
+      map: this.map.def,
+      panes: this.map.panes,
+      nav: this.bots.nav,
+      quality: currentQuality().materials,
+      explode: (at, radius, damage, attacker, weapon) => this.explode(at, radius, damage, attacker, weapon),
+    });
 
     this.weapons = new WeaponSystem({
       world: this.map.world,
@@ -228,6 +260,7 @@ export class Match {
       viewmodel: d.viewmodel,
       onHit: (point, damage, head, killed) => hud.fx.damageNumber(point, damage, head, killed),
       throwGrenade: (from, vel) => this.grenades.throw(from, vel, this.player.name, this.player.team),
+      onBulletPath: (o, dir, dist) => this.breakables.shot(o, dir, dist),
     });
     this.rewards = new Rewards({
       player: this.player,
@@ -282,6 +315,7 @@ export class Match {
       () => this.bots.dispose(),
       () => this.rewards.dispose(),
       () => this.grenades.dispose(),
+      () => this.breakables.dispose(),
     );
 
     // Who can grab pickups.
@@ -377,6 +411,7 @@ export class Match {
   private targets(): readonly Damageable[] {
     this._targets.length = 0;
     for (const d of this.dummies) this._targets.push(d);
+    for (const b of this.breakables.barrels) if (b.isAlive()) this._targets.push(b);
     // No friendly fire: your shots pass through teammates.
     for (const b of this.bots.bots) if (b.team === null || b.team !== this.player.team) this._targets.push(b);
     return this._targets;
@@ -399,6 +434,7 @@ export class Match {
     for (const dm of this.dummies) dm.update(dt);
     this.pickups.update(dt, this.collectors);
     this.grenades.update(dt);
+    this.breakables.update(dt);
     this.effects.update(dt);
     this.challengeTimer -= dt;
     if (this.challengeTimer <= 0) {

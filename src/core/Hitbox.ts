@@ -18,6 +18,8 @@ export interface DamageInfo {
 export interface Damageable {
   readonly name: string;
   readonly hitbox: CharacterHitbox;
+  /** A thing, not a person (barrels): no hit markers or damage numbers. */
+  readonly isProp?: boolean;
   isAlive(): boolean;
   /** Returns true if this damage killed it. */
   takeDamage(info: DamageInfo): boolean;

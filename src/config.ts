@@ -264,7 +264,7 @@ export const WEAPONS = {
 
 export type WeaponId = keyof typeof WEAPONS;
 /** What dealt damage: a gun, a grenade, or the Battle Royale zone. */
-export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana';
+export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana' | 'barrel';
 
 /** The katana (V to slash): a quick melee attack, any time, without switching away from your gun. */
 export const MELEE = {
@@ -280,6 +280,34 @@ export const MELEE = {
   swingTime: 0.5,
   /** Rest between slashes (seconds, counted after a slash ends). */
   cooldown: 0.12,
+};
+
+/** Things in the maps you can break: glass, and red explosive barrels. */
+export const BREAKABLES = {
+  glass: {
+    /** Most shards flying at once, and shards per pane (more for big panes). */
+    maxShards: 160,
+    shardsPerPane: 30,
+  },
+  barrel: {
+    /** Size (meters). */
+    radius: 0.3,
+    height: 0.9,
+    /** Damage it takes before it blows (a few rifle bullets). */
+    health: 60,
+    /** The blast: radius (meters) and damage at the center. */
+    blastRadius: 6,
+    blastDamage: 150,
+    /** A barrel set off by another blast goes up this much later (seconds), so chains ripple. */
+    chainDelay: 0.18,
+    /** Seconds before a blown-up barrel is back. */
+    respawnTime: 60,
+    /** How many per map (at most), roughly one per this many walkable spots, kept this far from spawns and each other. */
+    maxPerMap: 8,
+    nodesPerBarrel: 220,
+    minFromSpawn: 8,
+    minApart: 9,
+  },
 };
 
 /** Frag grenades (G to throw). */

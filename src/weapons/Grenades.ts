@@ -187,7 +187,7 @@ export class Grenades {
       if (amount < 1) continue;
       const point = center.clone();
       const killed = v.takeDamage({ amount, part: 'body', attacker: g.thrower, weapon: 'grenade', from: at.clone() });
-      this.d.onHit?.(g.thrower, point, amount, killed);
+      if (!v.isProp) this.d.onHit?.(g.thrower, point, amount, killed);
     }
     this.d.onExplode?.(at);
   }

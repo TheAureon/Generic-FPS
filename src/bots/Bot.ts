@@ -30,6 +30,8 @@ export interface BotContext {
   listener: Trackable;
   /** Colored light from nearby map lamps at a point (tints the body). */
   sampleLight?: (p: THREE.Vector3, out: THREE.Color) => THREE.Color;
+  /** Each bullet's path (breaks glass along it). */
+  onBulletPath?: (origin: THREE.Vector3, dir: THREE.Vector3, dist: number) => void;
 }
 
 /**
@@ -334,6 +336,7 @@ export class Bot implements Damageable, Trackable {
       this.aim.shotDirection(w.stats.baseSpread, this._dir);
       const r = traceShot(world, this.ctx.getEnemies(), origin, this._dir, w.stats.range, this);
       if (p < 3) effects.tracer(this._muzzle, r.point);
+      this.ctx.onBulletPath?.(origin, this._dir, r.distance);
       if (r.target && r.part) {
         const dmg = shotDamage(w.stats, r.distance, r.part) * this.skill.damageMultiplier;
         r.target.takeDamage({ amount: dmg, part: r.part, attacker: this.name, weapon: w.id, from: origin.clone() });

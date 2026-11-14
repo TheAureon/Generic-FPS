@@ -38,6 +38,8 @@ export interface BotManagerDeps {
   };
   /** What the game mode wants each bot to do (hills, flags, zones). */
   objective?: (bot: Bot) => BotObjective | null;
+  /** Each bullet's path (breaks glass along it). */
+  onBulletPath?: (origin: THREE.Vector3, dir: THREE.Vector3, dist: number) => void;
 }
 
 type Fighter = Trackable & Damageable & { team: number | null };
@@ -156,6 +158,7 @@ export class BotManager {
         getEnemies,
         listener: this.d.player,
         sampleLight: this.d.map.sampleLampLight,
+        onBulletPath: this.d.onBulletPath,
       }, teamOf?.(idx) ?? null, BOTS.weapons[(idx + this.loadoutOffset) % BOTS.weapons.length]);
       const objective = this.d.objective ? () => this.d.objective!(bot) : undefined;
       const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth, findAmmo: this.d.findAmmo, objective });
