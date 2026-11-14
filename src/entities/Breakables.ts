@@ -184,7 +184,8 @@ export class Breakables {
     b.fuse = -1;
     b.respawn = -1;
     b.mesh.visible = true;
-    b.box = this.d.world.addBox({ x: b.position.x, y: b.position.y, z: b.position.z, w: B.radius * 2, h: B.height, d: B.radius * 2 });
+    // Solid to walk into; bullets pass the box and hit the barrel's own (round) hit shape.
+    b.box = this.d.world.addBox({ x: b.position.x, y: b.position.y, z: b.position.z, w: B.radius * 2, h: B.height, d: B.radius * 2 }, true);
     // Bots path around it.
     this.d.nav.blocked.add(b.navNode);
   }

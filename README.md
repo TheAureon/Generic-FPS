@@ -210,6 +210,8 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 
 **Grenades**: you carry 2 (up to 4; ammo pickups give one more). Press **G** to lob one where you're aiming; it bounces off walls and floors and goes off after about 2 seconds, with a blinking red light while the fuse runs. The blast hurts everyone within 7 m who isn't behind cover, the more the closer they are, including you (at half strength). A red **!** marker warns you when a live grenade lands near you.
 
+**Explosive barrels and glass**: every map has a few red barrels standing along walls. A few bullets, a grenade or the katana sets one off. It blows up a moment later and hurts everyone within 6 m, you included, and the kill counts as yours if you set it off. A blast also sets off any barrels nearby, so they can go up in a chain. Blown-up barrels come back after a minute. Windows, glass walls and glass railings shatter when shot, slashed or caught in a blast, and stay broken for the rest of the match, so you can walk or shoot through the gap. Bots' bullets break glass too. Settings are in `BREAKABLES` in `src/config.ts`.
+
 **Katana**: press **V** any time, whatever gun you're holding, and your gun dips while you draw the katana and slash diagonally across the screen. It kills anyone in one hit (the Juggernaut takes three, and zombies from wave 4 on take two), reaching about 2.6 m. You don't have to aim exactly: it finds an enemy within about 35° of your crosshair. It makes no gunshot, so bots don't hear it. A slash takes half a second, during which you can't shoot. A katana kill earns the **Sliced** medal (+50), and in Gun Game it knocks the victim back a gun. Its numbers (damage, reach, speed) are in `MELEE` in `src/config.ts`.
 
 #### Gun models
