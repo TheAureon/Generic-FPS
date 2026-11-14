@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BOTS } from '../config';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { Trackable } from '../player/Player';
+import { vision } from '../core/vision';
 
 const DEG = Math.PI / 180;
 /** How often a bot re-checks whether it can see its target (seconds). */
@@ -92,6 +93,8 @@ export class Perception {
     // Visible if the head or the chest can be seen.
     const headY = p.y + target.height - 0.15;
     const chestY = p.y + target.height * 0.6;
+    // Smoke hides them (if it covers both head and chest).
+    if (vision.blocked(eye.x, eye.y, eye.z, p.x, headY, p.z) && vision.blocked(eye.x, eye.y, eye.z, p.x, chestY, p.z)) return false;
     return (
       world.hasClearView(eye.x, eye.y, eye.z, p.x, headY, p.z) ||
       world.hasClearView(eye.x, eye.y, eye.z, p.x, chestY, p.z)

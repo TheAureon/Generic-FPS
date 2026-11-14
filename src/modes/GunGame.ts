@@ -42,7 +42,7 @@ export class GunGame implements GameMode {
 
   start(): void {
     for (const c of this.ctx.combatants()) this.setLevel(c, 0);
-    this.off = events.on('kill', (e) => this.onKill(e.killer, e.victim, e.weapon === 'grenade' || e.weapon === 'katana'));
+    this.off = events.on('kill', (e) => this.onKill(e.killer, e.victim, e.weapon === 'grenade' || e.weapon === 'katana' || e.weapon === 'knife'));
     this.ctx.announce('Gun Game', `${G.ladder.length} guns. A kill with the last one wins`, 3);
   }
 

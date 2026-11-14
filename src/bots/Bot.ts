@@ -56,6 +56,8 @@ export class Bot implements Damageable, Trackable {
   hideGun = false;
   /** Holding still (Prop Hunt): no walking at all. */
   frozen = false;
+  /** Seconds left blinded by a flashbang (can't see or aim). */
+  blind = 0;
   /** Prop Hunt: the prop this bot is hiding as (its body is hidden), or null. */
   private prop: THREE.Object3D | null = null;
   /** Where on a target it aims, as a fraction of their height (0.65 = chest; Headhunter raises it). */
@@ -405,6 +407,7 @@ export class Bot implements Damageable, Trackable {
   /** Timers, animation, and keeping the model and hitbox in place. */
   update(dt: number): void {
     this.time += dt;
+    this.blind = Math.max(0, this.blind - dt);
     const w = this.weapon;
     w.update(dt);
 

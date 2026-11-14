@@ -16,6 +16,10 @@ export interface AmmoInfo {
   reloadProgress: number; // 0 when not reloading
   /** Frag grenades carried. */
   grenades?: number;
+  /** Throwing knives, flashbangs and smoke grenades carried. */
+  knives?: number;
+  flashes?: number;
+  smokes?: number;
 }
 
 /** Small inline icons (drawn with SVG so they stay crisp at any size). */
@@ -24,6 +28,9 @@ const ICON = {
   armor: '<svg viewBox="0 0 24 24"><path d="M12 1 3 4.5v6.2c0 5.6 3.8 10.4 9 12.3 5.2-1.9 9-6.7 9-12.3V4.5z"/></svg>',
   head: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="3"/></svg>',
   ammo: '<svg viewBox="0 0 24 24"><path d="M7 22V9l2.5-6L12 9v13zm6 0V9l2.5-6L18 9v13z"/></svg>',
+  knife: '<svg viewBox="0 0 24 24"><path d="M3 21l7-7 1.5 1.5L4.5 22.5z"/><path d="M11 13L21 3l-1 6-7.5 5.5z"/></svg>',
+  flash: '<svg viewBox="0 0 24 24"><rect x="8" y="6" width="8" height="15" rx="1.5"/><rect x="9" y="3" width="6" height="3"/><path d="M4 9l-2-1M4 13H1.5M20 9l2-1M20 13h2.5" stroke="currentColor" stroke-width="1.6"/></svg>',
+  smoke: '<svg viewBox="0 0 24 24"><rect x="9" y="11" width="6" height="11" rx="1.2"/><circle cx="8" cy="7" r="3.2"/><circle cx="13" cy="5" r="3.6"/><circle cx="17" cy="8" r="2.8"/></svg>',
   grenade: '<svg viewBox="0 0 24 24"><path d="M10 3h4v2.2a7.5 7.5 0 1 1-4 0z"/><path d="M14 4h3.5l1.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
 
@@ -49,10 +56,14 @@ export class Hud {
   private pipWeapon: WeaponId | null = null;
   private reloadBar: HTMLDivElement;
   private grenadeChip: HTMLDivElement;
+  private knifeChip: HTMLDivElement;
+  private whiteout!: HTMLDivElement;
+  private flashChip: HTMLDivElement;
+  private smokeChip: HTMLDivElement;
+  private lastEquip = '';
   private streakRow: HTMLDivElement;
   private killcamLabel!: HTMLDivElement;
   private streakKey = '';
-  private lastGrenades = -1;
   private reloadFill: HTMLDivElement;
   private slots = new Map<WeaponId, HTMLDivElement>();
   private scope: HTMLDivElement;
@@ -107,6 +118,7 @@ export class Hud {
   constructor(parent: HTMLElement) {
     this.root = el('div', 'hud', parent);
     this.vignette = el('div', 'hurt-vignette', this.root);
+    this.whiteout = el('div', 'flash-white', this.root);
     this.lowHealth = el('div', 'low-health', this.root);
     this.scope = el('div', 'scope', this.root);
     el('div', 'scope-lines', this.scope);
@@ -131,7 +143,11 @@ export class Hud {
       s.innerHTML = `<span class="key">${WEAPONS[id].slot}</span><span class="slot-name">${SHORT[id]}</span>`;
       this.slots.set(id, s);
     }
-    this.grenadeChip = el('div', 'slot grenade-chip', slotList);
+    const equip = el('div', 'slots equip', this.weaponPanel);
+    this.grenadeChip = el('div', 'slot grenade-chip', equip);
+    this.knifeChip = el('div', 'slot grenade-chip', equip);
+    this.flashChip = el('div', 'slot grenade-chip', equip);
+    this.smokeChip = el('div', 'slot grenade-chip', equip);
     this.ammoName = el('div', 'ammo-name', this.weaponPanel);
     const count = el('div', 'ammo-count', this.weaponPanel);
     this.ammoNumber = document.createElement('span');
@@ -214,7 +230,7 @@ export class Hud {
     this.hurtFlash = 0;
     this.lastVitals = '';
     this.lastAmmo = '';
-    this.lastGrenades = -1;
+    this.lastEquip = '';
     for (const ind of this.indicators) ind.life = 0;
     this.setDeath(null);
     this.showScoreboard(null);
@@ -392,6 +408,16 @@ export class Hud {
   }
 
   /** Death screen; pass null to hide. `seconds` < 0 means no respawn. */
+  /** Blinded by a flashbang: the screen goes white (`strength` 0..1) and clears over `seconds`. */
+  flashBlind(strength: number, seconds: number): void {
+    const w = this.whiteout;
+    w.style.transition = 'none';
+    w.style.opacity = String(Math.min(1, strength));
+    void w.offsetWidth;
+    w.style.transition = `opacity ${seconds.toFixed(2)}s cubic-bezier(0.7, 0, 0.9, 0.6)`;
+    w.style.opacity = '0';
+  }
+
   /** The kill-cam banner (the killer's name), or null when no replay is showing. */
   setKillcam(killer: string | null): void {
     this.root.classList.toggle('killcam', !!killer);
@@ -462,10 +488,18 @@ export class Hud {
       this.pipEls.forEach((p, i) => p.classList.toggle('spent', i >= a.ammo));
       for (const [id, s] of this.slots) s.classList.toggle('active', id === a.weapon);
     }
-    if (a.grenades !== undefined && a.grenades !== this.lastGrenades) {
-      this.lastGrenades = a.grenades;
-      this.grenadeChip.innerHTML = `<span class="key">G</span><span class="gr-icon">${ICON.grenade}</span><span>${a.grenades}</span>`;
-      this.grenadeChip.classList.toggle('empty', a.grenades === 0);
+    const equipKey = `${a.grenades}|${a.knives}|${a.flashes}|${a.smokes}`;
+    if (equipKey !== this.lastEquip) {
+      this.lastEquip = equipKey;
+      const chip = (c: HTMLDivElement, key: string, icon: string, n: number | undefined) => {
+        c.style.display = n === undefined ? 'none' : '';
+        c.innerHTML = `<span class="key">${key}</span><span class="gr-icon">${icon}</span><span>${n ?? 0}</span>`;
+        c.classList.toggle('empty', !n);
+      };
+      chip(this.grenadeChip, 'G', ICON.grenade, a.grenades);
+      chip(this.knifeChip, 'T', ICON.knife, a.knives);
+      chip(this.flashChip, 'Z', ICON.flash, a.flashes);
+      chip(this.smokeChip, 'H', ICON.smoke, a.smokes);
     }
     setStyle(this.reloadBar, 'visibility', a.reloadProgress > 0 ? 'visible' : 'hidden');
     if (a.reloadProgress > 0) setStyle(this.reloadFill, 'width', `${(a.reloadProgress * 100).toFixed(0)}%`);

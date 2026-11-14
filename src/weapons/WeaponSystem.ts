@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { settings } from '../core/Settings';
-import { COMBAT, CONFIG, GRENADES, MELEE, WEAPONS, type WeaponId } from '../config';
+import { COMBAT, CONFIG, GRENADES, MELEE, TACTICAL, WEAPONS, type WeaponId } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
 import type { CollisionWorld } from '../core/CollisionWorld';
@@ -36,7 +36,9 @@ export interface WeaponSystemDeps {
   /** Called for each target hit by a shot (where, how much, head, killed), for damage numbers. */
   onHit?: (point: THREE.Vector3, damage: number, head: boolean, killed: boolean) => void;
   /** Throw a grenade from `from` with `velocity`. */
-  throwGrenade?: (from: THREE.Vector3, velocity: THREE.Vector3) => void;
+  throwGrenade?: (from: THREE.Vector3, velocity: THREE.Vector3, kind?: 'frag' | 'flash' | 'smoke') => void;
+  /** Throw a knife from `from` with `velocity`. */
+  throwKnife?: (from: THREE.Vector3, velocity: THREE.Vector3) => void;
   /** Each bullet's path (and the katana's reach): breaks glass along it. */
   onBulletPath?: (origin: THREE.Vector3, dir: THREE.Vector3, dist: number) => void;
 }
@@ -59,6 +61,11 @@ export class WeaponSystem {
   /** Frag grenades carried, and seconds until the next throw. */
   grenades = GRENADES.start;
   private grenadeCooldown = 0;
+  /** Throwing knives, flashbangs and smoke grenades carried. */
+  knives = TACTICAL.knife.perLife;
+  flashes = TACTICAL.flash.perLife;
+  smokes = TACTICAL.smoke.perLife;
+  private knifeCooldown = 0;
   /** Seconds since the last katana slash started (99 = none yet). */
   private meleeT = 99;
   private climbBlend = 0;
@@ -121,6 +128,9 @@ export class WeaponSystem {
   resetAmmo(): void {
     this.meleeT = 99;
     this.grenades = this.grenadeOverride ?? GRENADES.start;
+    this.knives = TACTICAL.knife.perLife;
+    this.flashes = this.grenadeOverride === 0 ? 0 : TACTICAL.flash.perLife;
+    this.smokes = this.grenadeOverride === 0 ? 0 : TACTICAL.smoke.perLife;
     this.grenadeCooldown = 0;
     for (const w of this.weapons) {
       w.ammo = this.ammoOverride ? this.ammoOverride.ammo : w.stats.magazineSize;
@@ -206,6 +216,7 @@ export class WeaponSystem {
     if (w.update(dt) === 'reloaded') audio.play(wasShell && w.reloading ? 'shell_insert' : 'reload_end');
     this.triggerBuffer = Math.max(0, this.triggerBuffer - dt);
     this.grenadeCooldown = Math.max(0, this.grenadeCooldown - dt);
+    this.knifeCooldown = Math.max(0, this.knifeCooldown - dt);
     this.sprintBlockTimer = Math.max(0, this.sprintBlockTimer - dt);
     const prevMelee = this.meleeT;
     this.meleeT += dt;
@@ -241,6 +252,9 @@ export class WeaponSystem {
       reserve: cur.reserve,
       reloadProgress: cur.reloading ? Math.max(0.01, cur.reloadProgress) : 0,
       grenades: this.grenades,
+      knives: this.knives,
+      flashes: this.flashes,
+      smokes: this.smokes,
     });
     const spreadDeg = this.currentSpread();
     const cam = this.d.camera;
@@ -287,8 +301,26 @@ export class WeaponSystem {
     if (input.wasPressed('KeyR') && !busy && w.startReload()) audio.play('reload_start');
 
     // G: throw a grenade.
-    if (input.wasPressed('KeyG') && !this.slashing && this.grenades > 0 && this.grenadeCooldown <= 0 && this.d.throwGrenade && rules.grenades(this.d.ownerName)) {
-      this.throwGrenadeNow();
+    const canThrow = !this.slashing && this.grenadeCooldown <= 0 && !!this.d.throwGrenade && rules.grenades(this.d.ownerName);
+    if (input.wasPressed('KeyG') && canThrow && this.grenades > 0) {
+      this.grenades--;
+      this.throwGrenadeNow('frag');
+      return;
+    }
+    // Z: flashbang. H: smoke grenade.
+    if (input.wasPressed('KeyZ') && canThrow && this.flashes > 0) {
+      this.flashes--;
+      this.throwGrenadeNow('flash');
+      return;
+    }
+    if (input.wasPressed('KeyH') && canThrow && this.smokes > 0) {
+      this.smokes--;
+      this.throwGrenadeNow('smoke');
+      return;
+    }
+    // T: throwing knife.
+    if (input.wasPressed('KeyT') && !this.slashing && this.knives > 0 && this.knifeCooldown <= 0 && this.d.throwKnife) {
+      this.throwKnifeNow();
       return;
     }
 
@@ -385,9 +417,33 @@ export class WeaponSystem {
     }
   }
 
-  private throwGrenadeNow(): void {
+  /** Picked up one of your knives again. */
+  addKnives(n: number): void {
+    this.knives = Math.min(TACTICAL.knife.perLife, this.knives + n);
+    audio.play('pickup', { volume: 0.5 });
+  }
+
+  private throwKnifeNow(): void {
     const { camera, player } = this.d;
-    this.grenades--;
+    this.knives--;
+    this.knifeCooldown = TACTICAL.knife.cooldown;
+    this.sprintBlockTimer = 0.3;
+    this.viewmodel.throwGrenade();
+    camera.updateMatrixWorld();
+    camera.getWorldPosition(this._origin);
+    camera.getWorldDirection(this._dir);
+    // Leaves from just right of your eyes, straight along your aim.
+    const right = this._pellet.set(-this._dir.z, 0, this._dir.x).normalize();
+    const from = this._origin.clone().addScaledVector(right, 0.08).setY(this._origin.y - 0.05);
+    if (!this.d.world.hasLineOfSight(this._origin.x, this._origin.y, this._origin.z, from.x, from.y, from.z)) from.copy(this._origin);
+    const vel = this._dir.clone().multiplyScalar(TACTICAL.knife.speed);
+    vel.x += player.velocity.x * 0.3;
+    vel.z += player.velocity.z * 0.3;
+    this.d.throwKnife!(from, vel);
+  }
+
+  private throwGrenadeNow(kind: 'frag' | 'flash' | 'smoke'): void {
+    const { camera, player } = this.d;
     this.grenadeCooldown = GRENADES.cooldown;
     this.sprintBlockTimer = 0.5;
     this.ads = 0;
@@ -404,7 +460,7 @@ export class WeaponSystem {
     vel.y += GRENADES.throwLift;
     vel.x += player.velocity.x * 0.5;
     vel.z += player.velocity.z * 0.5;
-    this.d.throwGrenade!(from, vel);
+    this.d.throwGrenade!(from, vel, kind);
   }
 
   /** Total spread right now, in degrees. */

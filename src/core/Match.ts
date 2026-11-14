@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG, GRENADES, PICKUPS, REWARDS, TEAMS, type DamageSource } from '../config';
+import { BOTS, CONFIG, GRENADES, PICKUPS, REWARDS, TACTICAL, TEAMS, type DamageSource } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { music } from '../audio/Music';
 import { BotDebugView } from '../bots/BotDebugView';
@@ -8,6 +8,8 @@ import { Effects } from '../effects/Effects';
 import { TargetDummy } from '../entities/TargetDummy';
 import { Breakables } from '../entities/Breakables';
 import { Killstreaks } from './Killstreaks';
+import { Knives } from '../weapons/Knives';
+import { vision } from './vision';
 import { KillCam } from './KillCam';
 import { currentQuality } from '../render/quality';
 import { buildMap, type BuiltMap } from '../map/MapBuilder';
@@ -102,6 +104,7 @@ export class Match {
   private radarVisible = new Set<string>();
   private _targets: Damageable[] = [];
   breakables!: Breakables;
+  knives!: Knives;
   /** Killstreak rewards (null in modes without them). */
   killstreaks: Killstreaks | null = null;
   /** Replays your death from your killer's eyes. */
@@ -113,6 +116,38 @@ export class Match {
    * damage to everyone and every barrel within `radius` (less further out,
    * none through walls), and glass nearby shatters.
    */
+  /**
+   * A flashbang went off: everyone who can see it is blinded, the more the
+   * closer they are and the more directly they're looking at it.
+   */
+  flashbang(at: THREE.Vector3): void {
+    const F = TACTICAL.flash;
+    const w = this.map.world;
+    const blindness = (eye: THREE.Vector3, yaw: number, pitch: number) => {
+      const dist = eye.distanceTo(at);
+      if (dist > F.range || !w.hasLineOfSight(eye.x, eye.y, eye.z, at.x, at.y, at.z)) return 0;
+      if (vision.blocked(eye.x, eye.y, eye.z, at.x, at.y, at.z)) return 0;
+      const look = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+      const facing = Math.max(0, look.dot(at.clone().sub(eye).normalize()));
+      return (0.3 + 0.7 * facing) * Math.sqrt(1 - dist / F.range);
+    };
+    if (this.player.isAlive()) {
+      const c = this.controller;
+      const k = blindness(c.getEyePosition(new THREE.Vector3()), c.yaw, c.pitch);
+      if (k > 0.1) {
+        this.d.hud.flashBlind(Math.min(1, k * 1.5), F.blind * k + 0.4);
+        audio.play('ear_ring', { volume: Math.min(1, k * 1.3) });
+        music.duck(0.9, F.blind * k);
+      }
+    }
+    for (const b of this.bots.bots) {
+      if (!b.isAlive()) continue;
+      const eye = b.position.clone().setY(b.position.y + BOTS.eyeHeight);
+      const k = blindness(eye, b.aim.yaw, b.aim.pitch);
+      if (k > 0.1) b.blind = Math.max(b.blind, F.blind * k);
+    }
+  }
+
   explode(at: THREE.Vector3, radius: number, damage: number, attacker: string, weapon: DamageSource): void {
     this.effects.explosion(at);
     audio.play('explosion', { position: at });
@@ -163,6 +198,7 @@ export class Match {
       world: this.map.world,
       effects: this.effects,
       victims: () => [...this.combatants(), ...this.dummies, ...(this.breakables?.barrels ?? [])] as GrenadeVictim[],
+      onFlash: (at) => this.flashbang(at),
       onExplode: (at) => {
         this.breakables?.blast(at, GRENADES.radius * 0.7);
         // The closer the blast, the harder the shake (and the music ducks under it).
@@ -258,6 +294,18 @@ export class Match {
       quality: currentQuality().materials,
       explode: (at, radius, damage, attacker, weapon) => this.explode(at, radius, damage, attacker, weapon),
     });
+    this.knives = new Knives({
+      scene: this.scene,
+      world: this.map.world,
+      effects: this.effects,
+      targets: () => this.targets(),
+      onHit: (thrower, point, damage, killed) => {
+        if (thrower !== this.player.name) return;
+        hud.fx.damageNumber(point, damage, false, killed);
+        hud.showHitmarker(killed ? 'kill' : 'hit');
+        audio.play(killed ? 'kill' : 'hit');
+      },
+    });
     this.killcam = new KillCam(this.scene, this.mode.teams ? TEAMS.colors[0] : 0x3a7bd5);
     // Every tracer is remembered for the kill-cam (which shows them again).
     const tracer = this.effects.tracer.bind(this.effects);
@@ -290,7 +338,8 @@ export class Match {
       ownerName: this.player.name,
       viewmodel: d.viewmodel,
       onHit: (point, damage, head, killed) => hud.fx.damageNumber(point, damage, head, killed),
-      throwGrenade: (from, vel) => this.grenades.throw(from, vel, this.player.name, this.player.team),
+      throwGrenade: (from, vel, kind) => this.grenades.throw(from, vel, this.player.name, this.player.team, kind),
+      throwKnife: (from, vel) => this.knives.throw(from, vel, this.player.name),
       onBulletPath: (o, dir, dist) => this.breakables.shot(o, dir, dist),
     });
     this.rewards = new Rewards({
@@ -347,6 +396,7 @@ export class Match {
       () => this.rewards.dispose(),
       () => this.grenades.dispose(),
       () => this.breakables.dispose(),
+      () => this.knives.dispose(),
       () => this.killstreaks?.dispose(),
       () => this.killcam.dispose(),
       events.on('kill', (e) => {
@@ -471,6 +521,11 @@ export class Match {
     this.pickups.update(dt, this.collectors);
     this.grenades.update(dt);
     this.breakables.update(dt);
+    this.knives.update(dt);
+    if (this.player.isAlive() && this.weapons.knives < TACTICAL.knife.perLife) {
+      const n = this.knives.collect(this.player.name, this.player.position, this.player.height);
+      if (n) this.weapons.addKnives(n);
+    }
     this.killcam.record(dt, [
       { name: this.player.name, position: this.controller.position, yaw: this.controller.yaw, pitch: this.controller.pitch, alive: this.player.isAlive() },
       ...this.bots.bots.map((b) => ({ name: b.name, position: b.position, yaw: b.aim.yaw, pitch: b.aim.pitch, alive: b.isAlive() })),

@@ -2172,7 +2172,11 @@ body {
 /* Weapon slots: only the gun in hand shows its name (6 guns + grenades fit on one row). */
 .slot:not(.active) .slot-name { display: none; }
 .slot:not(.active) { padding-right: 3px; }
-.grenade-chip { color: #d9e0c8; margin-left: 6px; }
+.grenade-chip { color: #d9e0c8; }
+.slots.equip { margin-top: -4px; }
+
+/* Flashbang whiteout */
+.flash-white { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 5; }
 
 /* Killstreak rewards, above the guns */
 .streaks { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 8px; }

@@ -186,7 +186,8 @@ export class BotBrain {
     const p = bot.perception;
     p.fieldOfView = bot.skill.fieldOfView ?? BOTS.fieldOfView;
     p.memoryTime = bot.skill.memory ?? BOTS.memoryTime;
-    p.update(dt, bot.eyePosition(), bot.aim.yaw, this.target, this.ctx.world);
+    // Blinded by a flashbang: sees nothing until it wears off.
+    p.update(dt, bot.eyePosition(), bot.aim.yaw, bot.blind > 0 ? null : this.target, this.ctx.world);
 
     // ---- Transitions that can happen from (almost) any state -------------
     const hp = bot.health / BOTS.maxHealth;
@@ -474,6 +475,7 @@ export class BotBrain {
   /** Aim at the target and fire in bursts (once reacted and roughly on target). */
   private engage(dt: number, allowFire: boolean): void {
     const bot = this.bot;
+    if (bot.blind > 0) allowFire = false;
     const target = this.target!;
     const skill = bot.skill;
     const p = bot.perception;
@@ -522,7 +524,7 @@ export class BotBrain {
    */
   private scanForTargets(dt: number): void {
     this.scanTimer -= dt;
-    if (this.scanTimer > 0) return;
+    if (this.scanTimer > 0 || this.bot.blind > 0) return;
     this.scanTimer = 0.25;
     const bot = this.bot;
     const eye = bot.eyePosition();
