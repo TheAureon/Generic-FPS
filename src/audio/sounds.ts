@@ -48,6 +48,9 @@ export type SoundId =
   | 'grenade_throw'
   | 'katana_draw'
   | 'slide'
+  | 'streak_ready'
+  | 'jet'
+  | 'bark'
   | 'glass_break'
   | 'mantle'
   | 'katana_swing'
@@ -141,6 +144,23 @@ export const SYNTHS: Record<SoundId, Synth> = {
     noiseBurst(s, { type: 'highpass', freq: 3500, gain: 0.5, decay: 0.25 });
     noiseBurst(s, { type: 'bandpass', freq: 1800, q: 1, gain: 0.3, decay: 0.12 });
     for (let i = 0; i < 6; i++) tone(s, { type: 'sine', from: 3000 + Math.random() * 3000, to: 2800 + Math.random() * 2500, gain: 0.04, decay: 0.08, delay: 0.08 + Math.random() * 0.5 });
+  },
+  streak_ready: (s) => {
+    // Two quick rising beeps.
+    tone(s, { type: 'square', from: 880, to: 880, gain: 0.08, decay: 0.08 });
+    tone(s, { type: 'square', from: 1320, to: 1320, gain: 0.08, decay: 0.12, delay: 0.1 });
+  },
+  jet: (s) => {
+    // A jet screaming past: a long roar that swells and fades.
+    noiseBurst(s, { type: 'lowpass', freq: 900, gain: 0.5, decay: 1.6, attack: 1.4 });
+    noiseBurst(s, { type: 'bandpass', freq: 2500, q: 0.7, gain: 0.25, decay: 1.2, attack: 1.5 });
+  },
+  bark: (s) => {
+    // Two gruff barks.
+    for (const d of [0, 0.18]) {
+      tone(s, { type: 'sawtooth', from: 520, to: 260, gain: 0.25, decay: 0.09, delay: d });
+      noiseBurst(s, { type: 'bandpass', freq: 900, q: 1.2, gain: 0.25, decay: 0.08, delay: d });
+    }
   },
   slide: (s) => {
     // Boots and clothes scraping along the floor.

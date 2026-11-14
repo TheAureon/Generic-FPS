@@ -12,6 +12,7 @@ const G = PARTY_MODES.gungame;
  */
 export class GunGame implements GameMode {
   readonly id = 'gungame' as const;
+  readonly noKillstreaks = true;
   readonly name = 'Gun Game';
   readonly teams = false;
   readonly freeForAll = true;

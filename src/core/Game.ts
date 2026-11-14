@@ -310,6 +310,7 @@ export class Game {
 
     // HUD.
     this.hud.updateVitals(m.player.health, m.player.armor);
+    this.hud.updateStreaks(m.killstreaks?.view() ?? null);
     this.hud.update(playing ? dt : 0, m.player.position.x, m.player.position.z, m.controller.yaw);
     this.hud.fx.update(playing ? dt : 0, this.camera);
     this.hud.challenges.update(playing ? dt : 0);

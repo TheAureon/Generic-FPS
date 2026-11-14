@@ -156,6 +156,8 @@ export interface GameMode {
   readonly name: string;
   /** Teams (Blue vs Red)? Otherwise everyone fights everyone (or, in Survival, the bots fight you). */
   readonly teams: boolean;
+  /** No killstreak rewards in this mode (they'd break its rules). */
+  readonly noKillstreaks?: boolean;
   /** Do bots also fight each other (free for all)? */
   readonly freeForAll: boolean;
   /** Do bots come back after dying? */

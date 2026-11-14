@@ -7,6 +7,7 @@ import { BotManager } from '../bots/BotManager';
 import { Effects } from '../effects/Effects';
 import { TargetDummy } from '../entities/TargetDummy';
 import { Breakables } from '../entities/Breakables';
+import { Killstreaks } from './Killstreaks';
 import { currentQuality } from '../render/quality';
 import { buildMap, type BuiltMap } from '../map/MapBuilder';
 import { getMap } from '../map/maps';
@@ -100,6 +101,8 @@ export class Match {
   private radarVisible = new Set<string>();
   private _targets: Damageable[] = [];
   breakables!: Breakables;
+  /** Killstreak rewards (null in modes without them). */
+  killstreaks: Killstreaks | null = null;
 
   /**
    * A blast (a barrel, or a mode's explosion): fire and smoke, a bang, and
@@ -115,8 +118,11 @@ export class Match {
     this.flare(1);
     this.breakables?.blast(at, radius * 0.8);
     const w = this.map.world;
-    for (const v of [...this.combatants(), ...(this.breakables?.barrels ?? [])] as Damageable[]) {
+    // Killstreak rewards never hurt you or your teammates.
+    const friendly = weapon === 'airstrike' || weapon === 'dog';
+    for (const v of [...this.combatants(), ...(this.breakables?.barrels ?? [])] as (Damageable & { team?: number | null })[]) {
       if (!v.isAlive()) continue;
+      if (friendly && (v.name === attacker || (this.player.team !== null && v.team === this.player.team))) continue;
       const hb = v.hitbox;
       const cy = hb.y + hb.height * 0.5;
       const dist = Math.hypot(hb.x - at.x, cy - at.y, hb.z - at.z);
@@ -248,6 +254,19 @@ export class Match {
       quality: currentQuality().materials,
       explode: (at, radius, damage, attacker, weapon) => this.explode(at, radius, damage, attacker, weapon),
     });
+    if (!this.mode.noKillstreaks) {
+      this.killstreaks = new Killstreaks({
+        scene: this.scene,
+        world: this.map.world,
+        nav: () => this.bots.nav,
+        input: d.input,
+        camera: d.camera,
+        player: this.player,
+        enemies: () => this.bots.bots.filter((b) => b.team === null || b.team !== this.player.team),
+        explode: (at, radius, damage, attacker, weapon) => this.explode(at, radius, damage, attacker, weapon),
+        announce: (t, s) => hud.announce(t, s, 2.2),
+      });
+    }
 
     this.weapons = new WeaponSystem({
       world: this.map.world,
@@ -316,6 +335,7 @@ export class Match {
       () => this.rewards.dispose(),
       () => this.grenades.dispose(),
       () => this.breakables.dispose(),
+      () => this.killstreaks?.dispose(),
     );
 
     // Who can grab pickups.
@@ -435,6 +455,7 @@ export class Match {
     this.pickups.update(dt, this.collectors);
     this.grenades.update(dt);
     this.breakables.update(dt);
+    this.killstreaks?.update(dt, this.player.isAlive());
     this.effects.update(dt);
     this.challengeTimer -= dt;
     if (this.challengeTimer <= 0) {
@@ -517,7 +538,7 @@ export class Match {
         continue;
       }
       const fired = this.time - (this.lastShotAt.get(b.name) ?? -99) < 2;
-      if (fired || this.radarVisible.has(b.name)) blips.push({ x: b.position.x, y: b.position.y, z: b.position.z, kind: 'enemy' });
+      if (fired || this.radarVisible.has(b.name) || this.killstreaks?.uavActive) blips.push({ x: b.position.x, y: b.position.y, z: b.position.z, kind: 'enemy' });
     }
     // Hills, zones, flags.
     for (const mk of this.mode.markers?.() ?? []) blips.push({ x: mk.x, y: mk.y, z: mk.z, kind: 'mark', color: mk.color, label: mk.label, radius: mk.radius });

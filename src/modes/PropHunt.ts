@@ -78,6 +78,7 @@ function makeProp(kind: PropKind): { obj: THREE.Group; height: number } {
  */
 export class PropHunt implements GameMode {
   readonly id = 'prophunt' as const;
+  readonly noKillstreaks = true;
   readonly name = 'Prop Hunt';
   readonly teams = false;
   readonly freeForAll = false;

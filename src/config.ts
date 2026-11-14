@@ -264,7 +264,7 @@ export const WEAPONS = {
 
 export type WeaponId = keyof typeof WEAPONS;
 /** What dealt damage: a gun, a grenade, or the Battle Royale zone. */
-export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana' | 'barrel';
+export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana' | 'barrel' | 'airstrike' | 'dog';
 
 /** The katana (V to slash): a quick melee attack, any time, without switching away from your gun. */
 export const MELEE = {
@@ -280,6 +280,20 @@ export const MELEE = {
   swingTime: 0.5,
   /** Rest between slashes (seconds, counted after a slash ends). */
   cooldown: 0.12,
+};
+
+/** Killstreak rewards: kills in a row (without dying) to earn each one. */
+export const KILLSTREAKS = {
+  /** All enemies on your minimap, for `duration` seconds (starts by itself). */
+  uav: { kills: 3, duration: 30 },
+  /**
+   * X: a jet drops `bombs` bombs in a line through where you look, `delay`
+   * seconds after you call it. Each blast: `radius` meters, `damage` at the center.
+   * It never hurts you or your teammates.
+   */
+  airstrike: { kills: 5, delay: 2, bombs: 5, bombSpacing: 4, bombGap: 0.14, radius: 6, damage: 200, jetHeight: 45, jetSpeed: 140 },
+  /** X: a dog that hunts the nearest enemy for `duration` seconds and bites (`damage` per bite). */
+  dog: { kills: 7, duration: 30, speed: 8, reach: 1.4, damage: 120, biteEvery: 1 },
 };
 
 /** Things in the maps you can break: glass, and red explosive barrels. */

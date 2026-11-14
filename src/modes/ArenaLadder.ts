@@ -22,6 +22,7 @@ const BREAK = 4;
  */
 export class ArenaLadder implements GameMode {
   readonly id = 'ladder' as const;
+  readonly noKillstreaks = true;
   readonly name = 'Arena Ladder';
   readonly teams = false;
   readonly freeForAll = false;

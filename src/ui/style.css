@@ -2156,6 +2156,30 @@ body {
 .slot:not(.active) .slot-name { display: none; }
 .slot:not(.active) { padding-right: 3px; }
 .grenade-chip { color: #d9e0c8; margin-left: 6px; }
+
+/* Killstreak rewards, above the guns */
+.streaks { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 8px; }
+.streaks:empty { display: none; }
+.streak {
+  position: relative;
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  overflow: hidden;
+  font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+}
+.streak::before {
+  content: ''; position: absolute; left: 0; bottom: 0; height: 2px;
+  width: calc(var(--fill) * 100%);
+  background: var(--gold); opacity: 0.7;
+}
+.streak .st-tag { font-weight: 700; opacity: 0.8; }
+.streak .key { display: inline-block; min-width: 14px; border-radius: 3px; text-align: center; background: var(--gold); color: #15171b; }
+.streak.done { color: rgba(255, 255, 255, 0.3); }
+.streak.ready { color: var(--gold); background: var(--gold-soft); animation: pulse 1.2s ease-in-out infinite; }
+.streak.live { color: #9fd0ff; background: rgba(120, 180, 255, 0.14); }
 .grenade-chip .gr-icon { display: inline-block; width: 12px; height: 12px; }
 .grenade-chip.empty { opacity: 0.4; }
 /* Big magazines: thinner marks so they all fit. */

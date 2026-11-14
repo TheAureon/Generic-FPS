@@ -1,6 +1,6 @@
 import { ChallengeHud } from './ChallengeHud';
 import { RewardsHud } from './RewardsHud';
-import { CONFIG, TEAMS, WEAPONS, type DamageSource, type WeaponId } from '../config';
+import { CONFIG, KILLSTREAKS, TEAMS, WEAPONS, type DamageSource, type WeaponId } from '../config';
 import { settings } from '../core/Settings';
 import type { PickupType } from '../map/MapTypes';
 import type { ScoreRow } from '../modes/GameMode';
@@ -28,7 +28,7 @@ const ICON = {
 };
 
 /** Short weapon names for the slot chips. */
-const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade', claws: 'Claws', katana: 'Katana', barrel: 'Barrel' };
+const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade', claws: 'Claws', katana: 'Katana', barrel: 'Barrel', airstrike: 'Airstrike', dog: 'Dog' };
 
 /**
  * In-game heads-up display: crosshair, hit markers, health/armor, weapon and
@@ -49,6 +49,8 @@ export class Hud {
   private pipWeapon: WeaponId | null = null;
   private reloadBar: HTMLDivElement;
   private grenadeChip: HTMLDivElement;
+  private streakRow: HTMLDivElement;
+  private streakKey = '';
   private lastGrenades = -1;
   private reloadFill: HTMLDivElement;
   private slots = new Map<WeaponId, HTMLDivElement>();
@@ -121,6 +123,7 @@ export class Hud {
 
     // ---- Weapon + ammo, bottom right ----
     this.weaponPanel = el('div', 'weapon-panel glass', this.root);
+    this.streakRow = el('div', 'streaks', this.weaponPanel);
     const slotList = el('div', 'slots', this.weaponPanel);
     for (const id of Object.keys(WEAPONS) as WeaponId[]) {
       const s = el('div', 'slot', slotList);
@@ -270,6 +273,31 @@ export class Hud {
   }
 
   /** Big message in the middle-top of the screen for a few seconds. */
+  /**
+   * Killstreak rewards above the guns: progress toward each, which are
+   * ready (press X), and how long the UAV and the dog have left.
+   * null = this mode has none.
+   */
+  updateStreaks(v: import('../core/Killstreaks').StreakView | null): void {
+    const K = KILLSTREAKS;
+    const key = v ? `${v.streak}|${Math.ceil(v.uav)}|${v.ready.join()}|${Math.ceil(v.dog)}` : '';
+    if (key === this.streakKey) return;
+    this.streakKey = key;
+    if (!v) {
+      this.streakRow.innerHTML = '';
+      return;
+    }
+    const item = (id: 'uav' | 'airstrike' | 'dog', name: string, kills: number, live: number) => {
+      const ready = v.ready.includes(id);
+      const cls = live > 0 ? 'live' : ready ? 'ready' : v.streak >= kills ? 'done' : '';
+      const fill = Math.min(1, v.streak / kills);
+      const tag = live > 0 ? `${Math.ceil(live)}s` : ready ? '<span class="key">X</span>' : `${kills}`;
+      return `<div class="streak ${cls}" style="--fill:${fill}"><span class="st-name">${name}</span><span class="st-tag">${tag}</span></div>`;
+    };
+    this.streakRow.innerHTML =
+      item('uav', 'UAV', K.uav.kills, v.uav) + item('airstrike', 'Airstrike', K.airstrike.kills, 0) + item('dog', 'Dog', K.dog.kills, v.dog);
+  }
+
   announce(title: string, subtitle = '', seconds = 2.5): void {
     this.announceTitle.textContent = title;
     this.announceSub.textContent = subtitle;

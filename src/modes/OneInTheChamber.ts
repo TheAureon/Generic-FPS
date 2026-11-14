@@ -14,6 +14,7 @@ const EMPTY_REFILL = 10;
  */
 export class OneInTheChamber implements GameMode {
   readonly id = 'oitc' as const;
+  readonly noKillstreaks = true;
   readonly name = 'One in the Chamber';
   readonly teams = false;
   readonly freeForAll = true;
