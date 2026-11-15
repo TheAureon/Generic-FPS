@@ -126,7 +126,7 @@ export class Effects {
       this.fireballs.push({ sprite, life: 0, max: 1, size: 1 });
     }
     const smokeTex = getSmokeTexture();
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < 64; i++) {
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0x6a6460, depthWrite: false, transparent: true, opacity: 0 }));
       sprite.visible = false;
       scene.add(sprite);
@@ -164,6 +164,18 @@ export class Effects {
       const c = 0.2 + Math.random() * 0.15;
       this.spawnParticle(at, up, 3 + Math.random() * 6, c, c * 0.95, c * 0.9, 0.8 + Math.random() * 0.6, 14);
     }
+  }
+
+  /** A small puff of grey smoke (rocket trails). */
+  trailPuff(at: THREE.Vector3): void {
+    const p = this.smoke.find((x) => x.life <= 0);
+    if (!p) return;
+    p.max = p.life = 0.6 + Math.random() * 0.3;
+    p.size = 0.35 + Math.random() * 0.2;
+    p.sprite.position.copy(at);
+    p.vel.set((Math.random() - 0.5) * 0.3, 0.2, (Math.random() - 0.5) * 0.3);
+    p.sprite.material.color.setScalar(0.75);
+    p.sprite.visible = true;
   }
 
   /** A flashbang: a blinding white pop and a few sparks (no fire or smoke). */

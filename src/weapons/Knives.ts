@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TACTICAL } from '../config';
+import { TACTICAL, type DamageSource } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { Damageable } from '../core/Hitbox';
@@ -11,6 +11,16 @@ import type { Effects } from '../effects/Effects';
  * where it lands (in a wall or the floor); walk over it to pick it back up.
  */
 
+/** What's flying: a throwing knife, a crossbow bolt, or a rocket. */
+export type ProjectileKind = 'knife' | 'bolt' | 'rocket';
+
+export interface ProjectileOpts {
+  damage: number;
+  headshotMultiplier: number;
+  gravity: number;
+  weapon: DamageSource;
+}
+
 export interface KnivesDeps {
   scene: THREE.Scene;
   world: CollisionWorld;
@@ -19,6 +29,8 @@ export interface KnivesDeps {
   targets: (thrower: string) => readonly Damageable[];
   /** A knife hit someone (who threw it, where, and if it killed). */
   onHit?: (thrower: string, point: THREE.Vector3, damage: number, killed: boolean) => void;
+  /** A rocket hit something: blow it up. */
+  onRocket?: (at: THREE.Vector3, thrower: string) => void;
 }
 
 interface Flying {
@@ -27,6 +39,9 @@ interface Flying {
   vel: THREE.Vector3;
   thrower: string;
   age: number;
+  kind: ProjectileKind;
+  opts: ProjectileOpts;
+  trail: number;
 }
 
 interface Stuck {
@@ -61,12 +76,43 @@ export class Knives {
     return g;
   }
 
-  throw(from: THREE.Vector3, velocity: THREE.Vector3, thrower: string): void {
-    const mesh = this.makeModel();
+  throw(from: THREE.Vector3, velocity: THREE.Vector3, thrower: string, kind: ProjectileKind = 'knife', opts?: ProjectileOpts): void {
+    const K = TACTICAL.knife;
+    const mesh = kind === 'knife' ? this.makeModel() : kind === 'bolt' ? this.makeBolt() : this.makeRocket();
     mesh.position.copy(from);
     this.d.scene.add(mesh);
-    this.flying.push({ mesh, pos: from.clone(), vel: velocity.clone(), thrower, age: 0 });
-    audio.play('knife_throw', { position: from });
+    opts ??= { damage: K.damage, headshotMultiplier: 1, gravity: K.gravity, weapon: 'knife' };
+    this.flying.push({ mesh, pos: from.clone(), vel: velocity.clone(), thrower, age: 0, kind, opts, trail: 0 });
+    if (kind === 'knife') audio.play('knife_throw', { position: from });
+  }
+
+  /** A crossbow bolt: shaft along -Z (no spinning part). */
+  private makeBolt(): THREE.Group {
+    const g = new THREE.Group();
+    const spin = new THREE.Group();
+    spin.add(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.34, 6).rotateX(Math.PI / 2), this.mats.blade),
+      new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.03, 4).rotateX(-Math.PI / 2).translate(0, 0, -0.18), this.mats.blade),
+      new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.02, 0.04).translate(0, 0, 0.14), this.mats.grip),
+    );
+    g.add(spin);
+    return g;
+  }
+
+  /** A rocket: olive body, nose cone, tail fins. */
+  private makeRocket(): THREE.Group {
+    const g = new THREE.Group();
+    const olive = new THREE.MeshStandardMaterial({ color: 0x4b5a3a, roughness: 0.6 });
+    const spin = new THREE.Group();
+    spin.add(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 10).rotateX(Math.PI / 2), olive),
+      new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.14, 10).rotateX(-Math.PI / 2).translate(0, 0, -0.22), olive),
+      new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.004, 0.06).translate(0, 0, 0.15), this.mats.grip),
+      new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.16, 0.06).translate(0, 0, 0.15), this.mats.grip),
+      new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6).translate(0, 0, 0.17), new THREE.MeshBasicMaterial({ color: 0xffb050 })),
+    );
+    g.add(spin);
+    return g;
   }
 
   /** Knives lying around (or stuck in walls) that `name` can pick up from `pos`: returns how many were picked up. */
@@ -91,7 +137,12 @@ export class Knives {
     for (let i = this.flying.length - 1; i >= 0; i--) {
       const f = this.flying[i];
       f.age += dt;
-      f.vel.y -= K.gravity * dt;
+      f.vel.y -= f.opts.gravity * dt;
+      // Rockets leave a smoke trail.
+      if (f.kind === 'rocket' && (f.trail -= dt) <= 0) {
+        f.trail = 0.025;
+        this.d.effects.trailPuff(f.pos);
+      }
       const step = f.vel.length() * dt;
       _d.copy(f.vel).normalize();
       // Someone in the way?
@@ -112,14 +163,28 @@ export class Knives {
       // Point along the flight, spinning end over end.
       f.mesh.position.copy(f.pos);
       f.mesh.lookAt(_n.copy(f.pos).sub(_d));
-      (f.mesh.children[0] as THREE.Object3D).rotation.x = -f.age * 28;
+      if (f.kind === 'knife') (f.mesh.children[0] as THREE.Object3D).rotation.x = -f.age * 28;
+      else (f.mesh.children[0] as THREE.Object3D).rotation.z = f.age * 12;
 
+      if (f.kind === 'rocket' && (victim || wall || f.age > 6)) {
+        // Boom, right where it hit.
+        this.d.onRocket?.(f.pos.clone().addScaledVector(_d, -0.15), f.thrower);
+        f.mesh.removeFromParent();
+        this.flying.splice(i, 1);
+        continue;
+      }
       if (victim) {
-        const killed = victim.takeDamage({ amount: K.damage, part, attacker: f.thrower, weapon: 'knife', from: f.pos.clone() });
+        const dmg = f.opts.damage * (part === 'head' ? f.opts.headshotMultiplier : 1);
+        const killed = victim.takeDamage({ amount: dmg, part, attacker: f.thrower, weapon: f.opts.weapon, from: f.pos.clone() });
         audio.play('knife_hit', { position: f.pos });
         if (!victim.isProp) {
           this.d.effects.bloodPuff(f.pos, _d);
-          this.d.onHit?.(f.thrower, f.pos.clone(), K.damage, killed);
+          this.d.onHit?.(f.thrower, f.pos.clone(), dmg, killed);
+        }
+        if (f.kind === 'bolt') {
+          f.mesh.removeFromParent();
+          this.flying.splice(i, 1);
+          continue;
         }
         // Drops to the floor where they stood, to be picked up.
         const floor = this.d.world.groundHeight(f.pos.x, f.pos.z, 0.05, f.pos.y + 0.1);
@@ -158,7 +223,8 @@ export class Knives {
       // Keep the flight direction, blade in.
       spin.rotation.x = 0;
     }
-    this.stuck.push({ mesh: f.mesh, pos: at, owner: f.thrower, age: 0 });
+    // Crossbow bolts stay in the wall a while but can't be picked up.
+    this.stuck.push({ mesh: f.mesh, pos: at, owner: f.kind === 'knife' ? f.thrower : '', age: f.kind === 'knife' ? 0 : TACTICAL.knife.lifetime - 10 });
   }
 
   dispose(): void {

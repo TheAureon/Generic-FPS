@@ -31,6 +31,8 @@ export const HIP_POSE = v(0.14, -0.12, -0.43);
  */
 export const HIP_ADJUST: Partial<Record<WeaponId, { offset: THREE.Vector3; turn: THREE.Vector3 }>> = {
   lmg: { offset: v(0.02, -0.01, -0.1), turn: v(0, 0.05, 0.05) },
+  minigun: { offset: v(0.03, -0.04, -0.08), turn: v(0, 0.08, 0.06) },
+  rocket: { offset: v(0.03, 0.02, 0.0), turn: v(0, 0.03, 0) },
 };
 
 /** Gun position when aiming down sights, so the sights line up with the screen center. */
@@ -41,6 +43,10 @@ export const AIM_POSE: Record<WeaponId, THREE.Vector3> = {
   sniper: v(0, -0.085, -0.12),
   smg: v(0, -0.06, -0.26),
   lmg: v(0, -0.074, -0.2),
+  revolver: v(0, -0.052, -0.245),
+  crossbow: v(0, -0.065, -0.26),
+  minigun: v(0, -0.08, -0.32),
+  rocket: v(0, -0.15, -0.28),
 };
 
 /** With a custom model's 'sight' marker: how far in front of your eye the sight sits when aiming. */
@@ -54,6 +60,10 @@ export const EJECT_PORT: Record<WeaponId, THREE.Vector3> = {
   sniper: v(0.03, 0.025, 0.06),
   smg: v(0.025, 0.02, -0.02),
   lmg: v(0.035, 0.0, 0.02),
+  revolver: v(0.02, 0.03, 0),
+  crossbow: v(0.02, 0.03, 0),
+  minigun: v(0.06, 0.0, 0.02),
+  rocket: v(0, 0.05, 0.45),
 };
 
 // ---- Hands -------------------------------------------------------------------------
@@ -77,6 +87,10 @@ export const HANDS: Record<WeaponId, HandPoints> = {
   sniper: { right: v(0, -0.085, 0.12), left: v(0, -0.03, -0.2), reload: v(0, -0.09, -0.03) },
   smg: { right: v(0, -0.075, 0.075), left: v(0, -0.075, -0.17), reload: v(0, -0.13, -0.065) },
   lmg: { right: v(0, -0.085, 0.11), left: v(0, -0.045, -0.28), reload: v(0, -0.1, -0.04) },
+  revolver: { right: v(0, -0.06, 0.065), left: v(-0.03, -0.075, 0.045), reload: v(0, 0.0, -0.02) },
+  crossbow: { right: v(0, -0.085, 0.115), left: v(0, -0.035, -0.2), reload: v(0, 0.05, -0.1) },
+  minigun: { right: v(0, -0.12, 0.14), left: v(0, -0.11, -0.12), reload: v(-0.1, -0.04, 0.03) },
+  rocket: { right: v(0, -0.07, 0.09), left: v(0, -0.07, -0.15), reload: v(0, 0.05, -0.55) },
 };
 
 /** Where each elbow is relative to its hand (camera coordinates): arms come from the lower corners. */
@@ -210,6 +224,14 @@ export const RELOADS: Record<WeaponId, ReloadAnim> = {
     tilt: 0.6,
     cover: { open: [0.09, 0.15], close: [0.86, 0.9], angle: 0.85 },
   },
+  // Revolver: tip the gun, thumb the empties out, push a speedloader in (no magazine to carry).
+  revolver: { keys: [[0, 'grip'], [0.15, 'reload'], [0.3, 'away'], [0.55, 'away'], [0.72, 'below'], [0.8, 'reload'], [0.86, 'tap'], [1, 'grip']], seatAt: 0.86, tilt: 1 },
+  // Crossbow: fetch a bolt from below and lay it on the rail.
+  crossbow: { keys: [[0, 'grip'], [0.22, 'away'], [0.45, 'away'], [0.62, 'below'], [0.75, 'reload'], [0.82, 'reload'], [1, 'grip']], seatAt: 0.8, tilt: 0.4 },
+  // Minigun: swap the ammo box on the side.
+  minigun: { keys: MAGAZINE, holdMag: [0.24, 0.76], seatAt: 0.8, tilt: 0.4 },
+  // Rocket launcher: a new rocket pushed into the front of the tube.
+  rocket: { keys: [[0, 'grip'], [0.2, 'away'], [0.45, 'away'], [0.62, 'below'], [0.75, 'reload'], [0.85, 'tap'], [1, 'grip']], seatAt: 0.85, tilt: 0.3 },
   shotgun: {
     // One shell per cycle (the cycle repeats for each shell).
     keys: [

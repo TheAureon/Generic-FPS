@@ -217,6 +217,112 @@ const builders: Record<WeaponId, () => THREE.Group> = {
       marker('grip_right', 0, -0.085, 0.11), marker('grip_left', 0, -0.045, -0.28), marker('grip_reload', 0, -0.1, -0.04));
     return g;
   },
+  revolver: () => {
+    const g = new THREE.Group();
+    // Frame, a six-shot cylinder, a long barrel with a top rib, hammer and a wooden grip.
+    const cyl = new THREE.Group();
+    cyl.name = 'mag';
+    cyl.add(tube(0.022, 0.046, mats.metal, 0, 0.02, -0.012, 12));
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      cyl.add(tube(0.006, 0.047, mats.dark, Math.cos(a) * 0.013, 0.02 + Math.sin(a) * 0.013, -0.012, 6));
+    }
+    g.add(
+      cyl,
+      box(0.026, 0.05, 0.11, mats.metal, 0, 0.018, 0.012), // frame
+      tube(0.009, 0.15, mats.metal, 0, 0.03, -0.11), // barrel
+      box(0.012, 0.012, 0.15, mats.metal, 0, 0.043, -0.11), // top rib
+      box(0.004, 0.012, 0.006, mats.dark, 0, 0.054, -0.18), // front sight
+      box(0.014, 0.008, 0.008, mats.dark, 0, 0.05, 0.045), // rear notch
+      box(0.01, 0.02, 0.016, mats.dark, 0, 0.045, 0.062), // hammer
+      box(0.006, 0.02, 0.012, mats.dark, 0, -0.012, 0.012), // trigger
+    );
+    const grip = box(0.03, 0.1, 0.044, mats.wood, 0, -0.045, 0.06);
+    grip.rotation.x = -0.35;
+    g.add(grip, muzzle(-0.19, 0.03),
+      marker('sight', 0, 0.052, 0.045), marker('grip_right', 0, -0.06, 0.065), marker('grip_left', -0.03, -0.075, 0.045), marker('grip_reload', 0, 0.0, -0.02));
+    return g;
+  },
+  crossbow: () => {
+    const g = new THREE.Group();
+    // Stock and rail, a pistol grip, a small scope, and the bow at the front.
+    g.add(
+      box(0.042, 0.05, 0.46, mats.wood, 0, -0.005, 0.03), // stock
+      box(0.024, 0.014, 0.42, mats.metal, 0, 0.027, -0.12), // rail
+      box(0.05, 0.06, 0.14, mats.wood, 0, -0.01, 0.26), // butt
+      tube(0.016, 0.12, mats.dark, 0, 0.065, 0.0), // scope
+      box(0.012, 0.03, 0.012, mats.metal, 0, 0.045, 0.03), // scope mount
+      box(0.04, 0.03, 0.05, mats.metal, 0, 0.0, -0.32), // bow mount
+    );
+    for (const side of [-1, 1]) {
+      const limb = box(0.24, 0.016, 0.026, mats.dark, side * 0.13, 0.0, -0.31);
+      limb.rotation.y = side * -0.3;
+      const string = box(0.003, 0.003, 0.29, mats.accent, side * 0.115, 0.028, -0.2);
+      string.rotation.y = side * 0.93;
+      g.add(limb, string);
+    }
+    // The loaded bolt (picked up and laid on the rail when reloading).
+    const bolt = new THREE.Group();
+    bolt.name = 'mag';
+    bolt.add(tube(0.004, 0.32, mats.metal, 0, 0.038, -0.2, 6), box(0.002, 0.012, 0.03, mats.accent, 0, 0.044, -0.05));
+    const grip = box(0.03, 0.09, 0.045, mats.dark, 0, -0.07, 0.1);
+    grip.rotation.x = -0.3;
+    g.add(bolt, grip, muzzle(-0.36, 0.038),
+      marker('sight', 0, 0.065, 0.06), marker('grip_right', 0, -0.085, 0.115), marker('grip_left', 0, -0.035, -0.2), marker('grip_reload', 0, 0.05, -0.1));
+    return g;
+  },
+  minigun: () => {
+    const g = new THREE.Group();
+    // A big motor housing, six barrels that spin, an ammo box on the side, handles.
+    g.add(
+      box(0.11, 0.11, 0.28, mats.dark, 0, 0, 0.02), // housing
+      tube(0.05, 0.06, mats.metal, 0, 0, -0.14, 14), // barrel clamp
+      box(0.02, 0.05, 0.16, mats.metal, 0, 0.08, -0.02), // carry handle posts
+      box(0.02, 0.016, 0.2, mats.metal, 0, 0.105, -0.02), // carry handle
+      box(0.012, 0.022, 0.012, mats.metal, 0, 0.066, 0.12), // rear sight
+    );
+    const spin = new THREE.Group();
+    spin.name = 'spin';
+    spin.position.set(0, 0, -0.38);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      spin.add(tube(0.009, 0.46, mats.metal, Math.cos(a) * 0.028, Math.sin(a) * 0.028, 0, 8));
+    }
+    spin.add(tube(0.045, 0.02, mats.dark, 0, 0, -0.08, 14), tube(0.045, 0.02, mats.dark, 0, 0, 0.12, 14));
+    const ammo = box(0.08, 0.11, 0.15, mats.metal, -0.1, -0.04, 0.03);
+    ammo.name = 'mag';
+    const grip = box(0.032, 0.1, 0.045, mats.dark, 0, -0.1, 0.13);
+    grip.rotation.x = -0.2;
+    const fore = box(0.03, 0.09, 0.04, mats.dark, 0, -0.09, -0.12);
+    g.add(spin, ammo, grip, fore, muzzle(-0.62, 0),
+      marker('sight', 0, 0.08, 0.12), marker('grip_right', 0, -0.12, 0.14), marker('grip_left', 0, -0.11, -0.12), marker('grip_reload', -0.1, -0.04, 0.03));
+    return g;
+  },
+  rocket: () => {
+    const g = new THREE.Group();
+    // A launch tube with flared ends, grips underneath, a sight on top, and the warhead sticking out the front.
+    const olive = new THREE.MeshStandardMaterial({ color: 0x4b5a3a, roughness: 0.65, metalness: 0.15 });
+    g.add(
+      tube(0.05, 0.9, mats.dark, 0, 0.05, -0.05, 16), // tube
+      tube(0.058, 0.08, mats.metal, 0, 0.05, -0.47, 16), // front ring
+      tube(0.065, 0.1, mats.metal, 0, 0.05, 0.42, 16), // rear flare
+      box(0.07, 0.03, 0.2, mats.dark, 0, 0.0, 0.18), // shoulder pad
+      box(0.016, 0.05, 0.03, mats.metal, 0, 0.115, 0.08), // sight
+      box(0.03, 0.012, 0.03, mats.metal, 0, 0.14, 0.08),
+    );
+    const warhead = new THREE.Group();
+    warhead.name = 'mag';
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 12), olive);
+    cone.rotation.x = -Math.PI / 2;
+    cone.position.set(0, 0.05, -0.6);
+    warhead.add(cone, tube(0.045, 0.06, olive, 0, 0.05, -0.5, 12));
+    const grip = box(0.03, 0.1, 0.045, mats.dark, 0, -0.05, 0.08);
+    grip.rotation.x = -0.25;
+    const fore = box(0.03, 0.09, 0.04, mats.dark, 0, -0.04, -0.15);
+    g.add(warhead, grip, fore, muzzle(-0.68, 0.05),
+      marker('sight', 0, 0.15, 0.08), marker('grip_right', 0, -0.07, 0.09), marker('grip_left', 0, -0.07, -0.15), marker('grip_reload', 0, 0.05, -0.55));
+    return g;
+  },
 };
 
 /** A gun model: the custom model file if there is one, otherwise the built-in one. */

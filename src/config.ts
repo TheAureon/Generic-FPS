@@ -183,6 +183,19 @@ export interface WeaponStats {
   hearingRange: number;
   /** Walking speed while holding it (1 = normal; heavy guns slow you down). */
   moveSpeed?: number;
+  /**
+   * Fires something you can see fly instead of an instant bullet: a crossbow
+   * bolt (`projectileSpeed` m/s, drops with `projectileGravity`) or a rocket
+   * (explodes on impact: `blastRadius` m, `damage` at the center).
+   */
+  projectile?: 'bolt' | 'rocket';
+  projectileSpeed?: number;
+  projectileGravity?: number;
+  blastRadius?: number;
+  /** Minigun: seconds to spin the barrels up before it fires (hold the trigger). */
+  spinUp?: number;
+  /** No spent cases fly out (revolver, crossbow, launcher). */
+  noCasings?: boolean;
 }
 
 export const WEAPONS = {
@@ -259,6 +272,60 @@ export const WEAPONS = {
     moveSpread: 2.6, airSpread: 5, aimSpreadMultiplier: 0.4,
     recoilPitch: 1.05, recoilYaw: 0.6, recoilRecovery: 5,
     aimZoom: 1.35, scope: false, equipTime: 0.8, hearingRange: 60, moveSpeed: 0.85,
+  },
+  revolver: {
+    // Six heavy rounds: two to the body or one to the head at most ranges.
+    name: 'Revolver', slot: 7,
+    damage: 55, headshotMultiplier: 2, pellets: 1,
+    fireRate: 2.6, automatic: false,
+    magazineSize: 6, startingReserve: 30, maxReserve: 42,
+    reloadTime: 2.2, reloadStyle: 'magazine',
+    range: 150, falloffStart: 30, falloffEnd: 70, falloffMinMultiplier: 0.7,
+    baseSpread: 0.3, spreadPerShot: 2.2, maxSpread: 5, spreadRecovery: 5,
+    moveSpread: 1.4, airSpread: 3.5, aimSpreadMultiplier: 0.35,
+    recoilPitch: 4.2, recoilYaw: 1, recoilRecovery: 8,
+    aimZoom: 1.3, scope: false, equipTime: 0.35, hearingRange: 55, noCasings: true,
+  },
+  crossbow: {
+    // Silent bolts you can see fly (and drop): one hit kills.
+    name: 'Crossbow', slot: 8,
+    damage: 130, headshotMultiplier: 1.5, pellets: 1,
+    fireRate: 1, automatic: false,
+    magazineSize: 1, startingReserve: 12, maxReserve: 16,
+    reloadTime: 1.5, reloadStyle: 'magazine',
+    range: 120, falloffStart: 120, falloffEnd: 121, falloffMinMultiplier: 1,
+    baseSpread: 0.15, spreadPerShot: 0, maxSpread: 2, spreadRecovery: 10,
+    moveSpread: 1, airSpread: 3, aimSpreadMultiplier: 0.3,
+    recoilPitch: 1.2, recoilYaw: 0.3, recoilRecovery: 6,
+    aimZoom: 1.6, scope: false, equipTime: 0.5, hearingRange: 8,
+    projectile: 'bolt', projectileSpeed: 60, projectileGravity: 6, noCasings: true,
+  },
+  minigun: {
+    // Hold the trigger to spin up, then a wall of bullets. Very heavy.
+    name: 'Minigun', slot: 9,
+    damage: 15, headshotMultiplier: 1.6, pellets: 1,
+    fireRate: 22, automatic: true,
+    magazineSize: 200, startingReserve: 200, maxReserve: 400,
+    reloadTime: 4.2, reloadStyle: 'magazine',
+    range: 120, falloffStart: 25, falloffEnd: 60, falloffMinMultiplier: 0.6,
+    baseSpread: 1.4, spreadPerShot: 0.12, maxSpread: 4.5, spreadRecovery: 4,
+    moveSpread: 1.5, airSpread: 5, aimSpreadMultiplier: 0.75,
+    recoilPitch: 0.45, recoilYaw: 0.45, recoilRecovery: 6,
+    aimZoom: 1.15, scope: false, equipTime: 1.1, hearingRange: 80, moveSpeed: 0.7, spinUp: 0.55,
+  },
+  rocket: {
+    // One rocket at a time: it explodes where it hits (it can hurt you too).
+    name: 'Rocket Launcher', slot: 10,
+    damage: 160, headshotMultiplier: 1, pellets: 1,
+    fireRate: 1, automatic: false,
+    magazineSize: 1, startingReserve: 3, maxReserve: 5,
+    reloadTime: 2.6, reloadStyle: 'magazine',
+    range: 200, falloffStart: 200, falloffEnd: 201, falloffMinMultiplier: 1,
+    baseSpread: 0.3, spreadPerShot: 0, maxSpread: 2, spreadRecovery: 10,
+    moveSpread: 1.5, airSpread: 3, aimSpreadMultiplier: 0.4,
+    recoilPitch: 5, recoilYaw: 1, recoilRecovery: 5,
+    aimZoom: 1.25, scope: false, equipTime: 0.9, hearingRange: 90, moveSpeed: 0.85,
+    projectile: 'rocket', projectileSpeed: 32, projectileGravity: 0, blastRadius: 5, noCasings: true,
   },
 } satisfies Record<string, WeaponStats>;
 
@@ -401,6 +468,10 @@ export const WEAPON_MODELS: Record<WeaponId, { scale: number; position: [number,
   sniper: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
   smg: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
   lmg: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  revolver: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  crossbow: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  minigun: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
+  rocket: { scale: 1, position: [0, 0, 0], rotation: [0, 0, 0] },
 };
 
 export const COMBAT = {

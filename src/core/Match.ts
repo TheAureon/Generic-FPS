@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOTS, CONFIG, GRENADES, PICKUPS, REWARDS, TACTICAL, TEAMS, type DamageSource } from '../config';
+import { BOTS, CONFIG, GRENADES, PICKUPS, REWARDS, TACTICAL, TEAMS, WEAPONS, type DamageSource } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { music } from '../audio/Music';
 import { BotDebugView } from '../bots/BotDebugView';
@@ -167,7 +167,8 @@ export class Match {
       const dist = Math.hypot(hb.x - at.x, cy - at.y, hb.z - at.z);
       if (dist >= radius) continue;
       if (!w.hasLineOfSight(at.x, at.y, at.z, hb.x, cy, hb.z) && !w.hasLineOfSight(at.x, at.y, at.z, hb.x, hb.headY, hb.z)) continue;
-      const amount = damage * (1 - (dist / radius) ** 2);
+      // Your own rocket hurts you less (like your own grenade).
+      const amount = damage * (1 - (dist / radius) ** 2) * (weapon === 'rocket' && v.name === attacker ? GRENADES.selfDamage : 1);
       const killed = v.takeDamage({ amount, part: 'body', attacker, weapon, from: at.clone() });
       if (attacker === this.player.name && !v.isProp && v.name !== this.player.name) {
         this.d.hud.fx.damageNumber(new THREE.Vector3(hb.x, cy, hb.z), amount, false, killed);
@@ -307,6 +308,7 @@ export class Match {
       world: this.map.world,
       effects: this.effects,
       targets: () => this.targets(),
+      onRocket: (at, thrower) => this.explode(at, WEAPONS.rocket.blastRadius, WEAPONS.rocket.damage, thrower, 'rocket'),
       onHit: (thrower, point, damage, killed) => {
         if (thrower !== this.player.name) return;
         hud.fx.damageNumber(point, damage, false, killed);
@@ -348,6 +350,8 @@ export class Match {
       onHit: (point, damage, head, killed) => hud.fx.damageNumber(point, damage, head, killed),
       throwGrenade: (from, vel, kind) => this.grenades.throw(from, vel, this.player.name, this.player.team, kind),
       throwKnife: (from, vel) => this.knives.throw(from, vel, this.player.name),
+      fireProjectile: (kind, from, vel, stats) =>
+        this.knives.throw(from, vel, this.player.name, kind, { damage: stats.damage, headshotMultiplier: stats.headshotMultiplier, gravity: stats.projectileGravity ?? 0, weapon: kind === 'bolt' ? 'crossbow' : 'rocket' }),
       onBulletPath: (o, dir, dist) => this.breakables.shot(o, dir, dist),
     });
     this.rewards = new Rewards({

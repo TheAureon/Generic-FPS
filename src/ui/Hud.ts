@@ -35,7 +35,7 @@ const ICON = {
 };
 
 /** Short weapon names for the slot chips. */
-const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade', claws: 'Claws', katana: 'Katana', barrel: 'Barrel', airstrike: 'Airstrike', dog: 'Dog', knife: 'Knife' };
+const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { revolver: 'Revolver', crossbow: 'Crossbow', minigun: 'Minigun', rocket: 'Rocket', pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade', claws: 'Claws', katana: 'Katana', barrel: 'Barrel', airstrike: 'Airstrike', dog: 'Dog', knife: 'Knife' };
 
 /**
  * In-game heads-up display: crosshair, hit markers, health/armor, weapon and
@@ -140,7 +140,7 @@ export class Hud {
     const slotList = el('div', 'slots', this.weaponPanel);
     for (const id of Object.keys(WEAPONS) as WeaponId[]) {
       const s = el('div', 'slot', slotList);
-      s.innerHTML = `<span class="key">${WEAPONS[id].slot}</span><span class="slot-name">${SHORT[id]}</span>`;
+      s.innerHTML = `<span class="key">${WEAPONS[id].slot % 10}</span><span class="slot-name">${SHORT[id]}</span>`;
       this.slots.set(id, s);
     }
     const equip = el('div', 'slots equip', this.weaponPanel);

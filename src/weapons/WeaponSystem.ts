@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { settings } from '../core/Settings';
-import { COMBAT, CONFIG, GRENADES, MELEE, TACTICAL, WEAPONS, type WeaponId } from '../config';
+import { COMBAT, CONFIG, GRENADES, MELEE, TACTICAL, WEAPONS, type WeaponId, type WeaponStats } from '../config';
 import { audio } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/sounds';
 import type { CollisionWorld } from '../core/CollisionWorld';
@@ -37,6 +37,8 @@ export interface WeaponSystemDeps {
   onHit?: (point: THREE.Vector3, damage: number, head: boolean, killed: boolean) => void;
   /** Throw a grenade from `from` with `velocity`. */
   throwGrenade?: (from: THREE.Vector3, velocity: THREE.Vector3, kind?: 'frag' | 'flash' | 'smoke') => void;
+  /** Fire a crossbow bolt or rocket from `from` with `velocity`. */
+  fireProjectile?: (kind: 'bolt' | 'rocket', from: THREE.Vector3, velocity: THREE.Vector3, stats: WeaponStats) => void;
   /** Throw a knife from `from` with `velocity`. */
   throwKnife?: (from: THREE.Vector3, velocity: THREE.Vector3) => void;
   /** Each bullet's path (and the katana's reach): breaks glass along it. */
@@ -69,6 +71,8 @@ export class WeaponSystem {
   /** Seconds since the last katana slash started (99 = none yet). */
   private meleeT = 99;
   private climbBlend = 0;
+  /** Minigun barrels: 0 = still, 1 = spun up (fires only then). */
+  private spin = 0;
   /** Holding the katana up to block; how long it's been up; rest needed before the next block. */
   blocking = false;
   private blockUsed = 0;
@@ -273,6 +277,7 @@ export class WeaponSystem {
       lookDX: player.lastLookDX,
       lookDY: player.lastLookDY,
       lowered,
+      spin: this.spin,
       reloadProgress: this.current.reloading ? this.current.reloadProgress : -1,
       onGround: player.onGround,
     });
@@ -299,7 +304,7 @@ export class WeaponSystem {
   private handleInput(dt: number, input: Input): void {
     // Weapon switching: number keys, mouse wheel, Q for last weapon.
     for (let i = 0; i < this.weapons.length; i++) {
-      if (input.wasPressed(`Digit${this.weapons[i].stats.slot}`)) this.requestSwitch(i);
+      if (input.wasPressed(`Digit${this.weapons[i].stats.slot % 10}`)) this.requestSwitch(i);
     }
     const wheel = input.consumeWheel();
     if (wheel !== 0) {
@@ -363,6 +368,14 @@ export class WeaponSystem {
     // Trigger.
     if (input.wasMousePressed(0)) this.triggerBuffer = TRIGGER_BUFFER;
     const wantsFire = w.stats.automatic ? input.isMouseDown(0) || this.triggerBuffer > 0 : this.triggerBuffer > 0;
+    // Minigun: the barrels must spin up first (they wind down when you let go).
+    const spinUp = w.stats.spinUp;
+    if (spinUp) {
+      const was = this.spin;
+      this.spin = wantsFire && (w.ammo > 0 || w.reloading) ? Math.min(1, this.spin + dt / spinUp) : Math.max(0, this.spin - dt / (spinUp * 1.6));
+      if (was === 0 && this.spin > 0) audio.play('minigun_spin', { volume: 0.7 });
+      if (wantsFire && this.spin < 1) return;
+    }
     if (!wantsFire) return;
 
     if (w.canFire()) {
@@ -519,6 +532,22 @@ export class WeaponSystem {
     camera.getWorldPosition(this._origin);
     camera.getWorldDirection(this._dir);
     this.viewmodel.muzzleWorldPosition(camera, this._muzzle);
+
+    // Crossbow bolts and rockets fly as objects you can see.
+    if (w.stats.projectile && this.d.fireProjectile) {
+      applySpread(this._dir, spread, this._pellet);
+      // Aim it at what's under the crosshair, launched from just in front of you.
+      const from = this._origin.clone().addScaledVector(this._pellet, 0.5);
+      if (!world.hasLineOfSight(this._origin.x, this._origin.y, this._origin.z, from.x, from.y, from.z)) from.copy(this._origin);
+      this.d.fireProjectile(w.stats.projectile, from, this._pellet.clone().multiplyScalar(w.stats.projectileSpeed ?? 40), w.stats);
+      player.addRecoil(w.stats.recoilPitch, (Math.random() * 2 - 1) * w.stats.recoilYaw);
+      player.addShake(w.stats.recoilPitch * CONFIG.camera.shakePerShot);
+      this.viewmodel.kick(Math.min(2.5, 0.6 + w.stats.recoilPitch * 0.35));
+      effects.muzzleLight(this._muzzle);
+      audio.play(`shot_${w.id}` as SoundId);
+      events.emit('shot', { shooter: this.d.ownerName, weapon: w.id, position: this._origin.clone(), hearingRange: w.stats.hearingRange });
+      return;
+    }
 
     // Add up damage per target so a shotgun blast shows one hit marker.
     const hits = new Map<Damageable, { damage: number; part: HitPart; point: THREE.Vector3 }>();

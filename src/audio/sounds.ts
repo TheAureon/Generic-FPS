@@ -14,6 +14,11 @@ export type SoundId =
   | 'shot_sniper'
   | 'shot_smg'
   | 'shot_lmg'
+  | 'shot_revolver'
+  | 'shot_crossbow'
+  | 'shot_minigun'
+  | 'shot_rocket'
+  | 'minigun_spin'
   | 'reload_start'
   | 'reload_end'
   | 'shell_insert'
@@ -223,6 +228,33 @@ export const SYNTHS: Record<SoundId, Synth> = {
     noiseBurst(s, { type: 'bandpass', freq: 2400, q: 1.2, gain: 0.4, decay: 0.09 });
     noiseBurst(s, { type: 'lowpass', freq: 420, gain: 0.55, decay: 0.12 });
     tone(s, { type: 'sine', from: 160, to: 60, gain: 0.35, decay: 0.1 });
+  },
+  shot_revolver: (s) => {
+    // A big, booming crack.
+    noiseBurst(s, { type: 'bandpass', freq: 1400, q: 0.6, gain: 1, decay: 0.14 });
+    noiseBurst(s, { type: 'lowpass', freq: 450, gain: 0.85, decay: 0.3 });
+    tone(s, { type: 'sine', from: 140, to: 40, gain: 0.8, decay: 0.2 });
+  },
+  shot_crossbow: (s) => {
+    // A twang and a thwip.
+    tone(s, { type: 'triangle', from: 220, to: 120, gain: 0.3, decay: 0.18 });
+    noiseBurst(s, { type: 'bandpass', freq: 2400, q: 2, gain: 0.2, decay: 0.08 });
+  },
+  shot_minigun: (s) => {
+    // Short and buzzy (it fires very fast).
+    noiseBurst(s, { type: 'bandpass', freq: 1700, q: 0.8, gain: 0.55, decay: 0.05 });
+    noiseBurst(s, { type: 'lowpass', freq: 500, gain: 0.45, decay: 0.07 });
+  },
+  shot_rocket: (s) => {
+    // A whoosh as it leaves the tube.
+    noiseBurst(s, { type: 'lowpass', freq: 800, gain: 0.8, decay: 0.5, attack: 0.02 });
+    noiseBurst(s, { type: 'bandpass', freq: 1800, q: 0.7, gain: 0.35, decay: 0.7, attack: 0.05 });
+    tone(s, { type: 'sine', from: 90, to: 50, gain: 0.5, decay: 0.3 });
+  },
+  minigun_spin: (s) => {
+    // The barrels whirring up.
+    tone(s, { type: 'sawtooth', from: 60, to: 240, gain: 0.08, decay: 0.55, attack: 0.05 });
+    noiseBurst(s, { type: 'bandpass', freq: 900, q: 2, gain: 0.08, decay: 0.5, attack: 0.1 });
   },
   shot_shotgun: (s) => {
     noiseBurst(s, { type: 'lowpass', freq: 2200, gain: 1.0, decay: 0.32 });

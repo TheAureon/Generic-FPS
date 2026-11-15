@@ -38,6 +38,8 @@ export interface ViewmodelState {
   /** 0..1 through the current reload (or current shell), -1 if not reloading. */
   reloadProgress: number;
   onGround: boolean;
+  /** Minigun barrels spinning (0..1). */
+  spin?: number;
 }
 
 export class Viewmodel {
@@ -117,7 +119,7 @@ export class Viewmodel {
       this.aimPose.set(id, sight ? new THREE.Vector3(-sight.x, -sight.y, -SIGHT_DISTANCE - sight.z) : AIM_POSE[id].clone());
       this.ejectPort.set(id, markerPosition(model, 'eject') ?? EJECT_PORT[id].clone());
 
-      const flash = makeFlash(flashTex, id === 'shotgun' || id === 'sniper' ? 1.5 : id === 'lmg' ? 1.25 : id === 'smg' ? 0.85 : 1);
+      const flash = makeFlash(flashTex, id === 'shotgun' || id === 'sniper' || id === 'rocket' ? 1.5 : id === 'lmg' || id === 'revolver' ? 1.25 : id === 'smg' || id === 'minigun' ? 0.85 : id === 'crossbow' ? 0.01 : 1);
       model.getObjectByName('muzzle')!.add(flash);
       this.flashes.set(id, flash);
     }
@@ -230,7 +232,7 @@ export class Viewmodel {
     // Same for the sniper: the case comes out when the bolt is pulled back.
     if (this.current === 'shotgun') this.pumpT = 0;
     else if (this.current === 'sniper') this.boltT = 0;
-    else this.ejectCasing();
+    else if (!(WEAPONS[this.current] as { noCasings?: boolean }).noCasings) this.ejectCasing();
     const f = this.flashes.get(this.current)!;
     f.rotation.z = Math.random() * Math.PI;
     f.scale.setScalar(0.8 + Math.random() * 0.5);
@@ -386,6 +388,9 @@ export class Viewmodel {
       model.rotation.z += adj.turn.z * hip;
     }
     this.arms.update(dt, model, s.reloadProgress, pump, this.bolt);
+    // Minigun barrels turn (fast when spun up).
+    const spinner = model.getObjectByName('spin');
+    if (spinner) spinner.rotation.z += (s.spin ?? 0) * dt * 40;
 
     for (const c of this.casings) {
       if (c.life <= 0) continue;
