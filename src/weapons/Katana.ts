@@ -37,7 +37,7 @@ const SWING: Pose[] = [
   { t: 0.5, hand: [-0.2, -0.85, -0.32], blade: [-0.7, -0.6, 0.4], arm: [0.6, -0.2, 0.75] },
 ];
 /** Blocking: the blade held across in front of you, edge out. */
-const BLOCK: Pose = { t: 0, hand: [0.18, -0.2, -0.42], blade: [-0.85, 0.25, 0.35], arm: [0.3, -0.4, 0.85] };
+const BLOCK: Pose = { t: 0, hand: [0.16, -0.07, -0.42], blade: [-0.8, 0.4, 0.35], arm: [0.3, -0.45, 0.85] };
 /** The fast part of the cut (draws the streak). */
 const TRAIL_FROM = 0.085;
 const TRAIL_TO = 0.21;
