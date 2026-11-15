@@ -294,6 +294,14 @@ export class Match {
       quality: currentQuality().materials,
       explode: (at, radius, damage, attacker, weapon) => this.explode(at, radius, damage, attacker, weapon),
     });
+    // The katana blocks bullets, knives and claws from the front (never blasts).
+    this.player.shield = (info) => {
+      const w = info.weapon;
+      if (w === 'grenade' || w === 'barrel' || w === 'airstrike' || w === 'dog' || w === 'zone' || w === 'katana') return false;
+      if (!this.weapons.blocks(info.from)) return false;
+      this.effects.impact(this.controller.getEyePosition(new THREE.Vector3()).addScaledVector(info.from.clone().sub(this.player.position).setY(0).normalize(), 0.7), info.from.clone().sub(this.player.position).normalize());
+      return true;
+    };
     this.knives = new Knives({
       scene: this.scene,
       world: this.map.world,

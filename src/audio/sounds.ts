@@ -48,6 +48,7 @@ export type SoundId =
   | 'grenade_throw'
   | 'katana_draw'
   | 'slide'
+  | 'katana_clang'
   | 'flashbang'
   | 'smoke_pop'
   | 'ear_ring'
@@ -190,6 +191,12 @@ export const SYNTHS: Record<SoundId, Synth> = {
     // A thunk into something.
     noiseBurst(s, { type: 'lowpass', freq: 700, gain: 0.4, decay: 0.06 });
     tone(s, { type: 'triangle', from: 300, to: 180, gain: 0.2, decay: 0.05 });
+  },
+  katana_clang: (s) => {
+    // Steel on lead: a sharp ping that rings.
+    noiseBurst(s, { type: 'highpass', freq: 3000, gain: 0.35, decay: 0.05 });
+    tone(s, { type: 'triangle', from: 2400 + Math.random() * 600, to: 2200, gain: 0.12, decay: 0.35 });
+    tone(s, { type: 'sine', from: 4100, to: 4000, gain: 0.05, decay: 0.25 });
   },
   slide: (s) => {
     // Boots and clothes scraping along the floor.

@@ -69,6 +69,10 @@ export class WeaponSystem {
   /** Seconds since the last katana slash started (99 = none yet). */
   private meleeT = 99;
   private climbBlend = 0;
+  /** Holding the katana up to block; how long it's been up; rest needed before the next block. */
+  blocking = false;
+  private blockUsed = 0;
+  private blockRest = 0;
 
   private _origin = new THREE.Vector3();
   private _dir = new THREE.Vector3();
@@ -117,6 +121,24 @@ export class WeaponSystem {
       }
     }
     return used;
+  }
+
+  /**
+   * Does the raised katana stop a hit from `from`? (Only while blocking, and
+   * only from in front.) A stopped hit uses up some of the block.
+   */
+  blocks(from: THREE.Vector3): boolean {
+    if (!this.blocking) return false;
+    const p = this.d.player;
+    const dx = from.x - p.position.x, dz = from.z - p.position.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-3) return false;
+    const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
+    if ((dx * fx + dz * fz) / len < Math.cos(MELEE.blockAngle * DEG)) return false;
+    this.blockUsed += MELEE.blockCostPerHit;
+    this.viewmodel.blockHit();
+    audio.play('katana_clang', { volume: 0.8 });
+    return true;
   }
 
   /** Mid katana slash (no shooting, aiming or reloading until it's done). */
@@ -218,6 +240,18 @@ export class WeaponSystem {
     this.grenadeCooldown = Math.max(0, this.grenadeCooldown - dt);
     this.knifeCooldown = Math.max(0, this.knifeCooldown - dt);
     this.sprintBlockTimer = Math.max(0, this.sprintBlockTimer - dt);
+    // Katana block: hold V after a slash (until it runs out).
+    this.blockRest = Math.max(0, this.blockRest - dt);
+    const wantBlock = canAct && !this.holstered && input.isDown('KeyV') && this.meleeT >= MELEE.hitAt && this.blockRest <= 0;
+    if (wantBlock && this.blockUsed < MELEE.blockTime) {
+      this.blocking = true;
+      this.blockUsed += dt;
+    } else if (this.blocking || this.blockUsed > 0) {
+      this.blocking = false;
+      if (this.blockUsed > 0.3) this.blockRest = MELEE.blockCooldown;
+      if (!input.isDown('KeyV')) this.blockUsed = 0;
+    }
+    this.viewmodel.setBlocking(this.blocking);
     const prevMelee = this.meleeT;
     this.meleeT += dt;
     if (prevMelee < MELEE.hitAt && this.meleeT >= MELEE.hitAt) this.meleeHit();
@@ -225,7 +259,7 @@ export class WeaponSystem {
     // ---- Tell the player about aiming effects ------------------------------
     const s = this.current.stats;
     player.zoom = 1 + (s.aimZoom - 1) * this.ads;
-    player.speedMultiplier = (1 + (COMBAT.aimMoveSpeedMultiplier - 1) * this.ads) * (s.moveSpeed ?? 1) * rules.speed(this.d.ownerName);
+    player.speedMultiplier = (1 + (COMBAT.aimMoveSpeedMultiplier - 1) * this.ads) * (s.moveSpeed ?? 1) * rules.speed(this.d.ownerName) * (this.blocking ? MELEE.blockSpeed : 1);
     player.sprintBlocked = this.ads > 0.05 || this.sprintBlockTimer > 0;
     player.recoilRecovery = s.recoilRecovery * DEG;
 
@@ -287,7 +321,7 @@ export class WeaponSystem {
     // V: slash with the katana (any time, whatever gun is out).
     if (input.wasPressed('KeyV') && this.meleeT >= MELEE.swingTime + MELEE.cooldown) this.slash();
 
-    const busy = this.switchTo >= 0 || this.raiseTimer > 0 || this.slashing || this.d.player.mantling;
+    const busy = this.switchTo >= 0 || this.raiseTimer > 0 || this.slashing || this.blocking || this.d.player.mantling;
 
     // Aim down sights: hold right mouse and/or Q (Settings → Aim / scope).
     // (The sniper also comes off the scope while its bolt is being worked.)

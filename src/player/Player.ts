@@ -49,8 +49,13 @@ export class Player implements Damageable, Trackable {
     return this.health > 0;
   }
 
+  /** Set by the match: returns true if this hit is blocked (the katana). */
+  shield: ((info: DamageInfo) => boolean) | null = null;
+
   takeDamage(info: DamageInfo): boolean {
     if (!this.isAlive()) return false;
+    // Blocked with the katana?
+    if (this.shield?.(info)) return false;
     const amount = rules.damage(info.attacker, this.name, info.amount, info.part);
     if (amount <= 0) return false;
     info = { ...info, amount };

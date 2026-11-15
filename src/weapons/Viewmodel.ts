@@ -275,6 +275,16 @@ export class Viewmodel {
     this.arms.setGloveColor(GLOVES.find((g) => g.id === l.gloves)?.value ?? GLOVES[0].value);
   }
 
+  /** Hold the katana up to block (or lower it). */
+  setBlocking(on: boolean): void {
+    this.katana.blocking = on;
+  }
+
+  /** A bullet glanced off the blocking katana. */
+  blockHit(): void {
+    this.katana.clang();
+  }
+
   /** Slash with the katana (the gun dips out of the way meanwhile). */
   slash(): void {
     this.katana.slash();

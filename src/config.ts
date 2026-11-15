@@ -280,6 +280,18 @@ export const MELEE = {
   swingTime: 0.5,
   /** Rest between slashes (seconds, counted after a slash ends). */
   cooldown: 0.12,
+  /**
+   * Block: keep holding V after a slash to raise the blade. Bullets (and
+   * knives and zombie claws) coming from within `blockAngle` degrees of where
+   * you face are stopped. You can hold it up to `blockTime` seconds (each
+   * stopped bullet uses up `blockCostPerHit` of that), then rest `blockCooldown`.
+   * You move slower while blocking (`blockSpeed`).
+   */
+  blockAngle: 70,
+  blockTime: 3,
+  blockCostPerHit: 0.08,
+  blockCooldown: 2,
+  blockSpeed: 0.7,
 };
 
 /**

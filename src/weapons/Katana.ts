@@ -36,6 +36,8 @@ const SWING: Pose[] = [
   // ...and dropping out of view.
   { t: 0.5, hand: [-0.2, -0.85, -0.32], blade: [-0.7, -0.6, 0.4], arm: [0.6, -0.2, 0.75] },
 ];
+/** Blocking: the blade held across in front of you, edge out. */
+const BLOCK: Pose = { t: 0, hand: [0.18, -0.2, -0.42], blade: [-0.85, 0.25, 0.35], arm: [0.3, -0.4, 0.85] };
 /** The fast part of the cut (draws the streak). */
 const TRAIL_FROM = 0.085;
 const TRAIL_TO = 0.21;
@@ -62,6 +64,11 @@ export class KatanaView {
   private trail: THREE.Mesh;
   private trailPos: Float32Array;
   private poses: { t: number; pos: THREE.Vector3; quat: THREE.Quaternion }[];
+  private blockPose!: { pos: THREE.Vector3; quat: THREE.Quaternion };
+  /** Holding the blade up to block (set by the weapon system). */
+  blocking = false;
+  private blockBlend = 0;
+  private jolt = 0;
   /** Seconds into the current slash (99 = not slashing). */
   private t = 99;
   /** Where the bottom of the blade and the tip sit on the sword (rig space). */
@@ -91,14 +98,16 @@ export class KatanaView {
     this.tip.set(0, BLADE, 0).applyMatrix4(sword.matrix).multiplyScalar(SCALE);
 
     const k = MELEE.swingTime / 0.5;
-    this.poses = SWING.map((p) => {
+    const toPose = (p: Pose) => {
       const b = _b.set(...p.blade).normalize();
       // Arm space: blade = -X, forearm = +Z.
       const x = _x.copy(b).negate();
       const z = _z.set(...p.arm).addScaledVector(x, -new THREE.Vector3(...p.arm).dot(x)).normalize();
       const y = _y.crossVectors(z, x);
       return { t: p.t * k, pos: new THREE.Vector3(...p.hand), quat: new THREE.Quaternion().setFromRotationMatrix(_m.makeBasis(x, y, z)) };
-    });
+    };
+    this.poses = SWING.map(toPose);
+    this.blockPose = toPose(BLOCK);
 
     // The streak: a ribbon between where the blade's base and tip have just been.
     this.trailPos = new Float32Array((TRAIL_STEPS + 1) * 2 * 3);
@@ -147,19 +156,41 @@ export class KatanaView {
   get gunDip(): number {
     const end = MELEE.swingTime;
     const t = this.t;
-    if (t >= end) return 0;
-    return smoothstep(t / 0.06) * (1 - smoothstep((t - end * 0.6) / (end * 0.4)));
+    const swing = t >= end ? 0 : smoothstep(t / 0.06) * (1 - smoothstep((t - end * 0.6) / (end * 0.4)));
+    return Math.max(swing, smoothstep(this.blockBlend * 1.5));
+  }
+
+  /** A bullet glanced off the blade: it jolts. */
+  clang(): void {
+    this.jolt = 1;
   }
 
   update(dt: number): void {
     this.t += dt;
-    const on = this.t < MELEE.swingTime;
+    this.blockBlend += ((this.blocking ? 1 : 0) - this.blockBlend) * Math.min(1, dt * 12);
+    if (this.blockBlend < 0.01) this.blockBlend = 0;
+    this.jolt *= Math.exp(-dt * 12);
+    const swinging = this.t < MELEE.swingTime;
+    const on = swinging || this.blockBlend > 0;
     this.rig.visible = on;
     if (!on) {
       this.trail.visible = false;
       return;
     }
-    this.pose(this.t, this.rig.position, this.rig.quaternion);
+    // The swing (or, done swinging, low and out of view), blended toward the block.
+    this.pose(Math.min(this.t, MELEE.swingTime), this.rig.position, this.rig.quaternion);
+    if (this.blockBlend > 0) {
+      const b = smoothstep(this.blockBlend);
+      this.rig.position.lerp(this.blockPose.pos, b);
+      this.rig.quaternion.slerp(this.blockPose.quat, b);
+      // Bullets knock it back a little.
+      this.rig.position.z += this.jolt * 0.03;
+      this.rig.position.x += Math.sin(this.t * 90) * this.jolt * 0.006;
+    }
+    if (!swinging) {
+      this.trail.visible = false;
+      return;
+    }
 
     // The streak, sampled along the swing just behind the blade.
     const to = Math.min(this.t, TRAIL_TO);
