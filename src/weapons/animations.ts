@@ -31,8 +31,9 @@ export const HIP_POSE = v(0.14, -0.12, -0.43);
  */
 export const HIP_ADJUST: Partial<Record<WeaponId, { offset: THREE.Vector3; turn: THREE.Vector3 }>> = {
   lmg: { offset: v(0.02, -0.01, -0.1), turn: v(0, 0.05, 0.05) },
-  minigun: { offset: v(0.03, -0.04, -0.08), turn: v(0, 0.08, 0.06) },
-  rocket: { offset: v(0.03, 0.02, 0.0), turn: v(0, 0.03, 0) },
+  minigun: { offset: v(0.05, -0.06, -0.14), turn: v(0, 0.2, 0.08) },
+  rocket: { offset: v(0.08, -0.03, -0.1), turn: v(0, 0.1, 0) },
+  revolver: { offset: v(0, 0.01, -0.04), turn: v(0, 0.18, 0) },
 };
 
 /** Gun position when aiming down sights, so the sights line up with the screen center. */

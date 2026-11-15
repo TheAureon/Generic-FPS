@@ -85,7 +85,7 @@ Chrome is recommended. Safari and Firefox also work.
 | Left click          | Shoot                                         |
 | Right click or Q (hold) | Aim down sights (scope on the sniper rifle). Both work by default; Settings can limit it to one |
 | R                   | Reload                                        |
-| 1 2 3 4 5 6         | Pistol, assault rifle, shotgun, sniper rifle, SMG, LMG |
+| 1 – 9, 0            | Pistol, assault rifle, shotgun, sniper rifle, SMG, LMG, revolver, crossbow, minigun, rocket launcher |
 | G                   | Throw a grenade                               |
 | X                   | Use a killstreak reward (airstrike or attack dog) |
 | T                   | Throw a knife                                 |
@@ -209,6 +209,10 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 | 4 | Sniper Rifle | One-shot headshots at long range (scope) |
 | 5 | SMG | Very fast fire, accurate while moving; weak at range |
 | 6 | LMG | A 100-round box magazine for holding a lane; heavy (you walk 15% slower with it, and it's slow to raise and reload) |
+| 7 | Revolver | Six heavy rounds: two body shots or one headshot; big kick |
+| 8 | Crossbow | Silent bolts you can see fly (they drop a little over distance); one hit kills |
+| 9 | Minigun | Hold the trigger: half a second to spin up, then a storm of bullets; very heavy (30% slower walking) |
+| 0 | Rocket Launcher | One rocket at a time that explodes where it hits (5 m blast; it can hurt you too, at half strength) |
 | G | Frag grenade | Clearing corners and groups behind cover |
 | V | Katana | A silent one-hit kill up close, without switching guns |
 

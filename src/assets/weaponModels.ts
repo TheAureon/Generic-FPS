@@ -275,7 +275,7 @@ const builders: Record<WeaponId, () => THREE.Group> = {
     const g = new THREE.Group();
     // A big motor housing, six barrels that spin, an ammo box on the side, handles.
     g.add(
-      box(0.11, 0.11, 0.28, mats.dark, 0, 0, 0.02), // housing
+      box(0.085, 0.085, 0.24, mats.dark, 0, 0, 0.03), // housing
       tube(0.05, 0.06, mats.metal, 0, 0, -0.14, 14), // barrel clamp
       box(0.02, 0.05, 0.16, mats.metal, 0, 0.08, -0.02), // carry handle posts
       box(0.02, 0.016, 0.2, mats.metal, 0, 0.105, -0.02), // carry handle
@@ -289,13 +289,13 @@ const builders: Record<WeaponId, () => THREE.Group> = {
       spin.add(tube(0.009, 0.46, mats.metal, Math.cos(a) * 0.028, Math.sin(a) * 0.028, 0, 8));
     }
     spin.add(tube(0.045, 0.02, mats.dark, 0, 0, -0.08, 14), tube(0.045, 0.02, mats.dark, 0, 0, 0.12, 14));
-    const ammo = box(0.08, 0.11, 0.15, mats.metal, -0.1, -0.04, 0.03);
+    const ammo = box(0.06, 0.09, 0.13, mats.metal, -0.08, -0.04, 0.04);
     ammo.name = 'mag';
     const grip = box(0.032, 0.1, 0.045, mats.dark, 0, -0.1, 0.13);
     grip.rotation.x = -0.2;
     const fore = box(0.03, 0.09, 0.04, mats.dark, 0, -0.09, -0.12);
     g.add(spin, ammo, grip, fore, muzzle(-0.62, 0),
-      marker('sight', 0, 0.08, 0.12), marker('grip_right', 0, -0.12, 0.14), marker('grip_left', 0, -0.11, -0.12), marker('grip_reload', -0.1, -0.04, 0.03));
+      marker('sight', 0, 0.15, 0.12), marker('grip_right', 0, -0.12, 0.14), marker('grip_left', 0, -0.11, -0.12), marker('grip_reload', -0.08, -0.04, 0.04));
     return g;
   },
   rocket: () => {
@@ -303,19 +303,19 @@ const builders: Record<WeaponId, () => THREE.Group> = {
     // A launch tube with flared ends, grips underneath, a sight on top, and the warhead sticking out the front.
     const olive = new THREE.MeshStandardMaterial({ color: 0x4b5a3a, roughness: 0.65, metalness: 0.15 });
     g.add(
-      tube(0.05, 0.9, mats.dark, 0, 0.05, -0.05, 16), // tube
-      tube(0.058, 0.08, mats.metal, 0, 0.05, -0.47, 16), // front ring
-      tube(0.065, 0.1, mats.metal, 0, 0.05, 0.42, 16), // rear flare
+      tube(0.042, 0.9, mats.dark, 0, 0.05, -0.05, 16), // tube
+      tube(0.05, 0.08, mats.metal, 0, 0.05, -0.47, 16), // front ring
+      tube(0.056, 0.1, mats.metal, 0, 0.05, 0.42, 16), // rear flare
       box(0.07, 0.03, 0.2, mats.dark, 0, 0.0, 0.18), // shoulder pad
       box(0.016, 0.05, 0.03, mats.metal, 0, 0.115, 0.08), // sight
       box(0.03, 0.012, 0.03, mats.metal, 0, 0.14, 0.08),
     );
     const warhead = new THREE.Group();
     warhead.name = 'mag';
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 12), olive);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.038, 0.16, 12), olive);
     cone.rotation.x = -Math.PI / 2;
     cone.position.set(0, 0.05, -0.6);
-    warhead.add(cone, tube(0.045, 0.06, olive, 0, 0.05, -0.5, 12));
+    warhead.add(cone, tube(0.038, 0.06, olive, 0, 0.05, -0.5, 12));
     const grip = box(0.03, 0.1, 0.045, mats.dark, 0, -0.05, 0.08);
     grip.rotation.x = -0.25;
     const fore = box(0.03, 0.09, 0.04, mats.dark, 0, -0.04, -0.15);
