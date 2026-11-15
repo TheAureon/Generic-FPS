@@ -327,6 +327,9 @@ export class WeaponSystem {
     if (input.wasPressed('KeyV') && this.meleeT >= MELEE.swingTime + MELEE.cooldown) this.slash();
 
     const busy = this.switchTo >= 0 || this.raiseTimer > 0 || this.slashing || this.blocking || this.d.player.mantling;
+    // I: inspect the gun (stops as soon as you do anything else).
+    if (input.wasPressed('KeyI') && !busy && !w.reloading && this.ads < 0.05) this.viewmodel.inspect();
+    if (input.isMouseDown(0) || input.isMouseDown(2) || input.isDown('KeyQ') || input.wasPressed('KeyR') || this.slashing || busy) this.viewmodel.stopInspect();
 
     // Aim down sights: hold right mouse and/or Q (Settings → Aim / scope).
     // (The sniper also comes off the scope while its bolt is being worked.)

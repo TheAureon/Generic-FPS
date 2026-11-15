@@ -287,6 +287,18 @@ export class Viewmodel {
     this.katana.clang();
   }
 
+  /** Seconds into a weapon inspect (99 = not inspecting). */
+  private inspectT = 99;
+
+  /** Turn the gun over to admire it (I). Anything else you do stops it. */
+  inspect(): void {
+    this.inspectT = 0;
+  }
+
+  stopInspect(): void {
+    if (this.inspectT < INSPECT_TIME) this.inspectT = Math.max(this.inspectT, INSPECT_TIME - 0.3);
+  }
+
   /** Slash with the katana (the gun dips out of the way meanwhile). */
   slash(): void {
     this.katana.slash();
@@ -360,6 +372,11 @@ export class Viewmodel {
     // A small jolt when the new magazine is slapped in.
     const seat = rp >= 0 && anim.seatAt !== undefined ? Math.exp(-Math.pow((rp - anim.seatAt) * 18, 2)) : 0;
 
+    // Inspect: bring the gun in and show its left side, then tip it to show the right side.
+    this.inspectT += dt;
+    const insA = window01(this.inspectT, [0, 0.35], [1.15, 1.5]);
+    const insB = window01(this.inspectT, [1.15, 1.5], [INSPECT_TIME - 0.4, INSPECT_TIME]);
+
     // Blend hip -> aim pose.
     const pos = model.position.lerpVectors(HIP_POSE, this.aimPose.get(this.current)!, s.ads);
     const adj = HIP_ADJUST[this.current];
@@ -376,12 +393,18 @@ export class Viewmodel {
     pos.x -= bk * 0.02;
     pos.y -= bk * 0.02;
     pos.z -= bk * 0.05;
+    pos.x -= (insA + insB) * 0.07;
+    pos.y += insA * 0.035 + insB * 0.02;
+    pos.z += insA * 0.03 - insB * 0.02;
 
     model.rotation.set(
       this.kickUp - s.lowered * 0.9 + rl * 0.12 + seat * 0.05 - s.sprint * 0.35 - dip * 0.6,
       this.swayX * 2 + rl * 0.3 - slideRack * 1.1 + s.sprint * 0.6,
       rl * 0.6 + rack * 0.12 + bk * 0.4 - slideRack * 0.6 + s.sprint * 0.25,
     );
+    model.rotation.x += insB * 0.35;
+    model.rotation.y += insA * 1.05 - insB * 0.75;
+    model.rotation.z += -insA * 0.35 + insB * 0.55;
     if (adj) {
       model.rotation.x += adj.turn.x * hip;
       model.rotation.y += adj.turn.y * hip;
@@ -435,6 +458,9 @@ function paintRole(m: THREE.Material, custom: boolean): PaintRole | null {
   const role = m.name.split(':')[0];
   return role === 'metal' || role === 'dark' || role === 'wood' ? role : null;
 }
+
+/** How long a weapon inspect takes (seconds). */
+const INSPECT_TIME = 2.8;
 
 /** When the bolt is at the back of its pull (the case ejects then), and when it's all done. */
 const BOLT_EJECT = BOLT.start + BOLT.reach + BOLT.lift + BOLT.back;

@@ -2175,6 +2175,17 @@ body {
 .grenade-chip { color: #d9e0c8; }
 .slots.equip { margin-top: -4px; }
 
+/* Photo mode */
+.photo-hint {
+  position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+  padding: 6px 14px; border-radius: 6px;
+  font: 500 13px var(--font-ui, sans-serif); color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.45); pointer-events: none; z-index: 20; white-space: nowrap;
+}
+.photo-hint b { color: var(--gold, #f2c14e); }
+.photo-hint.snap { animation: photo-snap 0.5s ease-out; }
+@keyframes photo-snap { 0% { box-shadow: 0 0 0 100vmax rgba(255, 255, 255, 0.7); } 100% { box-shadow: 0 0 0 100vmax rgba(255, 255, 255, 0); } }
+
 /* Flashbang whiteout */
 .flash-white { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 5; }
 

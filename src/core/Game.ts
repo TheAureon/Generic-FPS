@@ -15,6 +15,7 @@ import { Viewmodel } from '../weapons/Viewmodel';
 import { Input } from './Input';
 import { RenderPipeline } from '../render/Pipeline';
 import { Match } from './Match';
+import { PhotoMode } from './PhotoMode';
 import { settings } from './Settings';
 
 /** Physics runs at a fixed rate so movement feels the same at any frame rate. */
@@ -89,6 +90,10 @@ export class Game {
       resume: () => this.resume(),
       restart: () => this.lastConfig && this.startMatch(this.lastConfig),
       quitToMenu: () => this.quitToMenu(),
+      photo: () => {
+        this.wantPhoto = true;
+        this.resume();
+      },
     });
     this.menus.show('title');
 
@@ -165,7 +170,25 @@ export class Game {
     if (m.challenges.xpEarned > 0) progress.addXp(m.challenges.xpEarned);
   }
 
+  /** Photo mode (frozen match, free camera), or null. */
+  private photo: PhotoMode | null = null;
+  /** Start photo mode once the mouse is captured again (from the pause menu). */
+  private wantPhoto = false;
+
+  private setPhoto(on: boolean): void {
+    if (on === !!this.photo) return;
+    if (on) {
+      this.photo = new PhotoMode(this.camera);
+      this.hud.setVisible(false);
+    } else {
+      this.photo!.dispose();
+      this.photo = null;
+      if (this.match) this.hud.setVisible(true);
+    }
+  }
+
   private quitToMenu(): void {
+    this.setPhoto(false);
     this.leaveMatch();
     this.match?.dispose();
     this.match = null;
@@ -176,6 +199,7 @@ export class Game {
   }
 
   private endMatch(): void {
+    this.setPhoto(false);
     const m = this.match!;
     this.state = 'ended';
     this.input.exitLock();
@@ -232,6 +256,7 @@ export class Game {
         this.menus.hide();
       }
     } else if (this.state === 'playing' && !this.forcePlay) {
+      this.setPhoto(false);
       this.state = 'paused';
       this.menus.show('pause');
     }
@@ -279,6 +304,7 @@ export class Game {
       const replay = m.killcam.beginRender(this.camera, m.bots.bots.map((b) => ({ name: b.name, root: b.model.root })), m.player.name);
       this.hud.setKillcam(replay ? m.killcam.killer : null);
       this.pipeline.render(m.scene, this.camera, [this.viewmodel.scene]);
+      if (this.photo?.wantShot) this.photo.saveShot(this.renderer.domElement);
       if (replay) m.killcam.endRender();
       else if (this.state === 'playing' || this.state === 'paused') this.viewmodel.render(this.renderer);
     } else {
@@ -294,6 +320,17 @@ export class Game {
     // Debug toggles (F-keys need fn on a Mac, so there are letter alternatives).
     if (this.input.wasPressed('F3') || this.input.wasPressed('Backquote')) this.hud.showDebug = !this.hud.showDebug;
     if (this.input.wasPressed('F4') || this.input.wasPressed('KeyB')) m.botDebug.visible = !m.botDebug.visible;
+
+    // Photo mode: P toggles it; while it's on the match is frozen and the camera flies free.
+    if (playing && (this.input.wasPressed('KeyP') || this.wantPhoto)) this.setPhoto(!this.photo || this.wantPhoto);
+    this.wantPhoto = false;
+    if (this.photo) {
+      this.photo.update(dt, this.input);
+      this.viewmodel.visible = false;
+      m.map.updateShadows(this.camera.position);
+      audio.updateListener(this.camera);
+      return;
+    }
 
     if (playing) {
       m.controller.inputEnabled = alive;

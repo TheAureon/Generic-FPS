@@ -14,6 +14,8 @@ export interface MenuActions {
   resume(): void;
   restart(): void;
   quitToMenu(): void;
+  /** Back to the match in photo mode. */
+  photo(): void;
 }
 
 type Screen = 'title' | 'main' | 'controls' | 'setup' | 'pause' | 'settings' | 'end' | 'career' | null;
@@ -338,6 +340,7 @@ export class Menus {
     };
     item('Resume', 'Back to the fight', () => this.actions.resume(), true);
     item('Restart', 'Same settings, fresh start', () => this.actions.restart());
+    item('Photo mode', 'Freeze the action and fly the camera around (or press P in a match)', () => this.actions.photo());
     item('Settings', 'Mouse, aim key, graphics, HUD size, sound', () => this.openSettings('pause'));
     item('Quit', 'Back to the main menu', () => this.actions.quitToMenu());
   }
