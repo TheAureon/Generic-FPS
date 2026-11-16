@@ -3,7 +3,7 @@ import type { WeaponId } from '../config';
 import { rules } from '../core/MatchRules';
 import type { Bot } from '../bots/Bot';
 import { Deathmatch } from './Deathmatch';
-import type { GameMode, MatchResult, ModeContext, ScoreRow } from './GameMode';
+import type { BotObjective, Combatant, GameMode, MatchResult, ModeContext, ScoreRow } from './GameMode';
 
 /**
  * One-weapon playlists: Free for All where everyone has the same weapon.
@@ -72,6 +72,18 @@ export class OneWeapon implements GameMode {
     b.tint = BLADE_GLOW;
     b.grenadesPerLife = 0;
     b.skill = { ...b.skill, aggression: 1 };
+  }
+
+  /** Blades Only: the bots charge whoever is closest (no point keeping their distance). */
+  botObjective(bot: Bot): BotObjective | null {
+    if (this.id !== 'blades') return null;
+    let best: Combatant | null = null, bestD = Infinity;
+    for (const c of this.ctx.combatants()) {
+      if (c === (bot as Combatant) || !c.isAlive()) continue;
+      const d = c.position.distanceTo(bot.position);
+      if (d < bestD) [best, bestD] = [c, d];
+    }
+    return best ? { pos: best.position.clone(), radius: 1, urgent: true, run: true } : null;
   }
 
   update(dt: number): void {
