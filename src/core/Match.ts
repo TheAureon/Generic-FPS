@@ -137,8 +137,10 @@ export class Match {
   /** Where a teammate should be under your current order (null = do what the mode wants). */
   private squadObjective(bot: BotManager['bots'][number]): BotObjective | null {
     if (!this.mode.teams || bot.team !== this.player.team || this.squadOrder === 'free') return null;
-    if (this.squadOrder === 'follow') return this.player.isAlive() ? { pos: this.player.position, radius: 5, run: true } : null;
-    if (this.squadOrder === 'hold') return { pos: this.holdPos, radius: 3 };
+    // Strayed too far from where you want them: come back now (shooting on the way); close by, fight as usual.
+    const far = (p: THREE.Vector3, d: number) => bot.position.distanceTo(p) > d;
+    if (this.squadOrder === 'follow') return this.player.isAlive() ? { pos: this.player.position, radius: 5, run: true, urgent: far(this.player.position, 9) } : null;
+    if (this.squadOrder === 'hold') return { pos: this.holdPos, radius: 3, run: true, urgent: far(this.holdPos, 6) };
     // Push: at the enemy nearest to you.
     let best: THREE.Vector3 | null = null, bestD = Infinity;
     for (const e of this.bots.bots) {

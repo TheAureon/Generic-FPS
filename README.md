@@ -94,6 +94,7 @@ Chrome is recommended. Safari and Firefox also work.
 | I                   | Inspect your gun (show it off, camo and all)  |
 | P                   | Photo mode (also in the pause menu)           |
 | L                   | Flashlight on / off                           |
+| J                   | Squad orders (team modes): Follow me → Hold → Push → Free |
 | V                   | Slash with the katana (any time, whatever gun you're holding) |
 | Mouse wheel         | Next / previous weapon                        |
 | E                   | Switch back to the last weapon                |
@@ -227,6 +228,14 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 - **Smoke grenade (H)**: pours out a thick cloud about 9 m across that lasts 14 seconds. Bots can't see through it (bullets still go through).
 
 Settings are in `TACTICAL` in `src/config.ts`. Modes without grenades don't give flashbangs or smoke either.
+
+**Squad orders** (team modes): press **J** to give your bot teammates orders. Each press moves to the next one, shown above your health:
+- **Follow me**: they stick with you.
+- **Hold**: they guard the spot you were looking at, marked HOLD on screen and H on the minimap.
+- **Push**: they charge the enemy nearest to you.
+- **Free**: back to normal (they play the mode's objective).
+
+A teammate who strays too far comes straight back, shooting on the way.
 
 **Rival bots**: each of the twelve bots is a character with a name, a style and a favourite gun. For example Viper the Sniper hangs back, Hammer the Brawler charges in with a shotgun, and Ghost the Flanker sneaks around with an SMG. They say things when they get you, and sometimes when you get them.
 
