@@ -204,6 +204,9 @@ export class Viewmodel {
   /** Light the gun like the map: the sun's color and the sky's tint. */
   matchLighting(sky: SkyDef): void {
     this.sun.color.set(sky.sunColor);
+    // Darker days (and nights) light the gun less too (but never so dark you can't see it).
+    this.sun.intensity = 1.6 * Math.max(0.25, Math.min(1, (sky.sunIntensity ?? 2.4) / 2.4));
+    this.hemi.intensity = 1.4 * Math.max(0.35, Math.min(1, sky.skyLight ?? 1));
     this.hemi.color.set(sky.zenith).lerp(new THREE.Color(0xffffff), 0.6);
     this.hemi.groundColor.set(sky.ground ?? 0x4a4036);
   }

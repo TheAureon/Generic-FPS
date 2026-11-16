@@ -27,6 +27,10 @@ export interface MatchConfig {
   killLimit: number;
   /** The other modes' win conditions (team kills, seconds in the hill, captures, points), by mode. */
   limits?: Partial<Record<ModeId, number>>;
+  /** Night version of the map (dark, lamps on, flashlight). */
+  night?: boolean;
+  /** Rain, snow or fog. */
+  weather?: import('../core/environment').Weather;
 }
 
 /** What it takes to win this mode (from the menu choice, or the mode's default). */

@@ -3,6 +3,7 @@ import { BOTS } from '../config';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { Trackable } from '../player/Player';
 import { vision } from '../core/vision';
+import { env } from '../core/environment';
 
 const DEG = Math.PI / 180;
 /** How often a bot re-checks whether it can see its target (seconds). */
@@ -81,7 +82,9 @@ export class Perception {
     const p = target.position;
     const dx = p.x - eye.x, dz = p.z - eye.z;
     const flatDist = Math.hypot(dx, dz);
-    if (flatDist > BOTS.visionRange) return false;
+    // Darkness and weather cut how far bots see (but your flashlight shows where you are).
+    const range = BOTS.visionRange * (env.flashlight && target.name === env.playerName ? Math.max(0.8, env.visionScale()) : env.visionScale());
+    if (flatDist > range) return false;
 
     if (flatDist > BOTS.closeAwarenessRange) {
       // Angle between where the bot faces and the direction to the target.

@@ -107,7 +107,7 @@ interface Quad {
  * lighting (corner shading and lamp light) baked into the surfaces.
  */
 /** A plain sky made from a map's skyColor (for maps without a `sky`). */
-function defaultSky(def: MapDef): SkyDef {
+export function defaultSky(def: MapDef): SkyDef {
   const horizon = new THREE.Color(def.skyColor);
   const zenith = horizon.clone().lerp(new THREE.Color(0x2d5fa8), 0.55);
   return { zenith: zenith.getHex(), horizon: def.skyColor, sunColor: 0xfff1dd, sunElevation: 55, sunAzimuth: 120, clouds: 0.3 };
@@ -243,7 +243,8 @@ export function buildMap(def: MapDef, scene: THREE.Scene, opts: BuildOptions = {
   const skyDef = opts.sky ?? def.sky ?? defaultSky(def);
   SUN = detail ? { dir: sunDirection(skyDef), color: new THREE.Color(skyDef.sunColor).multiplyScalar(skyDef.sunIntensity ?? 2.4) } : null;
   // (The sun's position changes the baked bounce light, so it's part of the key.)
-  const cacheKey = `${def.id}:${detail ? 'detail' : 'plain'}:${leafy ? 'leafy' : ''}:${skyDef.sunElevation}:${skyDef.sunAzimuth}`;
+  // (Night and weather change the sun's color and strength, which are baked in too.)
+  const cacheKey = `${def.id}:${detail ? 'detail' : 'plain'}:${leafy ? 'leafy' : ''}:${skyDef.sunElevation}:${skyDef.sunAzimuth}:${skyDef.sunColor}:${skyDef.sunIntensity ?? ''}:${skyDef.skyLight ?? ''}`;
   let baked = bakeCache.get(cacheKey);
   if (!baked) {
     const byMaterial = new Map<SurfaceId, THREE.BufferGeometry[]>();

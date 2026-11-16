@@ -12,7 +12,9 @@ import { Knives } from '../weapons/Knives';
 import { vision } from './vision';
 import { KillCam } from './KillCam';
 import { currentQuality } from '../render/quality';
-import { buildMap, type BuiltMap } from '../map/MapBuilder';
+import { buildMap, defaultSky, type BuiltMap } from '../map/MapBuilder';
+import { env, fogFor, skyFor } from './environment';
+import { WeatherFx } from '../effects/Weather';
 import { getMap } from '../map/maps';
 import type { PickupType, SpawnPoint } from '../map/MapTypes';
 import { BattleRoyale } from '../modes/BattleRoyale';
@@ -104,6 +106,30 @@ export class Match {
   private radarVisible = new Set<string>();
   private _targets: Damageable[] = [];
   breakables!: Breakables;
+  private weatherFx: WeatherFx;
+  /** Your flashlight (L), on by default at night. */
+  private flashlight: THREE.SpotLight;
+
+  /**
+   * Things that follow the camera each frame: the flashlight (L toggles it)
+   * and the rain or snow around you.
+   */
+  updateView(dt: number, camera: THREE.Camera, canToggle: boolean): void {
+    if (canToggle && this.d.input.wasPressed('KeyL')) {
+      env.flashlight = !env.flashlight;
+      audio.play('ui_click', { volume: 0.5 });
+    }
+    const on = env.flashlight && this.player.isAlive();
+    this.flashlight.intensity = on ? (env.night ? 60 : 25) : 0;
+    if (on) {
+      camera.getWorldPosition(this.flashlight.position);
+      const dir = camera.getWorldDirection(new THREE.Vector3());
+      // Held a little to the right and below the eyes, like a light on the gun.
+      this.flashlight.position.addScaledVector(new THREE.Vector3(-dir.z, 0, dir.x).normalize(), 0.15).y -= 0.12;
+      this.flashlight.target.position.copy(this.flashlight.position).addScaledVector(dir, 10);
+    }
+    this.weatherFx.update(dt, camera);
+  }
   knives!: Knives;
   /** Killstreak rewards (null in modes without them). */
   killstreaks: Killstreaks | null = null;
@@ -186,7 +212,20 @@ export class Match {
   ) {
     const { hud } = d;
     resetRules();
-    this.map = buildMap(getMap(config.map), this.scene);
+    // Time of day and weather (from the match setup).
+    env.night = !!config.night;
+    env.weather = config.weather ?? 'clear';
+    env.flashlight = env.night;
+    env.playerName = 'You';
+    const mapDef = getMap(config.map);
+    const plain = !config.night && env.weather === 'clear';
+    this.map = buildMap(mapDef, this.scene, plain ? {} : {
+      sky: skyFor(mapDef.sky ?? defaultSky(mapDef), env.night, env.weather),
+      fog: fogFor(mapDef.fogNear, mapDef.fogFar, env.night, env.weather),
+    });
+    this.weatherFx = new WeatherFx(this.scene, this.map.world, env.weather, this.map.playBounds.max.y);
+    this.flashlight = new THREE.SpotLight(0xfff2dc, 0, 40, 0.42, 0.55, 1.4);
+    this.scene.add(this.flashlight, this.flashlight.target);
     this.controller = new PlayerController(this.map.world, d.camera);
     this.player = new Player(this.controller);
     this.effects = new Effects(this.scene);
@@ -408,6 +447,8 @@ export class Match {
       () => this.rewards.dispose(),
       () => this.grenades.dispose(),
       () => this.breakables.dispose(),
+      () => this.weatherFx.dispose(),
+      () => env.reset(),
       () => this.knives.dispose(),
       () => this.killstreaks?.dispose(),
       () => this.killcam.dispose(),

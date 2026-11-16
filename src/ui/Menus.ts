@@ -300,6 +300,15 @@ export class Menus {
     diffWrap.appendChild(diffInfo);
     refresh();
 
+    // Time of day and weather.
+    const tw = div('field-pair', p);
+    const time = div('pair-item', tw);
+    div('section-title', time).textContent = 'Time';
+    segmented(div('menu-control', time), [['day', 'Day'], ['night', 'Night']], c.night ? 'night' : 'day', (v) => (c.night = v === 'night'));
+    const weather = div('pair-item', tw);
+    div('section-title', weather).textContent = 'Weather';
+    segmented(div('menu-control', weather), [['clear', 'Clear'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog']], c.weather ?? 'clear', (v) => (c.weather = v as MatchConfig['weather']));
+
     const pair = div('field-pair', p);
     const bots = div('pair-item', pair);
     const team = TEAM_MODES.includes(c.mode);

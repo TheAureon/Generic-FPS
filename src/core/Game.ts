@@ -326,6 +326,7 @@ export class Game {
     this.wantPhoto = false;
     if (this.photo) {
       this.photo.update(dt, this.input);
+      m.updateView(dt, this.camera, false);
       this.viewmodel.visible = false;
       m.map.updateShadows(this.camera.position);
       audio.updateListener(this.camera);
@@ -344,6 +345,7 @@ export class Game {
       m.update(dt);
     }
     m.controller.updateCamera();
+    m.updateView(dt, this.camera, playing);
     m.map.updateShadows(this.camera.position);
     // Weapons after the camera moves, so shots go exactly where you see.
     m.weapons.update(playing ? dt : 0, this.input, playing && alive);
