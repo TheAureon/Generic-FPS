@@ -91,6 +91,8 @@ Chrome is recommended. Safari and Firefox also work.
 | T                   | Throw a knife                                 |
 | Z                   | Throw a flashbang                             |
 | H                   | Throw a smoke grenade                         |
+| I                   | Inspect your gun (show it off, camo and all)  |
+| P                   | Photo mode (also in the pause menu)           |
 | V                   | Slash with the katana (any time, whatever gun you're holding) |
 | Mouse wheel         | Next / previous weapon                        |
 | E                   | Switch back to the last weapon                |
@@ -224,6 +226,13 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 - **Smoke grenade (H)**: pours out a thick cloud about 9 m across that lasts 14 seconds. Bots can't see through it (bullets still go through).
 
 Settings are in `TACTICAL` in `src/config.ts`. Modes without grenades don't give flashbangs or smoke either.
+
+**Weapon inspect and photo mode**: press **I** to turn your gun over and look at both sides (anything else you do stops it). Press **P** during a match for photo mode. The match freezes, the HUD and your gun disappear, and you fly a free camera:
+- **WASD** to fly and the mouse to look
+- **Space** / **C** to go up / down, **Shift** to go faster
+- the mouse **wheel** to zoom, **Q** / **E** to tilt
+- **Enter** saves the picture as a PNG to your downloads
+- **P** takes you back to the fight
 
 **Kill-cam**: when a bot kills you, the last two seconds or so before you died play back from its eyes while you wait to respawn. You see where it was, what it saw and its shots. Turn it off with `KILLCAM.enabled` in `src/config.ts`.
 

@@ -63,16 +63,22 @@ export class PhotoMode {
   /** Save what's on screen as a picture (call right after drawing the frame). */
   saveShot(canvas: HTMLCanvasElement): void {
     this.wantShot = false;
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      const d = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      a.download = `generic-fps-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    }, 'image/png');
+    // Read the picture right away, while the frame just drawn is still there.
+    let url: string;
+    try {
+      url = canvas.toDataURL('image/png');
+    } catch {
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = url;
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    a.download = `generic-fps-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`;
+    // (Some browsers only download from a link that's on the page.)
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     // A quick flash so you know it was taken.
     this.hint.classList.remove('snap');
     void this.hint.offsetWidth;
