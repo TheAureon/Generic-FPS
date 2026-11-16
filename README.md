@@ -228,6 +228,10 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 
 Settings are in `TACTICAL` in `src/config.ts`. Modes without grenades don't give flashbangs or smoke either.
 
+**Rival bots**: each of the twelve bots is a character with a name, a style and a favourite gun. For example Viper the Sniper hangs back, Hammer the Brawler charges in with a shotgun, and Ghost the Flanker sneaks around with an SMG. They say things when they get you, and sometimes when you get them.
+
+They also remember you. Your record against each one is saved, and you can see it under **Career → Rivals**. A bot that keeps beating you becomes your **nemesis**: you're warned when they're in a match, and taking them down is worth +150. One you keep beating becomes **your prey**. Practice difficulties don't count. Their personalities and lines are in `RIVALS` in `src/config.ts`.
+
 **Night and weather**: the match setup has **Time** (Day or Night) and **Weather** (Clear, Rain, Snow or Fog) for every map.
 - **Night**: the sky goes dark, moonlight is dim and the map's lamps light things up. Your flashlight (**L**) is on by default. It lights up what's in front of you, but bots can spot you from much further away while it's on.
 - **Rain**: grey skies and a steady hiss.
