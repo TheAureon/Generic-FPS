@@ -30,7 +30,7 @@ export class WeatherFx {
   ) {
     if (kind !== 'rain' && kind !== 'snow') return;
     const rain = kind === 'rain';
-    this.count = rain ? 1800 : 1400;
+    this.count = rain ? 2200 : 3200;
     const geo = new THREE.BufferGeometry();
     // Rain: a short streak per drop (2 points); snow: one flake (1 point).
     this.pos = new Float32Array(this.count * (rain ? 6 : 3));
@@ -40,7 +40,7 @@ export class WeatherFx {
     if (rain) {
       this.points = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xaab8c8, transparent: true, opacity: 0.45, fog: true }));
     } else {
-      this.points = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.07, transparent: true, opacity: 0.9, map: flakeTexture(), depthWrite: false, fog: true }));
+      this.points = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.14, transparent: true, opacity: 0.95, map: flakeTexture(), depthWrite: false, fog: true }));
     }
     this.points.frustumCulled = false;
     scene.add(this.points);
@@ -63,7 +63,7 @@ export class WeatherFx {
     const rain = this.kind === 'rain';
     const x = this.center.x + (Math.random() - 0.5) * AREA;
     const z = this.center.z + (Math.random() - 0.5) * AREA;
-    const y = anywhere ? this.center.y - 6 + Math.random() * 26 : this.center.y + 14 + Math.random() * 6;
+    const y = anywhere ? this.center.y - 4 + Math.random() * (rain ? 24 : 16) : this.center.y + (rain ? 14 : 10) + Math.random() * 5;
     const v = this.vel;
     v[i * 3] = rain ? 0.6 : (Math.random() - 0.5) * 0.6;
     v[i * 3 + 1] = rain ? -(16 + Math.random() * 4) : -(1 + Math.random() * 0.6);

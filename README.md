@@ -93,6 +93,7 @@ Chrome is recommended. Safari and Firefox also work.
 | H                   | Throw a smoke grenade                         |
 | I                   | Inspect your gun (show it off, camo and all)  |
 | P                   | Photo mode (also in the pause menu)           |
+| L                   | Flashlight on / off                           |
 | V                   | Slash with the katana (any time, whatever gun you're holding) |
 | Mouse wheel         | Next / previous weapon                        |
 | E                   | Switch back to the last weapon                |
@@ -226,6 +227,14 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 - **Smoke grenade (H)**: pours out a thick cloud about 9 m across that lasts 14 seconds. Bots can't see through it (bullets still go through).
 
 Settings are in `TACTICAL` in `src/config.ts`. Modes without grenades don't give flashbangs or smoke either.
+
+**Night and weather**: the match setup has **Time** (Day or Night) and **Weather** (Clear, Rain, Snow or Fog) for every map.
+- **Night**: the sky goes dark, moonlight is dim and the map's lamps light things up. Your flashlight (**L**) is on by default. It lights up what's in front of you, but bots can spot you from much further away while it's on.
+- **Rain**: grey skies and a steady hiss.
+- **Snow**: drifting flakes and a pale sky.
+- **Fog**: you can barely see 30 m.
+
+Rain and snow don't fall indoors. The dark and the weather also cut how far bots can see (fog the most), which makes sneaking up on them easier.
 
 **Weapon inspect and photo mode**: press **I** to turn your gun over and look at both sides (anything else you do stops it). Press **P** during a match for photo mode. The match freezes, the HUD and your gun disappear, and you fly a free camera:
 - **WASD** to fly and the mouse to look
