@@ -64,6 +64,8 @@ export class Hud {
   private streakRow: HTMLDivElement;
   private killcamLabel!: HTMLDivElement;
   private chatEl!: HTMLDivElement;
+  private squadEl!: HTMLDivElement;
+  private squadKey = '';
   private streakKey = '';
   private reloadFill: HTMLDivElement;
   private slots = new Map<WeaponId, HTMLDivElement>();
@@ -190,6 +192,7 @@ export class Hud {
     this.deathScreen = el('div', 'death-screen', this.root);
     this.killcamLabel = el('div', 'killcam-label', this.root);
     this.chatEl = el('div', 'chat', this.root);
+    this.squadEl = el('div', 'squad-order', this.root);
     el('div', 'death-label', this.deathScreen).textContent = 'Eliminated';
     this.deathText = el('div', 'death-title', this.deathScreen);
     const timer = el('div', 'death-countdown', this.deathScreen);
@@ -418,6 +421,15 @@ export class Hud {
     void w.offsetWidth;
     w.style.transition = `opacity ${seconds.toFixed(2)}s cubic-bezier(0.7, 0, 0.9, 0.6)`;
     w.style.opacity = '0';
+  }
+
+  /** Your squad's current order (team modes), or null to hide it. */
+  setSquad(order: 'free' | 'follow' | 'hold' | 'push' | null): void {
+    const key = order ?? '';
+    if (key === this.squadKey) return;
+    this.squadKey = key;
+    this.squadEl.style.display = order ? '' : 'none';
+    if (order) this.squadEl.innerHTML = `<span class="key">J</span> Squad: <b>${{ free: 'Free', follow: 'Follow me', hold: 'Hold', push: 'Push' }[order]}</b>`;
   }
 
   /** A line from a bot (taunts): fades out after a few seconds. */

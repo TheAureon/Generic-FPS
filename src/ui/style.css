@@ -2177,7 +2177,7 @@ body {
 
 /* Bots talking (rivals' taunts), above your health */
 .chat {
-  position: absolute; left: 24px; bottom: calc(24px + 175px * var(--hud-scale, 1));
+  position: absolute; left: 24px; bottom: calc(30px + 182px * var(--hud-scale, 1));
   display: flex; flex-direction: column; gap: 3px; max-width: 420px; pointer-events: none;
 }
 .chat-line {
@@ -2187,6 +2187,15 @@ body {
 .chat-line.out { opacity: 0; }
 .chat-name { font-weight: 700; }
 @keyframes chat-in { from { transform: translateX(-12px); opacity: 0; } }
+
+/* Squad orders (team modes), just above your health */
+.squad-order {
+  position: absolute; left: 24px; bottom: calc(30px + 150px * var(--hud-scale, 1));
+  padding: 3px 10px; border-radius: 5px; font-size: 12px; letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.75); background: rgba(10, 12, 17, 0.5);
+}
+.squad-order b { color: var(--gold); }
+.squad-order .key { display: inline-block; min-width: 14px; margin-right: 4px; border-radius: 3px; text-align: center; font-weight: 700; background: rgba(255, 255, 255, 0.12); }
 
 /* Photo mode */
 .photo-hint {

@@ -22,7 +22,7 @@ import { BattleRoyale } from '../modes/BattleRoyale';
 import { CaptureTheFlag } from '../modes/CaptureTheFlag';
 import { Control } from '../modes/Control';
 import { Deathmatch } from '../modes/Deathmatch';
-import type { Combatant, GameMode, Marker, MatchConfig, ModeContext } from '../modes/GameMode';
+import type { BotObjective, Combatant, GameMode, Marker, MatchConfig, ModeContext } from '../modes/GameMode';
 import { KingOfTheHill } from '../modes/KingOfTheHill';
 import { teamSides } from '../modes/objectives';
 import { Survival } from '../modes/Survival';
@@ -107,6 +107,47 @@ export class Match {
   private radarVisible = new Set<string>();
   private _targets: Damageable[] = [];
   private nemesisAnnounced = false;
+
+  /** Orders for your bot teammates (team modes, J cycles them). */
+  squadOrder: 'free' | 'follow' | 'hold' | 'push' = 'free';
+  private holdPos = new THREE.Vector3();
+
+  /** J: cycle your squad's orders (Follow me → Hold there → Push → back to normal). */
+  private updateSquad(): void {
+    if (!this.mode.teams || !this.d.input.wasPressed('KeyJ') || !this.player.isAlive()) return;
+    const next = { free: 'follow', follow: 'hold', hold: 'push', push: 'free' } as const;
+    this.squadOrder = next[this.squadOrder];
+    if (this.squadOrder === 'hold') {
+      // Hold where you're looking (or where you stand).
+      const cam = this.d.camera;
+      const o = cam.getWorldPosition(new THREE.Vector3()), dir = cam.getWorldDirection(new THREE.Vector3());
+      const hit = this.map.world.raycast(o.x, o.y, o.z, dir.x, dir.y, dir.z, 40);
+      const at = hit ? o.clone().addScaledVector(dir, Math.max(0, hit.distance - 0.6)) : this.player.position.clone();
+      const node = this.bots.nav.nearestNode(at);
+      this.holdPos.set(node?.x ?? at.x, node?.y ?? at.y, node?.z ?? at.z);
+    }
+    const line = { follow: 'Squad, follow me!', hold: 'Hold that position!', push: 'Push! Go get them!', free: 'As you were.' }[this.squadOrder];
+    this.d.hud.chat('You', line, TEAMS.css[this.player.team ?? 0]);
+    audio.play('objective_info', { volume: 0.6 });
+    // A teammate acknowledges.
+    const mate = this.bots.bots.find((b) => b.isAlive() && b.team === this.player.team);
+    if (mate) setTimeout(() => this.d.hud.chat(mate.name, ['On it.', 'Copy that.', 'Roger.', 'Moving.'][Math.floor(Math.random() * 4)], TEAMS.css[mate.team!]), 700);
+  }
+
+  /** Where a teammate should be under your current order (null = do what the mode wants). */
+  private squadObjective(bot: BotManager['bots'][number]): BotObjective | null {
+    if (!this.mode.teams || bot.team !== this.player.team || this.squadOrder === 'free') return null;
+    if (this.squadOrder === 'follow') return this.player.isAlive() ? { pos: this.player.position, radius: 5, run: true } : null;
+    if (this.squadOrder === 'hold') return { pos: this.holdPos, radius: 3 };
+    // Push: at the enemy nearest to you.
+    let best: THREE.Vector3 | null = null, bestD = Infinity;
+    for (const e of this.bots.bots) {
+      if (!e.isAlive() || e.team === this.player.team) continue;
+      const d = e.position.distanceTo(this.player.position);
+      if (d < bestD) [best, bestD] = [e.position, d];
+    }
+    return best ? { pos: best, radius: 6, run: true, urgent: true } : null;
+  }
 
   /**
    * Named bots remember you: your record against each is saved, they taunt
@@ -364,7 +405,8 @@ export class Match {
       autoRespawn: this.mode.botsRespawn,
       teams: this.mode.teams,
       sides: this.sides,
-      objective: this.mode.botObjective ? (bot) => this.mode.botObjective!(bot) : undefined,
+      // Your squad's orders (team modes) come first for your teammates; otherwise the mode's objective.
+      objective: (bot) => this.squadObjective(bot) ?? this.mode.botObjective?.(bot) ?? null,
       findHealth: (from) => this.pickups.nearest('health', from, 40),
       onBulletPath: (o, dir, dist) => this.breakables?.shot(o, dir, dist),
       findAmmo: (from, maxDist, includeTaken) => this.pickups.nearest('ammo', from, maxDist, includeTaken),
@@ -622,6 +664,8 @@ export class Match {
     this.grenades.update(dt);
     this.breakables.update(dt);
     this.announceNemesis();
+    this.updateSquad();
+    this.d.hud.setSquad(this.mode.teams ? this.squadOrder : null);
     this.knives.update(dt);
     if (this.player.isAlive() && this.weapons.knives < TACTICAL.knife.perLife) {
       const n = this.knives.collect(this.player.name, this.player.position, this.player.height);
@@ -719,6 +763,7 @@ export class Match {
       if (fired || this.radarVisible.has(b.name) || this.killstreaks?.uavActive) blips.push({ x: b.position.x, y: b.position.y, z: b.position.z, kind: 'enemy' });
     }
     // Hills, zones, flags.
+    if (this.squadOrder === 'hold' && this.mode.teams) blips.push({ x: this.holdPos.x, y: this.holdPos.y, z: this.holdPos.z, kind: 'mark', color: TEAMS.css[this.player.team ?? 0], label: 'H' });
     for (const mk of this.mode.markers?.() ?? []) blips.push({ x: mk.x, y: mk.y, z: mk.z, kind: 'mark', color: mk.color, label: mk.label, radius: mk.radius });
     return blips;
   }
@@ -726,6 +771,7 @@ export class Match {
   /** Things to point out on screen: objectives, and teammates (team modes). */
   screenMarkers(): (Marker & { ally?: boolean })[] {
     const out: (Marker & { ally?: boolean })[] = (this.mode.markers?.() ?? []).filter((m) => m.label);
+    if (this.squadOrder === 'hold' && this.mode.teams) out.push({ x: this.holdPos.x, y: this.holdPos.y + 0.3, z: this.holdPos.z, label: 'HOLD', color: TEAMS.css[this.player.team ?? 0] });
     // Warn about live grenades close by.
     for (const g of this.grenades.positions()) {
       if (g.distanceTo(this.player.position) < GRENADES.radius + 4) out.push({ x: g.x, y: g.y - 0.9, z: g.z, label: '!', color: '#ff5040' });
