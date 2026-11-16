@@ -2,7 +2,7 @@ import { DIFFICULTIES, MATCH, MODES, PARTY_MODES, REWARDS } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
-import { modeLimit, type MatchConfig, type MatchResult, type ModeId, type ScoreRow } from '../modes/GameMode';
+import { KILL_LIMIT_MODES, modeLimit, type MatchConfig, type MatchResult, type ModeId, type ScoreRow } from '../modes/GameMode';
 import { dailyCard, matchReport, playerCard, type EndReport } from './Career';
 import { buildCareer, type CareerTab } from './CareerScreen';
 import { scoreTableHtml, type ScoreExtras } from './Hud';
@@ -23,8 +23,8 @@ type Screen = 'title' | 'main' | 'controls' | 'setup' | 'pause' | 'settings' | '
 const CONFIG_KEY = 'generic-fps-match';
 
 /** The match menu's mode cards: name, description, icon, and what the "to win" setting means. */
-type ModeGroup = 'classic' | 'party' | 'objective' | 'coop';
-const MODE_GROUPS: [ModeGroup, string][] = [['classic', 'Classic'], ['party', 'Party'], ['objective', 'Objective'], ['coop', 'Co-op & solo']];
+type ModeGroup = 'classic' | 'party' | 'objective' | 'coop' | 'playlists';
+const MODE_GROUPS: [ModeGroup, string][] = [['classic', 'Classic'], ['party', 'Party'], ['objective', 'Objective'], ['coop', 'Co-op & solo'], ['playlists', 'Playlists']];
 const MODE_LIST: { id: ModeId; group: ModeGroup; name: string; info: string; icon: keyof typeof ICONS; limit?: string }[] = [
   { id: 'deathmatch', group: 'classic', name: 'Free for All', info: 'Everyone for themselves. First to the kill limit wins. Everyone respawns.', icon: 'crosshair', limit: 'Kill limit' },
   { id: 'tdm', group: 'classic', name: 'Team Deathmatch', info: 'You and your bots (Blue) against Red. First team to the kill limit wins.', icon: 'team', limit: 'Team kills' },
@@ -46,6 +46,9 @@ const MODE_LIST: { id: ModeId; group: ModeGroup; name: string; info: string; ico
   { id: 'snd', group: 'objective', name: 'Search & Destroy', info: 'Teams, rounds, one life. Plant the bomb at A or B, or stop the plant and defuse. Sides swap each round.', icon: 'bomb', limit: 'Rounds to win' },
   { id: 'escort', group: 'objective', name: 'Escort', info: 'Teams. Push the cart along its route to the enemy side before time runs out. Checkpoints add time.', icon: 'cart', limit: 'Minutes' },
   { id: 'prophunt', group: 'party', name: 'Prop Hunt', info: 'Round 1: hide as a prop while the bots seek. Round 2: the bots hide among decoy props and you hunt them.', icon: 'box' },
+  { id: 'snipers', group: 'playlists', name: 'Snipers Only', info: 'Free for all with sniper rifles only. Patience and headshots.', icon: 'scope', limit: 'Kill limit' },
+  { id: 'shotguns', group: 'playlists', name: 'Shotguns Only', info: 'Free for all with shotguns only. Close and chaotic.', icon: 'shells', limit: 'Kill limit' },
+  { id: 'blades', group: 'playlists', name: 'Blades Only', info: 'No guns: katanas and throwing knives. The bots charge with blades, and one hit kills either way.', icon: 'sword', limit: 'Kill limit' },
   { id: 'juggernaut', group: 'party', name: 'Juggernaut', info: 'One armored Juggernaut with an LMG; kill it to become it. Seconds as the Juggernaut win.', icon: 'jugg', limit: 'Seconds to win' },
 ];
 const TEAM_MODES: ModeId[] = ['tdm', 'coh', 'ctf', 'control', 'killconfirmed', 'hardpoint', 'snd', 'escort'];
@@ -324,9 +327,9 @@ export class Menus {
       const kl = div('pair-item', pair);
       div('section-title', kl).textContent = mode.limit;
       const limits = { ...MODES, ...PARTY_MODES } as Record<string, { limits?: number[] }>;
-      const choices = c.mode === 'deathmatch' ? MATCH.killLimits : limits[c.mode]?.limits ?? [];
+      const choices = KILL_LIMIT_MODES.includes(c.mode) ? MATCH.killLimits : limits[c.mode]?.limits ?? [];
       segmented(div('menu-control', kl), choices.map((k) => [String(k), String(k)] as [string, string]), String(modeLimit(c)), (v) => {
-        if (c.mode === 'deathmatch') c.killLimit = Number(v);
+        if (KILL_LIMIT_MODES.includes(c.mode)) c.killLimit = Number(v);
         else c.limits = { ...c.limits, [c.mode]: Number(v) };
       });
     }
@@ -425,6 +428,13 @@ export class Menus {
 
 /** Small line icons for the menus. */
 const ICONS = {
+  scope: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/></svg>',
+  shells: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="6" width="5" height="14" rx="1"/><rect x="15" y="6" width="5" height="14" rx="1"/><path d="M4 10h5M15 10h5"/></svg>',
+  sword: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 4L9 15M6 12l6 6M4 20l3-3"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M12 13v4M10 15h4"/></svg>',
+  titan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 21v-6l-2-3 3-7h10l3 7-2 3v6"/><path d="M9 9h2M13 9h2"/></svg>',
+  fort: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 21V9h3v3h3V9h6v3h3V9h3v12z"/><path d="M10 21v-5h4v5"/></svg>',
+  stopwatch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="14" r="7"/><path d="M12 14l3-3M10 3h4M12 3v4"/></svg>',
   team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 20c0-4 3-6 6-6s6 2 6 6M12 20c0-4 2-6 4-6 3 0 6 2 6 6"/></svg>',
   crown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 18h18l-2-11-5 5-2-7-2 7-5-5z"/></svg>',
   hill: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 20l7-10 4 5 3-3 6 8z"/><path d="M9 10V3l4 2-4 2"/></svg>',

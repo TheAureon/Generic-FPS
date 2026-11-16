@@ -15,7 +15,8 @@ export type ModeId =
   | 'deathmatch' | 'tdm' | 'koh' | 'coh' | 'ctf' | 'control' | 'br' | 'survival'
   | 'gungame' | 'killconfirmed' | 'infected' | 'oitc' | 'headhunter' | 'juggernaut'
   | 'hardpoint' | 'snd' | 'escort' | 'prophunt'
-  | 'zombies' | 'ladder';
+  | 'zombies' | 'ladder'
+  | 'snipers' | 'shotguns' | 'blades';
 
 /** Everything chosen in the match menu. */
 export interface MatchConfig {
@@ -34,8 +35,11 @@ export interface MatchConfig {
 }
 
 /** What it takes to win this mode (from the menu choice, or the mode's default). */
+/** Modes won by reaching the Free for All kill limit. */
+export const KILL_LIMIT_MODES: ModeId[] = ['deathmatch', 'snipers', 'shotguns', 'blades'];
+
 export function modeLimit(cfg: MatchConfig): number {
-  if (cfg.mode === 'deathmatch') return cfg.killLimit;
+  if (KILL_LIMIT_MODES.includes(cfg.mode)) return cfg.killLimit;
   const m = (MODES[cfg.mode as keyof typeof MODES] ?? PARTY_MODES[cfg.mode as keyof typeof PARTY_MODES]) as { defaultLimit?: number } | undefined;
   return cfg.limits?.[cfg.mode] ?? m?.defaultLimit ?? 0;
 }

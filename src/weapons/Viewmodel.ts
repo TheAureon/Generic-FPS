@@ -77,6 +77,8 @@ export class Viewmodel {
   private casings: Casing[] = [];
   private nextCasing = 0;
   visible = true;
+  /** No gun in your hands (Blades Only): only the katana shows. */
+  gunHidden = false;
   private hemi = new THREE.HemisphereLight(0xdde8ff, 0x4a4036, 1.4);
   private sun = new THREE.DirectionalLight(0xfff1dd, 1.6);
   /** Extra light matching nearby lamps (starts dark). */
@@ -414,6 +416,7 @@ export class Viewmodel {
       model.rotation.z += adj.turn.z * hip;
     }
     this.arms.update(dt, model, s.reloadProgress, pump, this.bolt);
+    this.rig.visible = !this.gunHidden;
     // Minigun barrels turn (fast when spun up).
     const spinner = model.getObjectByName('spin');
     if (spinner) spinner.rotation.z += (s.spin ?? 0) * dt * 40;

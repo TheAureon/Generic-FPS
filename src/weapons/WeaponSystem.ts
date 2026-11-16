@@ -194,6 +194,8 @@ export class WeaponSystem {
 
   /** Guns put away (Prop Hunt while hiding): no gun on screen, no shooting. */
   holstered = false;
+  /** Blades Only: no guns, just the katana and throwing knives. */
+  meleeOnly = false;
   private allowed: Set<WeaponId> | null = null;
   private ammoOverride: { ammo: number; reserve: number } | null = null;
   private grenadeOverride: number | null = null;
@@ -214,7 +216,10 @@ export class WeaponSystem {
     const w = this.current;
     const { player } = this.d;
 
-    if (canAct && !this.holstered) this.handleInput(dt, input);
+    if (canAct && !this.holstered) {
+      if (this.meleeOnly) this.handleMeleeOnly(input);
+      else this.handleInput(dt, input);
+    }
     if (this.holstered) this.ads = 0;
 
     // ---- Switching ---------------------------------------------------------
@@ -270,6 +275,7 @@ export class WeaponSystem {
     // ---- Viewmodel ---------------------------------------------------------
     this.sprintBlend += ((player.sprinting ? 1 : 0) - this.sprintBlend) * Math.min(1, dt * 8);
     this.viewmodel.visible = !this.scoped && !this.holstered;
+    this.viewmodel.gunHidden = this.meleeOnly;
     this.viewmodel.update(dt, {
       ads: this.ads,
       sprint: this.sprintBlend,
@@ -389,6 +395,15 @@ export class WeaponSystem {
       if (w.startReload()) audio.play('reload_start');
       else audio.play('dry_fire');
     }
+  }
+
+  /** Blades Only: just the katana (slash and block) and throwing knives. */
+  private handleMeleeOnly(input: Input): void {
+    this.ads = 0;
+    if (input.wasPressed('KeyV') || input.wasMousePressed(0)) {
+      if (this.meleeT >= MELEE.swingTime + MELEE.cooldown) this.slash();
+    }
+    if (input.wasPressed('KeyT') && !this.slashing && this.knives > 0 && this.knifeCooldown <= 0 && this.d.throwKnife) this.throwKnifeNow();
   }
 
   private slash(): void {

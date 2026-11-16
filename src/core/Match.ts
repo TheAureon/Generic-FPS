@@ -37,6 +37,7 @@ import { Hardpoint } from '../modes/Hardpoint';
 import { SearchAndDestroy } from '../modes/SearchAndDestroy';
 import { Escort } from '../modes/Escort';
 import { PropHunt } from '../modes/PropHunt';
+import { OneWeapon } from '../modes/OneWeapon';
 import { Zombies } from '../modes/Zombies';
 import { ArenaLadder } from '../modes/ArenaLadder';
 import { Pickups, type Collector } from '../pickups/Pickups';
@@ -823,6 +824,9 @@ function createMode(ctx: ModeContext): GameMode {
     case 'prophunt': return new PropHunt(ctx);
     case 'zombies': return new Zombies(ctx);
     case 'ladder': return new ArenaLadder(ctx);
+    case 'snipers':
+    case 'shotguns':
+    case 'blades': return new OneWeapon(ctx, ctx.config.mode);
     default: return new Deathmatch(ctx);
   }
 }
