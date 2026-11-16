@@ -525,6 +525,27 @@ export const BOTS = {
   names: ['Viper', 'Ghost', 'Hammer', 'Rook', 'Blaze', 'Echo', 'Nova', 'Tank', 'Jinx', 'Raven', 'Moss', 'Flint'],
 };
 
+/**
+ * The named bots' personalities: their favorite gun (when the mode lets
+ * them choose), how pushy they are compared to the difficulty's normal
+ * (`aggression`, -0.5 to +0.5), a title, and what they say when they get
+ * you (`taunts`) or you get them (`groans`).
+ */
+export const RIVALS: Record<string, { title: string; gun: WeaponId; aggression: number; taunts: string[]; groans: string[] }> = {
+  Viper: { title: 'the Sniper', gun: 'sniper', aggression: -0.35, taunts: ['Didn’t see me, did you?', 'One shot.', 'Patience wins.'], groans: ['Lucky.', 'I’ll find a better spot.'] },
+  Ghost: { title: 'the Flanker', gun: 'smg', aggression: 0.2, taunts: ['Behind you.', 'Boo.', 'Always check your back.'], groans: ['You heard me?', 'Next time.'] },
+  Hammer: { title: 'the Brawler', gun: 'shotgun', aggression: 0.5, taunts: ['Up close and personal!', 'BOOM!', 'Get wrecked.'], groans: ['Ow!', 'Cheap shot!'] },
+  Rook: { title: 'the Wall', gun: 'lmg', aggression: -0.25, taunts: ['This lane is mine.', 'Nobody gets past.'], groans: ['Huh.', 'Fine. Fine.'] },
+  Blaze: { title: 'the Hothead', gun: 'rifle', aggression: 0.45, taunts: ['Too slow!', 'Is that all?', 'Easy.'], groans: ['Rematch. Now.', 'That doesn’t count!'] },
+  Echo: { title: 'the Duelist', gun: 'revolver', aggression: 0.1, taunts: ['A clean duel.', 'Draw!'], groans: ['Well played.', 'Respect.'] },
+  Nova: { title: 'the Veteran', gun: 'rifle', aggression: 0, taunts: ['Textbook.', 'Stay sharp, rookie.'], groans: ['Good shot.', 'Noted.'] },
+  Tank: { title: 'the Heavy', gun: 'lmg', aggression: 0.15, taunts: ['Bullets don’t scare me.', 'Keep firing, it tickles.'], groans: ['Huh. You got me.', 'Bring a bigger gun next time.'] },
+  Jinx: { title: 'the Trickster', gun: 'smg', aggression: 0.3, taunts: ['Hehe.', 'Gotcha!', 'Bet you didn’t expect that.'], groans: ['No fair!', 'Ugh!'] },
+  Raven: { title: 'the Hunter', gun: 'sniper', aggression: -0.2, taunts: ['Found you.', 'Nowhere to hide.'], groans: ['Hm.', 'You’re learning.'] },
+  Moss: { title: 'the Ambusher', gun: 'shotgun', aggression: -0.3, taunts: ['Should’ve checked that corner.', 'Surprise.'], groans: ['Dang.', 'Spotted.'] },
+  Flint: { title: 'the Soldier', gun: 'rifle', aggression: 0.05, taunts: ['Target down.', 'Next.'], groans: ['Man down.', 'Regrouping.'] },
+};
+
 export type Difficulty = 'novice' | 'beginner' | 'easy' | 'medium' | 'advanced' | 'hard' | 'master' | 'insane';
 
 /** The difficulty levels in order (easiest first), with their names and a short description for the menu. */

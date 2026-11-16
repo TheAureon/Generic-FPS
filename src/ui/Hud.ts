@@ -63,6 +63,7 @@ export class Hud {
   private lastEquip = '';
   private streakRow: HTMLDivElement;
   private killcamLabel!: HTMLDivElement;
+  private chatEl!: HTMLDivElement;
   private streakKey = '';
   private reloadFill: HTMLDivElement;
   private slots = new Map<WeaponId, HTMLDivElement>();
@@ -188,6 +189,7 @@ export class Hud {
     // ---- Death screen with a countdown ring ----
     this.deathScreen = el('div', 'death-screen', this.root);
     this.killcamLabel = el('div', 'killcam-label', this.root);
+    this.chatEl = el('div', 'chat', this.root);
     el('div', 'death-label', this.deathScreen).textContent = 'Eliminated';
     this.deathText = el('div', 'death-title', this.deathScreen);
     const timer = el('div', 'death-countdown', this.deathScreen);
@@ -416,6 +418,15 @@ export class Hud {
     void w.offsetWidth;
     w.style.transition = `opacity ${seconds.toFixed(2)}s cubic-bezier(0.7, 0, 0.9, 0.6)`;
     w.style.opacity = '0';
+  }
+
+  /** A line from a bot (taunts): fades out after a few seconds. */
+  chat(name: string, text: string, color = '#ff8a7e'): void {
+    const line = el('div', 'chat-line', this.chatEl);
+    line.innerHTML = `<span class="chat-name" style="color:${color}">${esc(name)}:</span> ${esc(text)}`;
+    while (this.chatEl.children.length > 4) this.chatEl.firstElementChild!.remove();
+    setTimeout(() => line.classList.add('out'), 5000);
+    setTimeout(() => line.remove(), 5600);
   }
 
   /** The kill-cam banner (the killer's name), or null when no replay is showing. */

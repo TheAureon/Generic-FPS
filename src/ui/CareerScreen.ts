@@ -1,4 +1,5 @@
-import { REWARDS, WEAPONS } from '../config';
+import { REWARDS, RIVALS, WEAPONS } from '../config';
+import { rivals } from '../core/Rivals';
 import { audio } from '../audio/AudioEngine';
 import { camoTextures } from '../assets/camos';
 import { ACHIEVEMENT_XP, ACHIEVEMENTS, CAREER_MAPS, starCount } from '../core/Achievements';
@@ -27,7 +28,7 @@ export const EXTRA_TABS: [string, string, (p: HTMLElement, rebuild: () => void) 
 
 export function buildCareer(p: HTMLElement, tab: CareerTab, go: (tab: CareerTab) => void): void {
   const tabs = div('career-tabs', p);
-  const all: [string, string][] = [['armory', 'Armory'], ['look', 'Look'], ['profile', 'Profile'], ['medals', 'Medals'], ['achievements', 'Achievements'], ['records', 'Records'], ['challenges', 'Challenges'], ...EXTRA_TABS.map(([id, label]) => [id, label] as [string, string])];
+  const all: [string, string][] = [['armory', 'Armory'], ['look', 'Look'], ['profile', 'Profile'], ['medals', 'Medals'], ['achievements', 'Achievements'], ['records', 'Records'], ['rivals', 'Rivals'], ['challenges', 'Challenges'], ...EXTRA_TABS.map(([id, label]) => [id, label] as [string, string])];
   for (const [id, label] of all) {
     const b = document.createElement('button');
     b.className = `career-tab${id === tab ? ' active' : ''}`;
@@ -46,6 +47,7 @@ export function buildCareer(p: HTMLElement, tab: CareerTab, go: (tab: CareerTab)
   else if (tab === 'medals') medals(body);
   else if (tab === 'achievements') achievements(body);
   else if (tab === 'records') records(body);
+  else if (tab === 'rivals') rivalsTab(body);
   else if (tab === 'challenges') challenges(body);
   else EXTRA_TABS.find(([id]) => id === tab)?.[2](body, rebuild);
 }
@@ -191,6 +193,18 @@ function achievements(p: HTMLElement): void {
 }
 
 // ---- Records: personal bests, career totals, maps ---------------------------------------------------
+
+/** The named bots: who they are, and your record against each. */
+function rivalsTab(p: HTMLElement): void {
+  section(p, 'Rivals');
+  div('career-note', p).textContent = 'The bots remember you. Beat one again and again and they become your prey; let one beat you over and over and they become your nemesis (worth a bonus when you take them down).';
+  const table = div('map-table rivals-table', p);
+  table.innerHTML = `<div class="mt-row mt-head"><span>Bot</span><span>Style</span><span>You got them</span><span>They got you</span><span></span></div>` +
+    rivals.all().map(([name, r]) => {
+      const tag = rivals.isNemesis(name) ? '<span class="rival-tag nemesis">Nemesis</span>' : rivals.isPrey(name) ? '<span class="rival-tag prey">Your prey</span>' : '';
+      return `<div class="mt-row"><span><b>${name}</b></span><span>${RIVALS[name].title} · ${WEAPONS[RIVALS[name].gun].name}</span><span>${r.kills}</span><span>${r.deaths}</span><span>${tag}</span></div>`;
+    }).join('');
+}
 
 function records(p: HTMLElement): void {
   const c = progress.get(), b = c.bests;

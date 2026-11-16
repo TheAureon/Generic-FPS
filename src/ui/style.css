@@ -2175,6 +2175,19 @@ body {
 .grenade-chip { color: #d9e0c8; }
 .slots.equip { margin-top: -4px; }
 
+/* Bots talking (rivals' taunts), above your health */
+.chat {
+  position: absolute; left: 24px; bottom: calc(24px + 175px * var(--hud-scale, 1));
+  display: flex; flex-direction: column; gap: 3px; max-width: 420px; pointer-events: none;
+}
+.chat-line {
+  padding: 3px 10px; border-radius: 4px; font-size: 14px; color: #f2f2f2;
+  background: rgba(10, 12, 17, 0.55); transition: opacity 0.6s; animation: chat-in 0.2s ease-out;
+}
+.chat-line.out { opacity: 0; }
+.chat-name { font-weight: 700; }
+@keyframes chat-in { from { transform: translateX(-12px); opacity: 0; } }
+
 /* Photo mode */
 .photo-hint {
   position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
@@ -2566,3 +2579,9 @@ body {
 .hud.killcam .crosshair,
 .hud.killcam .markers { opacity: 0; transition: opacity 0.2s; }
 body:has(.hud.killcam) .minimap { opacity: 0; }
+
+/* Rivals (career) */
+.rivals-table .mt-row { grid-template-columns: 1fr 2fr 1fr 1fr 1.2fr; align-items: center; }
+.rival-tag { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.rival-tag.nemesis { color: #fff; background: rgba(200, 40, 30, 0.85); }
+.rival-tag.prey { color: #15171b; background: var(--gold); }

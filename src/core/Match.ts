@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOTS, CONFIG, GRENADES, PICKUPS, REWARDS, TACTICAL, TEAMS, WEAPONS, type DamageSource } from '../config';
+import { BOTS, CONFIG, GRENADES, PICKUPS, REWARDS, RIVALS, TACTICAL, TEAMS, WEAPONS, type DamageSource } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { music } from '../audio/Music';
 import { BotDebugView } from '../bots/BotDebugView';
@@ -11,6 +11,7 @@ import { Killstreaks } from './Killstreaks';
 import { Knives } from '../weapons/Knives';
 import { vision } from './vision';
 import { KillCam } from './KillCam';
+import { rivals } from './Rivals';
 import { currentQuality } from '../render/quality';
 import { buildMap, defaultSky, type BuiltMap } from '../map/MapBuilder';
 import { env, fogFor, skyFor } from './environment';
@@ -105,6 +106,51 @@ export class Match {
   private radarTimer = 0;
   private radarVisible = new Set<string>();
   private _targets: Damageable[] = [];
+  private nemesisAnnounced = false;
+
+  /**
+   * Named bots remember you: your record against each is saved, they taunt
+   * you when they get you (and grumble when you get them), and killing your
+   * nemesis (a bot that's beaten you far more than you've beaten it) is worth a bonus.
+   */
+  private onRivalKill(killer: string, victim: string): void {
+    // (Zombies are just zombies.)
+    if (this.config.mode === 'zombies') return;
+    const me = this.player.name;
+    const practice = REWARDS.xpMultiplier[this.config.difficulty] === 0;
+    const color = (name: string) => {
+      const b = this.bots.bots.find((x) => x.name === name);
+      return b?.team !== null && b?.team !== undefined ? TEAMS.css[b.team] : '#ff8a7e';
+    };
+    const say = (name: string, lines: string[], chance: number) => {
+      if (lines.length && Math.random() < chance) this.d.hud.chat(name, lines[Math.floor(Math.random() * lines.length)], color(name));
+    };
+    if (victim === me && RIVALS[killer]) {
+      const nemesis = rivals.isNemesis(killer);
+      if (!practice) rivals.add(killer, 'deaths');
+      say(killer, RIVALS[killer].taunts, nemesis ? 1 : 0.6);
+    } else if (killer === me && RIVALS[victim]) {
+      if (rivals.isNemesis(victim)) {
+        this.rewards.objective(`Took down your nemesis, ${victim}`, 150);
+        this.d.hud.chat(victim, 'You got lucky this time.', color(victim));
+      } else {
+        say(victim, RIVALS[victim].groans, 0.35);
+      }
+      if (!practice) rivals.add(victim, 'kills');
+    }
+  }
+
+  /** At the start: a heads-up if your nemesis is in this match. */
+  private announceNemesis(): void {
+    if (this.nemesisAnnounced || this.time < 2.5) return;
+    this.nemesisAnnounced = true;
+    if (this.config.mode === 'zombies') return;
+    const enemy = this.bots.bots.find((b) => (b.team === null || b.team !== this.player.team) && rivals.isNemesis(b.name));
+    if (!enemy) return;
+    const r = rivals.get(enemy.name);
+    this.d.hud.announce(`Nemesis: ${enemy.name}`, `${RIVALS[enemy.name].title} · they lead you ${r.deaths} – ${r.kills}. Take them down for a bonus.`, 3);
+    this.d.hud.chat(enemy.name, RIVALS[enemy.name].taunts[0], '#ff8a7e');
+  }
   breakables!: Breakables;
   private weatherFx: WeatherFx;
   /** Your flashlight (L), on by default at night. */
@@ -454,6 +500,7 @@ export class Match {
       () => this.killcam.dispose(),
       events.on('kill', (e) => {
         if (e.victim === this.player.name && this.bots.bots.some((b) => b.name === e.killer)) this.killcam.start(e.killer);
+        this.onRivalKill(e.killer, e.victim);
       }),
     );
 
@@ -574,6 +621,7 @@ export class Match {
     this.pickups.update(dt, this.collectors);
     this.grenades.update(dt);
     this.breakables.update(dt);
+    this.announceNemesis();
     this.knives.update(dt);
     if (this.player.isAlive() && this.weapons.knives < TACTICAL.knife.perLife) {
       const n = this.knives.collect(this.player.name, this.player.position, this.player.height);

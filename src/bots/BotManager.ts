@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOT_DIFFICULTY, BOTS, GRENADES, type Difficulty } from '../config';
+import { BOT_DIFFICULTY, BOTS, GRENADES, RIVALS, type Difficulty } from '../config';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { CharacterBody } from '../core/CharacterBody';
 import type { Damageable } from '../core/Hitbox';
@@ -159,7 +159,10 @@ export class BotManager {
         listener: this.d.player,
         sampleLight: this.d.map.sampleLampLight,
         onBulletPath: this.d.onBulletPath,
-      }, teamOf?.(idx) ?? null, BOTS.weapons[(idx + this.loadoutOffset) % BOTS.weapons.length]);
+      }, teamOf?.(idx) ?? null, RIVALS[name]?.gun ?? BOTS.weapons[(idx + this.loadoutOffset) % BOTS.weapons.length]);
+      // Their personality: some push hard, some hang back.
+      const persona = RIVALS[name];
+      if (persona) bot.skill = { ...bot.skill, aggression: Math.max(0, Math.min(1, bot.skill.aggression + persona.aggression)) };
       const objective = this.d.objective ? () => this.d.objective!(bot) : undefined;
       const brain = new BotBrain(bot, { world: this.world, nav: this.nav, getEnemies, findHealth: this.d.findHealth, findAmmo: this.d.findAmmo, objective });
       this.bots.push(bot);
