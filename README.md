@@ -141,6 +141,7 @@ Every mode has a 10-minute time limit (then the highest score wins). In team mod
 - **Battle Royale**: last one standing. Everyone has one life, and a safe zone (the blue wall) shrinks in four stages: outside it you lose health every second, more each stage. If you're eliminated you see where you placed.
 - **Survival**: waves of bots hunt you. Wave 1 has the number of bots you chose, and each wave adds one (up to 12). Bots get faster and more accurate each wave until wave 6. You have one life, and clearing a wave gives you back 30 health. Your score is how many waves you survive.
 - **Playlists** (their own tab in the match setup): Free for All with one weapon for everyone.
+  - **Daily Challenge**: one match a day with a twist, the same all day: the map, difficulty, time of day, weather and a special rule are picked from the date. Rules include pistols only, every hit kills, only headshots hurt, and everyone 40% faster. You get 3 minutes to get as many kills as you can. Your best for the day is saved (the card shows it), so you can keep trying to beat it.
   - **Snipers Only**: sniper rifles.
   - **Shotguns Only**: shotguns.
   - **Blades Only**: no guns at all. You fight with the katana (click or V to slash, hold V to block) and throwing knives. The bots charge in with blades, and one hit kills either way.
