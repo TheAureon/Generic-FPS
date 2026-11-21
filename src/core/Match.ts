@@ -40,6 +40,7 @@ import { PropHunt } from '../modes/PropHunt';
 import { OneWeapon } from '../modes/OneWeapon';
 import { Daily } from '../modes/Daily';
 import { BossFight } from '../modes/BossFight';
+import { TrainingCourse } from '../modes/TrainingCourse';
 import { Zombies } from '../modes/Zombies';
 import { ArenaLadder } from '../modes/ArenaLadder';
 import { Pickups, type Collector } from '../pickups/Pickups';
@@ -384,6 +385,17 @@ export class Match {
       },
       refreshTeams: () => this.bots.refreshTeams(),
       explode: (at, radius, damage, attacker) => this.explode(at, radius, damage, attacker, 'grenade'),
+      addTarget: (def) => {
+        const t = new TargetDummy(`Target ${this.dummies.length + 1}`, def, this.scene);
+        t.stayDown = true;
+        this.dummies.push(t);
+        return t;
+      },
+      removeTarget: (t) => {
+        t.model.root.removeFromParent();
+        const i = this.dummies.indexOf(t);
+        if (i >= 0) this.dummies.splice(i, 1);
+      },
       respawn: (c) => {
         if (c === (this.player as Combatant)) {
           this.player.respawn(this.pickPlayerSpawn());
@@ -831,6 +843,7 @@ function createMode(ctx: ModeContext): GameMode {
     case 'blades': return new OneWeapon(ctx, ctx.config.mode);
     case 'daily': return new Daily(ctx);
     case 'boss': return new BossFight(ctx);
+    case 'course': return new TrainingCourse(ctx);
     default: return new Deathmatch(ctx);
   }
 }

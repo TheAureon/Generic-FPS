@@ -15,6 +15,8 @@ export class TargetDummy implements Damageable {
   readonly hitbox = new CharacterHitbox(1.8, 0.3, 0.16);
   readonly model: CharacterModel;
   health = MAX_HEALTH;
+  /** Stays down once knocked over (training course targets). */
+  stayDown = false;
 
   private base: THREE.Vector3;
   private pos = new THREE.Vector3();
@@ -63,7 +65,7 @@ export class TargetDummy implements Damageable {
     if (!this.isAlive()) {
       this.deadTimer -= dt;
       this.fall = Math.min(1, this.fall + dt * 3);
-      if (this.deadTimer <= 0) this.health = MAX_HEALTH;
+      if (this.deadTimer <= 0 && !this.stayDown) this.health = MAX_HEALTH;
     } else {
       this.fall = Math.max(0, this.fall - dt * 2.5);
     }

@@ -5,7 +5,8 @@ import type { NavGraph } from '../bots/NavGraph';
 import { MATCH, MODES, PARTY_MODES, TEAMS, type Difficulty, type WeaponId } from '../config';
 import type { CollisionWorld } from '../core/CollisionWorld';
 import type { Damageable } from '../core/Hitbox';
-import type { MapDef, PickupType, SpawnPoint } from '../map/MapTypes';
+import type { MapDef, PickupType, PracticeTargetDef, SpawnPoint } from '../map/MapTypes';
+import type { TargetDummy } from '../entities/TargetDummy';
 import type { WeaponSystem } from '../weapons/WeaponSystem';
 import type { Hud } from '../ui/Hud';
 import type { Input } from '../core/Input';
@@ -17,7 +18,7 @@ export type ModeId =
   | 'hardpoint' | 'snd' | 'escort' | 'prophunt'
   | 'zombies' | 'ladder'
   | 'snipers' | 'shotguns' | 'blades' | 'daily'
-  | 'boss';
+  | 'boss' | 'course';
 
 /** Everything chosen in the match menu. */
 export interface MatchConfig {
@@ -150,6 +151,9 @@ export interface ModeContext {
    * everyone within `radius` (full at the middle, fading out).
    */
   explode(at: THREE.Vector3, radius: number, damage: number, attacker: string): void;
+  /** Put up a practice target (it stays down once hit; remove() takes it away). */
+  addTarget(def: PracticeTargetDef): TargetDummy;
+  removeTarget(t: TargetDummy): void;
 }
 
 /** A mode loadout's ammo and grenades. */
