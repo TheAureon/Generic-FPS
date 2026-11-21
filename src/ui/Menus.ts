@@ -2,6 +2,7 @@ import { DIFFICULTIES, MATCH, MODES, PARTY_MODES, REWARDS } from '../config';
 import { audio } from '../audio/AudioEngine';
 import { settings } from '../core/Settings';
 import { MAPS } from '../map/maps';
+import { dailyBlurb } from '../modes/Daily';
 import { KILL_LIMIT_MODES, modeLimit, type MatchConfig, type MatchResult, type ModeId, type ScoreRow } from '../modes/GameMode';
 import { dailyCard, matchReport, playerCard, type EndReport } from './Career';
 import { buildCareer, type CareerTab } from './CareerScreen';
@@ -46,6 +47,7 @@ const MODE_LIST: { id: ModeId; group: ModeGroup; name: string; info: string; ico
   { id: 'snd', group: 'objective', name: 'Search & Destroy', info: 'Teams, rounds, one life. Plant the bomb at A or B, or stop the plant and defuse. Sides swap each round.', icon: 'bomb', limit: 'Rounds to win' },
   { id: 'escort', group: 'objective', name: 'Escort', info: 'Teams. Push the cart along its route to the enemy side before time runs out. Checkpoints add time.', icon: 'cart', limit: 'Minutes' },
   { id: 'prophunt', group: 'party', name: 'Prop Hunt', info: 'Round 1: hide as a prop while the bots seek. Round 2: the bots hide among decoy props and you hunt them.', icon: 'box' },
+  { id: 'daily', group: 'playlists', name: 'Daily Challenge', info: dailyBlurb(), icon: 'calendar' },
   { id: 'snipers', group: 'playlists', name: 'Snipers Only', info: 'Free for all with sniper rifles only. Patience and headshots.', icon: 'scope', limit: 'Kill limit' },
   { id: 'shotguns', group: 'playlists', name: 'Shotguns Only', info: 'Free for all with shotguns only. Close and chaotic.', icon: 'shells', limit: 'Kill limit' },
   { id: 'blades', group: 'playlists', name: 'Blades Only', info: 'No guns: katanas and throwing knives. The bots charge with blades, and one hit kills either way.', icon: 'sword', limit: 'Kill limit' },
@@ -262,11 +264,13 @@ export class Menus {
       this.show('setup');
     });
     const shown = MODE_LIST.filter((m) => m.group === this.modeGroup);
-    choiceCards(p, shown.map((m) => [m.id, m.name, m.info, ICONS[m.icon]] as [string, string, string, string]), c.mode, (v) => {
+    // (The Daily Challenge's card shows today's challenge and your best today.)
+    choiceCards(p, shown.map((m) => [m.id, m.name, m.id === 'daily' ? dailyBlurb() : m.info, ICONS[m.icon]] as [string, string, string, string]), c.mode, (v) => {
       c.mode = v as MatchConfig['mode'];
       this.show('setup');
     }, 'small modes');
 
+    if (c.mode === 'daily') div('menu-note hint', p).textContent = 'The Daily Challenge picks its own map, difficulty, time and weather for today (the choices below are ignored).';
     div('section-title', p).textContent = 'Map';
     // Each map shows its stars (★ win, ★★ win on Hard+, ★★★ win on Master or Insane) and, in Survival, your best wave.
     const career = progress.get();

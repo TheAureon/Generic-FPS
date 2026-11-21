@@ -16,6 +16,7 @@ import { Input } from './Input';
 import { RenderPipeline } from '../render/Pipeline';
 import { Match } from './Match';
 import { PhotoMode } from './PhotoMode';
+import { dailyConfig } from '../modes/Daily';
 import { settings } from './Settings';
 
 /** Physics runs at a fixed rate so movement feels the same at any frame rate. */
@@ -121,6 +122,8 @@ export class Game {
   // ---- Flow between screens -------------------------------------------------
 
   startMatch(cfg: MatchConfig): void {
+    // The Daily Challenge picks its own map, difficulty and weather from the date.
+    if (cfg.mode === 'daily') cfg = dailyConfig(cfg);
     this.leaveMatch();
     this.match?.dispose();
     this.lastConfig = cfg;

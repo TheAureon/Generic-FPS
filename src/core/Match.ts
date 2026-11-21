@@ -38,6 +38,7 @@ import { SearchAndDestroy } from '../modes/SearchAndDestroy';
 import { Escort } from '../modes/Escort';
 import { PropHunt } from '../modes/PropHunt';
 import { OneWeapon } from '../modes/OneWeapon';
+import { Daily } from '../modes/Daily';
 import { Zombies } from '../modes/Zombies';
 import { ArenaLadder } from '../modes/ArenaLadder';
 import { Pickups, type Collector } from '../pickups/Pickups';
@@ -827,6 +828,7 @@ function createMode(ctx: ModeContext): GameMode {
     case 'snipers':
     case 'shotguns':
     case 'blades': return new OneWeapon(ctx, ctx.config.mode);
+    case 'daily': return new Daily(ctx);
     default: return new Deathmatch(ctx);
   }
 }
