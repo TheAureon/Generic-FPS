@@ -140,6 +140,11 @@ Every mode has a 10-minute time limit (then the highest score wins). In team mod
 - **Control**: three zones, A, B and C. Stand in one with only your team in it to capture it (faster with more of you; an enemy zone has to be neutralized first). Each zone your team holds scores a point a second.
 - **Battle Royale**: last one standing. Everyone has one life, and a safe zone (the blue wall) shrinks in four stages: outside it you lose health every second, more each stage. If you're eliminated you see where you placed.
 - **Survival**: waves of bots hunt you. Wave 1 has the number of bots you chose, and each wave adds one (up to 12). Bots get faster and more accurate each wave until wave 6. You have one life, and clearing a wave gives you back 30 health. Your score is how many waves you survive.
+- **Training Course** (co-op & solo): a timed run around the map with no bots.
+  - Run through 8 glowing checkpoints in order (the next one shows its number on screen and on the minimap), shooting the 2 targets set up around each.
+  - Each target still standing when you pass its checkpoint adds 3 seconds.
+  - Beat the gold, silver or bronze time (worked out from the route's length) for a medal and bonus points. Your best time on each map is saved.
+  - The route is the same every time on a map.
 - **Boss Fight** (co-op & solo): you against **the Titan**, a bot almost twice your height with heavy armor (it takes about 30 times the damage to bring down) and a health bar at the top of the screen. It starts with an LMG.
   - At two thirds of its health it calls in 3 minions and brings out a minigun.
   - At one third it calls in 4 more and gets angry: faster, more accurate, shorter pauses.
