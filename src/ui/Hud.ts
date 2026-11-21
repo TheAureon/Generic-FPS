@@ -35,7 +35,7 @@ const ICON = {
 };
 
 /** Short weapon names for the slot chips. */
-const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { revolver: 'Revolver', crossbow: 'Crossbow', minigun: 'Minigun', rocket: 'Rocket', pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade', claws: 'Claws', katana: 'Katana', barrel: 'Barrel', airstrike: 'Airstrike', dog: 'Dog', knife: 'Knife' };
+const SHORT: Record<Exclude<DamageSource, 'zone'>, string> = { revolver: 'Revolver', crossbow: 'Crossbow', minigun: 'Minigun', rocket: 'Rocket', pistol: 'Pistol', rifle: 'Rifle', shotgun: 'Shotgun', sniper: 'Sniper', smg: 'SMG', lmg: 'LMG', grenade: 'Grenade', claws: 'Claws', katana: 'Katana', barrel: 'Barrel', airstrike: 'Airstrike', dog: 'Dog', knife: 'Knife', turret: 'Turret' };
 
 /**
  * In-game heads-up display: crosshair, hit markers, health/armor, weapon and

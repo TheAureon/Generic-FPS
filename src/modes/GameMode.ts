@@ -18,7 +18,7 @@ export type ModeId =
   | 'hardpoint' | 'snd' | 'escort' | 'prophunt'
   | 'zombies' | 'ladder'
   | 'snipers' | 'shotguns' | 'blades' | 'daily'
-  | 'boss' | 'course';
+  | 'boss' | 'course' | 'horde';
 
 /** Everything chosen in the match menu. */
 export interface MatchConfig {
@@ -151,6 +151,10 @@ export interface ModeContext {
    * everyone within `radius` (full at the middle, fading out).
    */
   explode(at: THREE.Vector3, radius: number, damage: number, attacker: string): void;
+  /** Which way you're facing (radians, 0 = toward -Z). */
+  playerYaw(): number;
+  /** A bullet's streak of light (turrets). */
+  tracer(from: THREE.Vector3, to: THREE.Vector3): void;
   /** Put up a practice target (it stays down once hit; remove() takes it away). */
   addTarget(def: PracticeTargetDef): TargetDummy;
   removeTarget(t: TargetDummy): void;

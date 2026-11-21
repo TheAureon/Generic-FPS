@@ -331,7 +331,7 @@ export const WEAPONS = {
 
 export type WeaponId = keyof typeof WEAPONS;
 /** What dealt damage: a gun, a grenade, or the Battle Royale zone. */
-export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana' | 'barrel' | 'airstrike' | 'dog' | 'knife';
+export type DamageSource = WeaponId | 'grenade' | 'zone' | 'claws' | 'katana' | 'barrel' | 'airstrike' | 'dog' | 'knife' | 'turret';
 
 /** The katana (V to slash): a quick melee attack, any time, without switching away from your gun. */
 export const MELEE = {
@@ -772,6 +772,18 @@ export const PARTY_MODES = {
    * worth for each normal one, deals `damage` times a bot's normal damage, and
    * calls `minions` bots at phase 2 and phase 3. You have `lives` lives.
    */
+  /**
+   * Horde Defense: the generator's health, and how fast a bot standing within
+   * `wreckRange` m wrecks it (per second). Waves: `firstWave` bots, `perWave`
+   * more each wave (at most `maxBots`), `buildTime` s between waves. Money:
+   * `startMoney`, per kill, per wave cleared. Walls and turrets: cost, most
+   * you can have, and the turret's range (m), shots per second and damage.
+   */
+  horde: {
+    limits: [5, 8, 12], defaultLimit: 8, coreHealth: 1000, wreckRange: 2.6, wreckDps: 25,
+    firstWave: 4, perWave: 2, maxBots: 14, buildTime: 20, startMoney: 300, killMoney: 50, waveMoney: 200,
+    wallCost: 100, turretCost: 300, maxWalls: 8, maxTurrets: 3, turretRange: 22, turretRate: 6, turretDamage: 9,
+  },
   boss: { lives: 3, scale: 1.75, toughness: 30, damage: 0.55, minions: [3, 4] },
 };
 
