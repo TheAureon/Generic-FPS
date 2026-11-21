@@ -140,6 +140,12 @@ Every mode has a 10-minute time limit (then the highest score wins). In team mod
 - **Control**: three zones, A, B and C. Stand in one with only your team in it to capture it (faster with more of you; an enemy zone has to be neutralized first). Each zone your team holds scores a point a second.
 - **Battle Royale**: last one standing. Everyone has one life, and a safe zone (the blue wall) shrinks in four stages: outside it you lose health every second, more each stage. If you're eliminated you see where you placed.
 - **Survival**: waves of bots hunt you. Wave 1 has the number of bots you chose, and each wave adds one (up to 12). Bots get faster and more accurate each wave until wave 6. You have one life, and clearing a wave gives you back 30 health. Your score is how many waves you survive.
+- **Horde Defense** (co-op & solo): guard the generator in the middle of the map against waves of bots (5, 8 or 12 waves; your choice).
+  - They head straight for it, shooting at you on the way, and wreck it while they stand next to it. Lose it and it's over.
+  - Kills earn $50, cleared waves $200, and you start with $300. The money and prices show at the top of the screen.
+  - **F** builds a **wall** ($100, up to 8): a barricade where you're facing that blocks bots' path and bullets.
+  - **Y** builds a **turret** ($300, up to 3): it shoots the nearest bot it can see, up to 22 m away.
+  - There are 20 seconds between waves to build. Settings are in `PARTY_MODES.horde` in `src/config.ts`.
 - **Training Course** (co-op & solo): a timed run around the map with no bots.
   - Run through 8 glowing checkpoints in order (the next one shows its number on screen and on the minimap), shooting the 2 targets set up around each.
   - Each target still standing when you pass its checkpoint adds 3 seconds.

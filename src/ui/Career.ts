@@ -231,10 +231,10 @@ export function matchReport(parent: HTMLElement, r: EndReport): () => void {
     (r.record?.achievementXp ? `<div class="rb-line bonus"><span>Achievements</span><span class="rb-v">+${r.record.achievementXp.toLocaleString('en-US')}</span></div>` : '') +
     `<div class="rb-line total"><span>Total</span><span class="rb-v">+${r.xp.toLocaleString('en-US')} XP</span></div>`;
   const wl = add(cols, 'report-weapons');
-  const wk = Object.entries(s.weaponKills) as [WeaponId | 'grenade', number][];
+  const wk = Object.entries(s.weaponKills) as [string, number][];
   const maxK = Math.max(1, ...wk.map(([, n]) => n));
   wl.innerHTML = `<div class="section-title">Kills by weapon</div>` + (wk.length
-    ? wk.sort((a, b) => b[1] - a[1]).map(([w, n]) => `<div class="rw-line"><span class="rw-name">${w === 'grenade' ? 'Grenades' : WEAPONS[w].name}</span><div class="rw-bar"><div class="rw-fill" style="--w:${((100 * n) / maxK).toFixed(0)}%"></div></div><span class="rw-n">${n}</span></div>`).join('')
+    ? wk.sort((a, b) => b[1] - a[1]).map(([w, n]) => `<div class="rw-line"><span class="rw-name">${killSourceName(w)}</span><div class="rw-bar"><div class="rw-fill" style="--w:${((100 * n) / maxK).toFixed(0)}%"></div></div><span class="rw-n">${n}</span></div>`).join('')
     : '<div class="rm-none">No kills this match.</div>');
 
   // ---- Animation: tiles count up one after another, then the XP bar fills ----
@@ -334,4 +334,10 @@ function add(parent: HTMLElement, className: string): HTMLDivElement {
   d.className = className;
   parent.appendChild(d);
   return d;
+}
+
+/** What made a kill, for the match report: a gun's name, or the katana, a grenade, a turret... */
+function killSourceName(w: string): string {
+  const other: Record<string, string> = { grenade: 'Grenades', katana: 'Katana', knife: 'Throwing knives', barrel: 'Barrels', airstrike: 'Airstrike', dog: 'Attack dog', turret: 'Turrets', claws: 'Claws' };
+  return other[w] ?? (WEAPONS as Record<string, { name: string }>)[w]?.name ?? w;
 }

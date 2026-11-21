@@ -254,8 +254,9 @@ export class HordeDefense implements GameMode {
   }
 
   botObjective(bot: Bot): BotObjective | null {
-    // Straight for the generator (fighting on the way only when you're close).
-    return { pos: this.core, radius: 1.5, run: true, urgent: bot.position.distanceTo(this.ctx.player.position) > 8 };
+    // Straight for the generator, shooting at you on the way.
+    void bot;
+    return { pos: this.core, radius: 1.5, run: true, urgent: true };
   }
 
   scoreboard(): ScoreRow[] {
