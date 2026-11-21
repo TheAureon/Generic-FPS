@@ -39,6 +39,7 @@ import { Escort } from '../modes/Escort';
 import { PropHunt } from '../modes/PropHunt';
 import { OneWeapon } from '../modes/OneWeapon';
 import { Daily } from '../modes/Daily';
+import { BossFight } from '../modes/BossFight';
 import { Zombies } from '../modes/Zombies';
 import { ArenaLadder } from '../modes/ArenaLadder';
 import { Pickups, type Collector } from '../pickups/Pickups';
@@ -829,6 +830,7 @@ function createMode(ctx: ModeContext): GameMode {
     case 'shotguns':
     case 'blades': return new OneWeapon(ctx, ctx.config.mode);
     case 'daily': return new Daily(ctx);
+    case 'boss': return new BossFight(ctx);
     default: return new Deathmatch(ctx);
   }
 }

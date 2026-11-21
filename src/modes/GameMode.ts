@@ -16,7 +16,8 @@ export type ModeId =
   | 'gungame' | 'killconfirmed' | 'infected' | 'oitc' | 'headhunter' | 'juggernaut'
   | 'hardpoint' | 'snd' | 'escort' | 'prophunt'
   | 'zombies' | 'ladder'
-  | 'snipers' | 'shotguns' | 'blades' | 'daily';
+  | 'snipers' | 'shotguns' | 'blades' | 'daily'
+  | 'boss';
 
 /** Everything chosen in the match menu. */
 export interface MatchConfig {

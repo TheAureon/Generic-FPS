@@ -767,6 +767,12 @@ export const PARTY_MODES = {
   },
   /** Arena Ladder: 1v1 duels against ever tougher bots. `limit` kills win a duel. */
   ladder: { limits: [3, 5, 7], defaultLimit: 3 },
+  /**
+   * Boss Fight: the Titan is `scale` times as big, takes `toughness` hits'
+   * worth for each normal one, deals `damage` times a bot's normal damage, and
+   * calls `minions` bots at phase 2 and phase 3. You have `lives` lives.
+   */
+  boss: { lives: 3, scale: 1.75, toughness: 30, damage: 0.55, minions: [3, 4] },
 };
 
 export const SURVIVAL = {

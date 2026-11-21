@@ -47,6 +47,7 @@ const MODE_LIST: { id: ModeId; group: ModeGroup; name: string; info: string; ico
   { id: 'snd', group: 'objective', name: 'Search & Destroy', info: 'Teams, rounds, one life. Plant the bomb at A or B, or stop the plant and defuse. Sides swap each round.', icon: 'bomb', limit: 'Rounds to win' },
   { id: 'escort', group: 'objective', name: 'Escort', info: 'Teams. Push the cart along its route to the enemy side before time runs out. Checkpoints add time.', icon: 'cart', limit: 'Minutes' },
   { id: 'prophunt', group: 'party', name: 'Prop Hunt', info: 'Round 1: hide as a prop while the bots seek. Round 2: the bots hide among decoy props and you hunt them.', icon: 'box' },
+  { id: 'boss', group: 'coop', name: 'Boss Fight', info: 'A giant armored Titan with a health bar. It calls in minions and gets angrier as it weakens. You have three lives.', icon: 'titan' },
   { id: 'daily', group: 'playlists', name: 'Daily Challenge', info: dailyBlurb(), icon: 'calendar' },
   { id: 'snipers', group: 'playlists', name: 'Snipers Only', info: 'Free for all with sniper rifles only. Patience and headshots.', icon: 'scope', limit: 'Kill limit' },
   { id: 'shotguns', group: 'playlists', name: 'Shotguns Only', info: 'Free for all with shotguns only. Close and chaotic.', icon: 'shells', limit: 'Kill limit' },
@@ -320,7 +321,7 @@ export class Menus {
     const bots = div('pair-item', pair);
     const team = TEAM_MODES.includes(c.mode);
     div('section-title', bots).textContent = c.mode === 'survival' ? 'Bots in wave 1' : c.mode === 'zombies' ? 'Zombies in wave 1' : 'Bots';
-    if (c.mode === 'ladder') bots.style.display = 'none';
+    if (c.mode === 'ladder' || c.mode === 'boss' || c.mode === 'daily') bots.style.display = 'none';
     // Team modes: you're on Blue with half the bots (rounded down); Red gets the rest.
     const split = (n: number) => `${n}  ·  you + ${Math.floor(n / 2)} vs ${n - Math.floor(n / 2)}`;
     slider(div('menu-control', bots), MATCH.minBots, MATCH.maxBots, 1, c.botCount, (v) => (team ? split(v) : String(v)), (v) => {
