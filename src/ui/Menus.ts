@@ -201,7 +201,7 @@ export class Menus {
     div('title-tagline', center).textContent = 'Outthink them. Outaim them. Outlast them.';
     div('title-prompt', wrap).textContent = 'Click or press any key to start';
     const foot = div('title-footer', wrap);
-    foot.innerHTML = '<span>Singleplayer · AI bots · 8 game modes</span><span>v1.2 · Rank Up</span>';
+    foot.innerHTML = `<span>Singleplayer · AI bots · ${MODE_LIST.length} game modes</span><span>v1.2 · Rank Up</span>`;
     wrap.addEventListener('click', () => this.leaveTitle());
   }
 
@@ -229,9 +229,10 @@ export class Menus {
     head(p, 'Field manual', 'How to play');
     const aimKeys = { both: 'Right click / Q', mouse: 'Right click', q: 'Q' }[settings.get().aimKey] ?? 'Right click';
     const groups: [string, [string, string][]][] = [
-      ['Movement', [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Space', 'Jump'], ['Shift', 'Sprint'], ['C', 'Crouch'], ['C while sprinting', 'Slide'], ['Space at a ledge', 'Climb up']]],
-      ['Combat', [['Left click', 'Shoot'], [aimKeys, 'Aim / scope'], ['R', 'Reload'], ['1 – 9, 0 / Wheel', 'Switch weapon'], ['E', 'Last weapon'], ['G', 'Throw grenade'], ['V', 'Katana slash (hold to block)'], ['X', 'Killstreak reward'], ['T', 'Throwing knife'], ['Z', 'Flashbang'], ['H', 'Smoke grenade'], ['I', 'Inspect gun'], ['P', 'Photo mode'], ['L', 'Flashlight'], ['J', 'Squad orders (team modes)']]],
-      ['Other', [['Tab', 'Scoreboard'], ['Esc', 'Pause']]],
+      ['Movement', [['W A S D', 'Move'], ['Mouse', 'Look around'], ['Space', 'Jump'], ['Shift', 'Sprint'], ['C', 'Crouch'], ['Shift + C', 'Slide'], ['Space at a ledge', 'Climb up']]],
+      ['Shooting', [['Left click', 'Shoot'], [aimKeys, 'Aim / scope'], ['R', 'Reload'], ['1 – 9, 0 / Wheel', 'Switch gun'], ['E', 'Last gun'], ['I', 'Inspect gun']]],
+      ['Gear', [['V', 'Katana (hold to block)'], ['G', 'Grenade'], ['T', 'Throwing knife'], ['Z', 'Flashbang'], ['H', 'Smoke'], ['X', 'Killstreak reward']]],
+      ['Other', [['Tab', 'Scoreboard'], ['Esc', 'Pause'], ['J', 'Squad orders'], ['L', 'Flashlight'], ['P', 'Photo mode']]],
     ];
     const cols = div('controls-cols', p);
     for (const [title, rows] of groups) {
@@ -283,7 +284,13 @@ export class Menus {
       const wave = c.mode === 'survival' && career.survivalBest[id] ? `<span class="map-record">best: wave ${career.survivalBest[id]}</span>` : '';
       return `${name}<span class="map-stars">${'★'.repeat(n)}<span>${'★'.repeat(3 - n)}</span></span>${wave}`;
     };
-    choiceCards(p, MAPS.map((m) => [m.id, mapName(m.id, m.name), m.description, ICONS.map] as [string, string, string, string]), c.map, (v) => (c.map = v), 'small');
+    // Compact map tiles (name and stars); the chosen map's description shows underneath.
+    choiceCards(p, MAPS.map((m) => [m.id, mapName(m.id, m.name), '', ICONS.map] as [string, string, string, string]), c.map, (v) => {
+      c.map = v;
+      mapInfo.textContent = MAPS.find((m) => m.id === v)?.description ?? '';
+    }, 'small maps');
+    const mapInfo = div('map-info', p);
+    mapInfo.textContent = MAPS.find((m) => m.id === c.map)?.description ?? '';
 
     div('section-title', p).textContent = 'Difficulty';
     const diffWrap = div('difficulty', p);
@@ -359,7 +366,7 @@ export class Menus {
     };
     item('Resume', 'Back to the fight', () => this.actions.resume(), true);
     item('Restart', 'Same settings, fresh start', () => this.actions.restart());
-    item('Photo mode', 'Freeze the action and fly the camera around (or press P in a match)', () => this.actions.photo());
+    item('Photo mode', 'Freeze the action and fly the camera around', () => this.actions.photo());
     item('Settings', 'Mouse, aim key, graphics, HUD size, sound', () => this.openSettings('pause'));
     item('Quit', 'Back to the main menu', () => this.actions.quitToMenu());
   }

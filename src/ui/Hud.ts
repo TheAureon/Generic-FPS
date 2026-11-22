@@ -69,6 +69,9 @@ export class Hud {
   private streakKey = '';
   private reloadFill: HTMLDivElement;
   private slots = new Map<WeaponId, HTMLDivElement>();
+  private slotList!: HTMLDivElement;
+  private slotsWeapon: WeaponId | null = null;
+  private slotsTimer = 0;
   private scope: HTMLDivElement;
   private notice: HTMLDivElement;
   private healthFill: HTMLDivElement;
@@ -140,7 +143,7 @@ export class Hud {
     // ---- Weapon + ammo, bottom right ----
     this.weaponPanel = el('div', 'weapon-panel glass', this.root);
     this.streakRow = el('div', 'streaks', this.weaponPanel);
-    const slotList = el('div', 'slots', this.weaponPanel);
+    const slotList = (this.slotList = el('div', 'slots weapon-slots', this.weaponPanel));
     for (const id of Object.keys(WEAPONS) as WeaponId[]) {
       const s = el('div', 'slot', slotList);
       s.innerHTML = `<span class="key">${WEAPONS[id].slot % 10}</span><span class="slot-name">${SHORT[id]}</span>`;
@@ -228,6 +231,7 @@ export class Hud {
     this.killFeed.innerHTML = '';
     this.fx.reset();
     this.challenges.reset();
+    this.slotsWeapon = null;
     this.announceTimer = 0;
     this.announceEl.style.opacity = '0';
     this.pickupTimer = 0;
@@ -306,7 +310,8 @@ export class Hud {
     const key = v ? `${v.streak}|${Math.ceil(v.uav)}|${v.ready.join()}|${Math.ceil(v.dog)}` : '';
     if (key === this.streakKey) return;
     this.streakKey = key;
-    if (!v) {
+    // Hidden until you're on a streak (or a reward is ready or running).
+    if (!v || (v.streak === 0 && !v.ready.length && v.uav <= 0 && v.dog <= 0)) {
       this.streakRow.innerHTML = '';
       return;
     }
@@ -342,6 +347,7 @@ export class Hud {
 
   /** Score table (hold Tab). Pass null to hide. */
   showScoreboard(rows: ScoreRow[] | null, title = '', extra: ScoreExtras = {}): void {
+    this.challenges.boardOpen = !!rows;
     if (!rows) {
       this.scoreboardEl.style.display = 'none';
       return;
@@ -428,7 +434,8 @@ export class Hud {
     const key = order ?? '';
     if (key === this.squadKey) return;
     this.squadKey = key;
-    this.squadEl.style.display = order ? '' : 'none';
+    // (Hidden until you give an order: "Free" is the normal state.)
+    this.squadEl.style.display = order && order !== 'free' ? '' : 'none';
     if (order) this.squadEl.innerHTML = `<span class="key">J</span> Squad: <b>${{ free: 'Free', follow: 'Follow me', hold: 'Hold', push: 'Push' }[order]}</b>`;
   }
 
@@ -511,6 +518,11 @@ export class Hud {
       this.pipEls.forEach((p, i) => p.classList.toggle('spent', i >= a.ammo));
       for (const [id, s] of this.slots) s.classList.toggle('active', id === a.weapon);
     }
+    // The row of weapon numbers shows for a moment when you switch guns, then hides.
+    if (a.weapon !== this.slotsWeapon) {
+      this.slotsWeapon = a.weapon;
+      this.slotsTimer = 2.5;
+    }
     const equipKey = `${a.grenades}|${a.knives}|${a.flashes}|${a.smokes}`;
     if (equipKey !== this.lastEquip) {
       this.lastEquip = equipKey;
@@ -560,6 +572,9 @@ export class Hud {
   /** @param px,pz,yaw the player's position and facing, for damage indicators */
   update(dt: number, px: number, pz: number, yaw: number): void {
     this.updateIndicators(dt, px, pz, yaw);
+    this.slotsTimer = Math.max(0, this.slotsTimer - dt);
+    const showSlots = this.slotsTimer > 0 || this.challenges.boardOpen;
+    if (this.slotList.classList.contains('shown') !== showSlots) this.slotList.classList.toggle('shown', showSlots);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 1.8);
     this.announceTimer = Math.max(0, this.announceTimer - dt);
     setStyle(this.announceEl, 'opacity', Math.min(1, this.announceTimer * 2).toFixed(2));

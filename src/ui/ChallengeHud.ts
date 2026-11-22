@@ -3,7 +3,9 @@ import type { ChallengeStatus } from '../core/Challenges';
 /**
  * Daily challenges during a match: a small tracker on the right (each
  * challenge's progress, which pulses when it goes up) and a big banner
- * when one is completed.
+ * when one is completed. To keep the screen clear, the tracker only shows
+ * at the start of a match, for a few seconds when progress goes up, and
+ * while the scoreboard (Tab) is open.
  */
 export class ChallengeHud {
   private panel: HTMLDivElement;
@@ -12,6 +14,10 @@ export class ChallengeHud {
   private banner: HTMLDivElement;
   private bannerTimer = 0;
   private lastKey = '';
+  /** Seconds the tracker stays on screen (it shows when progress goes up, then hides). */
+  private peekTimer = 0;
+  /** The scoreboard is open (Tab): the tracker shows alongside it. */
+  boardOpen = false;
 
   constructor(root: HTMLElement) {
     this.panel = div('ch-panel glass', root);
@@ -26,6 +32,8 @@ export class ChallengeHud {
     this.lastKey = '';
     this.bannerTimer = 0;
     this.banner.style.opacity = '0';
+    // Shown for a few seconds at the start of a match, then tucked away.
+    this.peekTimer = 5;
     for (const r of this.rows) r.last = -1;
   }
 
@@ -58,6 +66,7 @@ export class ChallengeHud {
         r.el.classList.remove('bump');
         void r.el.offsetWidth;
         r.el.classList.add('bump');
+        this.peekTimer = 4;
       }
       r.last = s.current;
     });
@@ -72,6 +81,8 @@ export class ChallengeHud {
   }
 
   update(dt: number): void {
+    this.peekTimer = Math.max(0, this.peekTimer - dt);
+    this.panel.classList.toggle('shown', this.peekTimer > 0 || this.boardOpen);
     if (this.bannerTimer > 0) {
       this.bannerTimer -= dt;
       this.banner.style.opacity = Math.min(1, this.bannerTimer * 2).toFixed(2);

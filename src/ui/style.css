@@ -237,7 +237,25 @@ body {
 /* (The panel scrolls when it's too tall; its contents never get squashed.) */
 .menu-panel > * { flex-shrink: 0; }
 .menu-panel.pause { width: min(460px, 100%); }
-.menu-panel.controls { width: min(720px, 100%); }
+.menu-panel.controls { width: min(760px, 100%); }
+.menu-panel.setup { width: min(880px, 100%); }
+/* Mode cards three across, map tiles four across (name and stars only). */
+.menu-panel.setup .choice-cards.modes { grid-template-columns: repeat(3, 1fr); }
+.choice-cards.maps { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.choice-cards.maps .choice-info { display: none; }
+.choice-cards.maps .choice-card { padding: 9px 10px; gap: 9px; }
+.choice-cards.maps .choice-name { font-size: 16px; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; }
+.choice-cards.maps .choice-card.active::after { top: 50%; translate: 0 -50%; }
+.choice-cards.maps .map-stars { margin-left: 0; }
+@media (max-width: 900px) {
+  .menu-panel.setup .choice-cards.modes { grid-template-columns: repeat(2, 1fr); }
+  .choice-cards.maps { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .menu-panel.setup .choice-cards.modes { grid-template-columns: 1fr; }
+  .choice-cards.maps { grid-template-columns: repeat(2, 1fr); }
+}
+.map-info { min-height: 2.8em; margin-top: 2px; font-size: 13px; line-height: 1.4; opacity: 0.7; }
 /* Gold accent line along the top edge, fading out to the right. */
 .menu-panel::before {
   content: '';
@@ -563,8 +581,8 @@ body {
 /* How to play. */
 .controls-cols {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px 36px;
 }
 .controls-group { display: flex; flex-direction: column; gap: 8px; }
 .controls-group .section-title { margin-top: 2px; margin-bottom: 2px; }
@@ -2169,11 +2187,19 @@ body {
 .rb-line.none .rb-v, .rb-line.none span:first-child { color: #ff9a8e; opacity: 1; }
 .rb-note { font-size: 12px; opacity: 0.6; padding: 4px 0 2px; }
 
-/* Weapon slots: only the gun in hand shows its name (6 guns + grenades fit on one row). */
+/* Weapon slots: only the gun in hand shows its name. The row wraps when you
+   carry lots of guns, and only shows for a moment after you switch (or while
+   the scoreboard is open), so it doesn't clutter the screen. */
+.slots.weapon-slots {
+  flex-wrap: wrap;
+  max-height: 0; margin-bottom: 0; opacity: 0; overflow: hidden;
+  transition: max-height 0.25s, margin-bottom 0.25s, opacity 0.25s;
+}
+.slots.weapon-slots.shown { max-height: 60px; margin-bottom: 10px; opacity: 1; }
 .slot:not(.active) .slot-name { display: none; }
 .slot:not(.active) { padding-right: 3px; }
 .grenade-chip { color: #d9e0c8; }
-.slots.equip { margin-top: -4px; }
+.slots.equip { margin-top: 0; }
 
 /* Bots talking (rivals' taunts), above your health */
 .chat {
@@ -2258,7 +2284,12 @@ body {
   gap: 8px;
   scale: var(--hud-scale, 1);
   transform-origin: right center;
+  /* Hidden unless there's news (see ChallengeHud). */
+  opacity: 0;
+  translate: 16px 0;
+  transition: opacity 0.35s, translate 0.35s;
 }
+.ch-panel.shown { opacity: 1; translate: 0 0; }
 .ch-head, .dc-head {
   font-size: 12px;
   font-weight: 700;

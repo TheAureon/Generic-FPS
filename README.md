@@ -188,13 +188,13 @@ When a match ends, the scoreboard shows the result, your kills, deaths, and accu
 ### On screen
 
 - **Bottom left**: health and armor bars (in 10 segments). When you're hit, a pale strip shows how much you just lost; health turns red when low.
-- **Bottom right**: your six weapons (the one in hand highlighted with its name) and how many grenades you have, the weapon name, rounds in the magazine and spare rounds, a row of marks (one per round in the magazine), and a reload bar
+- **Bottom right**: your gear (grenades, throwing knives, flashbangs, smoke), the weapon name, rounds in the magazine and spare rounds, a row of marks (one per round in the magazine), and a reload bar. To keep the screen clear, some things only show when they matter: your weapon numbers appear for a moment when you switch guns, killstreak rewards appear once you're on a streak, and the squad order (team modes) appears once you've given one with J.
 - **Top left**: the minimap. It turns with you (up is the way you're facing; the **N** marker shows north) and shows walls, pickups, your view cone, and enemies you can see or that just fired. A triangle means the enemy is above or below you.
 - **Top center**: score, leader, and time left (or wave and enemies left)
 - **Top right**: kill feed (your kills in gold, your deaths in red, a target icon for headshots)
 - **Middle**: crosshair (spreads out when your shots are less accurate), hit markers (white = hit, gold = headshot, red = kill), short notices (reloading, low ammo), and a red arc pointing toward whoever is shooting you
 - **When you die**: who killed you and a countdown ring until you respawn
-- **Hold Tab**: the scoreboard, with kills, deaths and K/D
+- **Hold Tab**: the scoreboard, with kills, deaths and K/D (plus your challenges and weapon numbers)
 
 ### Score, medals, streaks and levels
 
@@ -249,7 +249,7 @@ Your **level, rank** (Recruit, Private, Corporal... up to Legend, a new rank eve
 
 Settings are in `TACTICAL` in `src/config.ts`. Modes without grenades don't give flashbangs or smoke either.
 
-**Squad orders** (team modes): press **J** to give your bot teammates orders. Each press moves to the next one, shown above your health:
+**Squad orders** (team modes): press **J** to give your bot teammates orders. Each press moves to the next one, shown above your health (once you've given an order):
 - **Follow me**: they stick with you.
 - **Hold**: they guard the spot you were looking at, marked HOLD on screen and H on the minimap.
 - **Push**: they charge the enemy nearest to you.
@@ -335,7 +335,7 @@ Unlocks come roughly one per level up to 50 (the next one is always a level or t
 Every day you get three new challenges, one each of **Easy (+400 XP)**, **Medium (+800 XP)** and **Hard (+1,500 XP)**, for example "Get 8 kills with the SMG", "Win a King of the Hill match", "Get 3 grenade kills" or "Get an 8-kill streak in one match". Everyone gets the same three on the same day, and they change at midnight.
 
 - The **main menu** shows today's challenges, your progress, and how long until new ones.
-- **During a match** a small tracker on the right shows your progress live (it pulses when it goes up), and a banner pops up with a chime when you complete one.
+- **During a match** a small tracker on the right shows your progress: for a few seconds at the start, for a few seconds whenever it goes up (it pulses), and whenever you hold Tab. A banner pops up with a chime when you complete one.
 - The **match report** shows how far the match moved each challenge, and their bonus XP is added to your XP (it isn't multiplied by the difficulty).
 - Progress builds up over several matches and is kept if you quit or restart a match early. It's saved in your browser.
 - Matches on Novice and Beginner (practice) don't count.
