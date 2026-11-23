@@ -88,6 +88,25 @@ export const CONFIG = {
     /** HUD size: 1 = full size, down to 0.6. The crosshair always stays the same. */
     hudScale: 1,
     quality: 'high' as 'low' | 'medium' | 'high',
+    /** Lower the resolution a little when the game can't keep up (see autoResolution below). */
+    autoResolution: true,
+  },
+
+  /**
+   * Automatic resolution (Settings → Auto resolution). During a match, if the
+   * frame rate stays below lowFps, the 3D view is drawn at a lower resolution
+   * (by dropStep, never below minScale of normal), and raised again by
+   * raiseStep after windowsBeforeRaise checks in a row at goodFps or more.
+   * Each check covers `window` seconds. The HUD always stays sharp.
+   */
+  autoResolution: {
+    lowFps: 50,
+    goodFps: 57,
+    minScale: 0.6,
+    dropStep: 0.1,
+    raiseStep: 0.05,
+    window: 1,
+    windowsBeforeRaise: 3,
   },
 
   /**

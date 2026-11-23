@@ -27,8 +27,12 @@ export interface BuiltMap {
   sky: Sky;
   /** How much lamp light reaches a point (for lighting characters). */
   sampleLampLight(p: THREE.Vector3, out: THREE.Color): THREE.Color;
-  /** Keep the sun's shadows centered on the viewer (call each frame with the camera position). */
-  updateShadows(p: THREE.Vector3): void;
+  /**
+   * Keep the sun's shadows centered on the viewer (call each frame with the
+   * camera position). Returns true if the shadow area moved (so the shadow
+   * map must be redrawn this frame).
+   */
+  updateShadows(p: THREE.Vector3): boolean;
   /** Breakable panes of glass (drawn by the match, not baked into the map). */
   panes: Pane[];
 }
@@ -937,7 +941,7 @@ function glowTexture(): THREE.Texture {
  * shadow-map pixels, so edges don't shimmer), which keeps them sharp.
  * Returns the function that moves them.
  */
-function addSunAndSky(group: THREE.Group, bounds: THREE.Box3, shadowMapSize: number, sky: SkyDef, sunDir: THREE.Vector3): (p: THREE.Vector3) => void {
+function addSunAndSky(group: THREE.Group, bounds: THREE.Box3, shadowMapSize: number, sky: SkyDef, sunDir: THREE.Vector3): (p: THREE.Vector3) => boolean {
   // Light from the whole sky: tinted like the sky above, and like the ground below.
   const skyTint = new THREE.Color(sky.zenith).lerp(new THREE.Color(0xffffff), 0.55);
   const groundTint = new THREE.Color(sky.ground ?? 0x4a4036).lerp(new THREE.Color(sky.sunColor), 0.2);
@@ -967,16 +971,24 @@ function addSunAndSky(group: THREE.Group, bounds: THREE.Box3, shadowMapSize: num
   sun.shadow.normalBias = 0.025;
   sun.shadow.radius = 3;
   group.add(sun, sun.target);
-  if (!follow) return () => {};
+  if (!follow) return () => false;
   // Snap to whole shadow-map pixels (in the light's own view) so shadow edges stay still as you move.
   const texel = (radius * 2) / shadowMapSize;
+  const step = texel * Math.max(1, Math.round(4 / texel));
   const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), sunDir).normalize();
   const up = new THREE.Vector3().crossVectors(sunDir, right).normalize();
   const c = new THREE.Vector3();
+  let la = NaN, lb = NaN, ld = NaN;
   return (p: THREE.Vector3) => {
-    const a = Math.round(p.dot(right) / texel) * texel, b = Math.round(p.dot(up) / texel) * texel, d = p.dot(sunDir);
+    // (Along the sun's direction it only needs to move now and then: the shadow area is deep enough.)
+    // Moves in 4 m steps (a whole number of shadow-map pixels), so the shadows
+    // don't have to be redrawn every frame just because you walked a little.
+    const a = Math.round(p.dot(right) / step) * step, b = Math.round(p.dot(up) / step) * step, d = Math.round(p.dot(sunDir) / 4) * 4;
+    if (a === la && b === lb && d === ld) return false;
+    la = a; lb = b; ld = d;
     c.copy(right).multiplyScalar(a).addScaledVector(up, b).addScaledVector(sunDir, d);
     place(c);
+    return true;
   };
 }
 

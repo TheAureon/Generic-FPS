@@ -10,7 +10,7 @@ import type { MatchConfig } from '../modes/GameMode';
 import { animateMaterials } from '../assets/materials';
 import { Hud } from '../ui/Hud';
 import { MenuBackdrop } from '../ui/MenuBackdrop';
-import { Menus } from '../ui/Menus';
+import { Menus, modeName } from '../ui/Menus';
 import { Viewmodel } from '../weapons/Viewmodel';
 import { Input } from './Input';
 import { RenderPipeline } from '../render/Pipeline';
@@ -18,6 +18,8 @@ import { Match } from './Match';
 import { PhotoMode } from './PhotoMode';
 import { dailyConfig } from '../modes/Daily';
 import { settings } from './Settings';
+import { LoadingScreen } from '../ui/LoadingScreen';
+import { AutoResolution } from '../render/AutoResolution';
 
 /** Physics runs at a fixed rate so movement feels the same at any frame rate. */
 const PHYSICS_HZ = 120;
@@ -30,7 +32,7 @@ const MAX_FRAME_DT = 0.1;
  * paused  → in a match, pause menu (or waiting for the mouse to be captured)
  * ended   → match over, end screen with scores
  */
-type State = 'menu' | 'playing' | 'paused' | 'ended';
+type State = 'menu' | 'loading' | 'playing' | 'paused' | 'ended';
 
 /** Owns the renderer, the menus, the main loop, and the current match. */
 export class Game {
@@ -39,6 +41,9 @@ export class Game {
   readonly input: Input;
   readonly hud: Hud;
   readonly menus: Menus;
+  private loading: LoadingScreen;
+  /** Counts match loads, so an older load that's overtaken stops. */
+  private loadId = 0;
   readonly viewmodel = new Viewmodel();
   match: Match | null = null;
 
@@ -89,9 +94,9 @@ export class Game {
     applyLook(loadout.get());
     loadout.onChange(applyLook);
     this.menus = new Menus(uiRoot, {
-      startMatch: (cfg) => this.startMatch(cfg),
+      startMatch: (cfg) => void this.loadMatch(cfg),
       resume: () => this.resume(),
-      restart: () => this.lastConfig && this.startMatch(this.lastConfig),
+      restart: () => this.lastConfig && void this.loadMatch(this.lastConfig),
       quitToMenu: () => this.quitToMenu(),
       photo: () => {
         this.wantPhoto = true;
@@ -99,6 +104,7 @@ export class Game {
       },
     });
     this.menus.show('title');
+    this.loading = new LoadingScreen(uiRoot);
 
     document.addEventListener('pointerlockchange', () => this.onPointerLockChange());
     window.addEventListener('resize', () => this.onResize());
@@ -107,7 +113,8 @@ export class Game {
   /** Resolution and shadows from the Graphics quality setting. */
   private applyQuality(): void {
     const q = CONFIG.quality[settings.get().quality] ?? CONFIG.quality.high;
-    const ratio = Math.min(window.devicePixelRatio, q.pixelRatio);
+    const auto = settings.get().autoResolution ? this.autoRes.scale : 1;
+    const ratio = Math.min(window.devicePixelRatio, q.pixelRatio) * auto;
     if (this.renderer.getPixelRatio() !== ratio) {
       this.renderer.setPixelRatio(ratio);
       this.stillDrawn = false;
@@ -118,6 +125,8 @@ export class Game {
     }
   }
   private appliedQuality: unknown = null;
+  /** Lowers the resolution when the game can't keep up (Settings → Auto resolution). */
+  private autoRes = new AutoResolution();
 
   start(): void {
     this.clock.start();
@@ -126,7 +135,72 @@ export class Game {
 
   // ---- Flow between screens -------------------------------------------------
 
-  startMatch(cfg: MatchConfig): void {
+  /**
+   * Start a match from the menus, behind a loading screen: build the map,
+   * then get the graphics card ready (so the first seconds of play don't
+   * stutter), then go.
+   */
+  async loadMatch(cfg: MatchConfig): Promise<void> {
+    if (cfg.mode === 'daily') cfg = dailyConfig(cfg);
+    const id = ++this.loadId;
+    // Capture the mouse now: browsers only allow it right after a click (like the one on Start).
+    if (!this.forcePlay) this.input.requestLock();
+    this.leaveMatch();
+    this.setPhoto(false);
+    this.match?.dispose();
+    this.match = null;
+    this.state = 'loading';
+    this.menus.hide();
+    this.hud.setVisible(false);
+    this.loading.show(getMap(cfg.map).name, modeName(cfg.mode));
+    await nextPaint();
+    if (id !== this.loadId) return;
+    this.loading.progress(0.2, 'Building the map');
+    await nextPaint();
+    if (id !== this.loadId) return;
+    this.startMatch(cfg, false);
+    const m = this.match!;
+    this.state = 'loading';
+    this.loading.progress(0.6, 'Preparing graphics');
+    await nextPaint();
+    if (id !== this.loadId) return;
+    await this.warmUp(m);
+    if (id !== this.loadId || this.match !== m) return;
+    this.loading.hide();
+    this.clock.getDelta(); // (Don't count the loading time as a game frame.)
+    this.state = 'paused';
+    if (this.input.locked || this.forcePlay) {
+      this.state = 'playing';
+      this.menus.hide();
+    } else {
+      this.capturePointer();
+    }
+  }
+
+  /**
+   * Get the graphics card ready for this match: prepare its shaders (in the
+   * background where the browser can), then draw one frame behind the
+   * loading screen, which prepares the rest (shadows, effects, the gun).
+   */
+  private async warmUp(m: Match): Promise<void> {
+    m.controller.updateCamera();
+    m.updateView(0, this.camera, false);
+    try {
+      await this.renderer.compileAsync(m.scene, this.camera);
+    } catch {
+      // (Not supported: the frame below prepares everything anyway.)
+    }
+    if (this.match !== m) return;
+    this.loading.progress(0.9, 'Almost ready');
+    await nextPaint();
+    if (this.match !== m) return;
+    this.renderer.shadowMap.needsUpdate = true;
+    this.pipeline.render(m.scene, this.camera, [this.viewmodel.scene]);
+    this.viewmodel.render(this.renderer);
+  }
+
+  /** Build a match right away (no loading screen). `capture`: grab the mouse and play. */
+  startMatch(cfg: MatchConfig, capture = true): void {
     // The Daily Challenge picks its own map, difficulty and weather from the date.
     if (cfg.mode === 'daily') cfg = dailyConfig(cfg);
     this.leaveMatch();
@@ -140,6 +214,7 @@ export class Game {
       viewmodel: this.viewmodel,
     });
     this.viewmodel.matchLighting(this.match.map.sky.def);
+    this.autoRes.reset();
     this.accumulator = 0;
     this.hud.reset();
     this.hud.minimap.setMap(this.match.map.def, this.match.map.playBounds);
@@ -147,7 +222,7 @@ export class Game {
     this.menus.hide();
     // Wait for the mouse to be captured before play begins.
     this.state = 'paused';
-    this.capturePointer();
+    if (capture) this.capturePointer();
   }
 
   private resume(): void {
@@ -294,6 +369,27 @@ export class Game {
     }
   }
   private frameErrors = 0;
+  /** Seconds since the sun's shadows were last redrawn, and whether the shadow area moved since. */
+  private shadowClock = 0;
+  private shadowMoved = true;
+
+  /**
+   * The sun's shadows are redrawn at most 30 times a second (every other
+   * frame at 60 fps) rather than every frame: the world doesn't move, and
+   * people's shadows at 30 updates a second look the same. They're redrawn
+   * at once whenever the shadow area moves.
+   */
+  private throttleShadows(dt: number): void {
+    const sm = this.renderer.shadowMap;
+    sm.autoUpdate = false;
+    if (!sm.enabled) return;
+    this.shadowClock += dt;
+    if (this.shadowMoved || this.shadowClock >= 1 / 30 - 0.003) {
+      sm.needsUpdate = true;
+      this.shadowClock = 0;
+      this.shadowMoved = false;
+    }
+  }
   /** The frozen picture behind the pause / end menu has been drawn. */
   private stillDrawn = false;
 
@@ -306,6 +402,11 @@ export class Game {
       intensity: inMatch ? this.match!.combatIntensity() : 0,
       paused: this.state === 'paused',
     });
+    // Loading a match: the loading screen covers everything, so there's nothing to draw.
+    if (this.state === 'loading') {
+      this.input.endFrame();
+      return;
+    }
     animateMaterials(this.clock.elapsedTime);
     const m = this.match;
 
@@ -319,6 +420,7 @@ export class Game {
         return;
       }
       this.stillDrawn = still;
+      this.throttleShadows(dt);
       // Kill-cam: draw the replay from the killer's eyes (no gun in your hands).
       const replay = m.killcam.beginRender(this.camera, m.bots.bots.map((b) => ({ name: b.name, root: b.model.root })), m.player.name);
       this.hud.setKillcam(replay ? m.killcam.killer : null);
@@ -347,7 +449,7 @@ export class Game {
       this.photo.update(dt, this.input);
       m.updateView(dt, this.camera, false);
       this.viewmodel.visible = false;
-      m.map.updateShadows(this.camera.position);
+      this.shadowMoved = m.map.updateShadows(this.camera.position) || this.shadowMoved;
       audio.updateListener(this.camera);
       return;
     }
@@ -362,10 +464,11 @@ export class Game {
         this.accumulator -= PHYSICS_DT;
       }
       m.update(dt);
+      if (settings.get().autoResolution && this.autoRes.update(dt)) this.applyQuality();
     }
     m.controller.updateCamera();
     m.updateView(dt, this.camera, playing);
-    m.map.updateShadows(this.camera.position);
+    this.shadowMoved = m.map.updateShadows(this.camera.position) || this.shadowMoved;
     // Weapons after the camera moves, so shots go exactly where you see.
     m.weapons.update(playing ? dt : 0, this.input, playing && alive);
     this.viewmodel.visible = this.viewmodel.visible && alive;
@@ -396,7 +499,7 @@ export class Game {
       `pos ${p.position.x.toFixed(1)} ${p.position.y.toFixed(2)} ${p.position.z.toFixed(1)}`,
       `speed ${Math.hypot(p.velocity.x, p.velocity.z).toFixed(1)} m/s${p.sprinting ? ' (sprint)' : ''}${p.crouching ? ' (crouch)' : ''}`,
       ...m.bots.brains.map((br) => `${br.bot.name}: ${br.state} hp ${Math.ceil(br.bot.health)}${br.target && br.bot.perception.canSee ? ' → ' + br.target.name : ''}`),
-      `draw calls ${this.renderer.info.render.calls}`,
+      `draw calls ${this.renderer.info.render.calls} · auto resolution ${Math.round(this.autoRes.scale * 100)}%`,
       '` (or F3) hides this · B (or F4) shows bot paths',
     ]);
 
@@ -448,9 +551,15 @@ export class Game {
       this.backdropId = pick.id;
       this.backdrop = new MenuBackdrop(getMap(MATCH.defaultMap), pick);
     }
-    this.backdrop.update(dt, this.camera, this.menus.current !== 'title');
+    // The slow camera drift behind the menus only needs 30 frames a second.
+    this.backdropClock += dt;
+    if (this.backdropClock < 1 / 30 - 0.003) return;
+    this.backdrop.update(Math.min(this.backdropClock, 0.1), this.camera, this.menus.current !== 'title');
+    this.backdropClock = 0;
+    this.renderer.shadowMap.autoUpdate = true;
     this.pipeline.render(this.backdrop.scene, this.camera);
   }
+  private backdropClock = Infinity;
 
   // ---- Testing aids (used by automated checks) ---------------------------------
 
@@ -493,4 +602,9 @@ export class Game {
       if (m.mode.result) break;
     }
   }
+}
+
+/** Waits until the browser has drawn the page (so a change to the loading screen shows). */
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
 }

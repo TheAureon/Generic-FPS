@@ -19,6 +19,8 @@ export interface SettingsData {
   hudScale: number;
   /** low = fastest, high = best looking. */
   quality: 'low' | 'medium' | 'high';
+  /** Lower the resolution a little when the game can't keep up. */
+  autoResolution: boolean;
 }
 
 const STORAGE_KEY = 'generic-fps-settings';
