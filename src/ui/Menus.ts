@@ -388,7 +388,7 @@ export class Menus {
     );
 
     div('section-title', p).textContent = 'Display';
-    segmented(field(p, 'Graphics', 'Lower if the game feels choppy'), [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality, (v) =>
+    segmented(field(p, 'Graphics', 'Lower if the game feels choppy (Low is the fastest)'), [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality, (v) =>
       settings.set({ quality: v as 'low' | 'medium' | 'high' }),
     );
     slider(field(p, 'HUD size', 'Shrinks health, ammo, minimap…'), 0.6, 1, 0.05, s.hudScale ?? 1, (v) => `${Math.round(v * 100)}%`, (v) => settings.set({ hudScale: v }));
@@ -408,7 +408,7 @@ export class Menus {
       settings.set({ matchMusic: v === 'on' }),
     );
 
-    div('menu-note', p).textContent = 'Changes are saved automatically. Some graphics changes take full effect from the next match.';
+    div('menu-note', p).textContent = 'Changes are saved automatically. Some graphics changes take full effect from the next match, and edge smoothing (off on Low) changes the next time you open the game.';
     const row = div('menu-buttons row', p);
     button(row, 'Back', () => this.show(this.settingsReturn ?? 'main'), 'primary');
   }

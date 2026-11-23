@@ -58,7 +58,9 @@ export class Game {
   private forcePlay = false;
 
   constructor(gameRoot: HTMLElement, uiRoot: HTMLElement) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // Edge smoothing is set when the game opens (it can't be changed later), from the Graphics setting.
+    const startQuality = CONFIG.quality[settings.get().quality] ?? CONFIG.quality.high;
+    this.renderer = new THREE.WebGLRenderer({ antialias: startQuality.antialias, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.pipeline = new RenderPipeline(this.renderer);
     this.applyQuality();
@@ -106,7 +108,10 @@ export class Game {
   private applyQuality(): void {
     const q = CONFIG.quality[settings.get().quality] ?? CONFIG.quality.high;
     const ratio = Math.min(window.devicePixelRatio, q.pixelRatio);
-    if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio);
+    if (this.renderer.getPixelRatio() !== ratio) {
+      this.renderer.setPixelRatio(ratio);
+      this.stillDrawn = false;
+    }
     if (q !== this.appliedQuality) {
       this.appliedQuality = q;
       this.pipeline.qualityChanged();
@@ -270,6 +275,7 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.viewmodel.setAspect(this.camera.aspect);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.stillDrawn = false; // (Resizing clears the picture.)
   }
 
   // ---- Main loop ---------------------------------------------------------------
@@ -288,6 +294,8 @@ export class Game {
     }
   }
   private frameErrors = 0;
+  /** The frozen picture behind the pause / end menu has been drawn. */
+  private stillDrawn = false;
 
   private frameInner(): void {
     const dt = Math.min(this.clock.getDelta(), MAX_FRAME_DT);
@@ -303,6 +311,14 @@ export class Game {
 
     if (m && this.state !== 'menu') {
       this.updateMatch(dt, m);
+      // Paused or on the end screen (and not in photo mode): the picture behind the menu
+      // doesn't change, so draw it once and then leave it (saves the graphics card).
+      const still = (this.state === 'paused' || this.state === 'ended') && !this.photo;
+      if (still && this.stillDrawn) {
+        this.input.endFrame();
+        return;
+      }
+      this.stillDrawn = still;
       // Kill-cam: draw the replay from the killer's eyes (no gun in your hands).
       const replay = m.killcam.beginRender(this.camera, m.bots.bots.map((b) => ({ name: b.name, root: b.model.root })), m.player.name);
       this.hud.setKillcam(replay ? m.killcam.killer : null);

@@ -2625,3 +2625,28 @@ body:has(.hud.killcam) .minimap { opacity: 0; }
 .rival-tag { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .rival-tag.nemesis { color: #fff; background: rgba(200, 40, 30, 0.85); }
 .rival-tag.prey { color: #15171b; background: var(--gold); }
+
+/* ===========================================================================
+ *  Speed: no frosted-glass blur in the HUD. A blur behind a panel has to be
+ *  redone every frame while the 3D view moves behind it, which is slow on
+ *  many computers (whatever the Graphics setting). Slightly darker panels
+ *  instead keep the text easy to read.
+ * =========================================================================== */
+.hud .glass,
+.hud .kf-row,
+.hud .match-status,
+.hud .pickup-msg,
+.hud .scoreboard,
+.hud .objective-bar,
+.hud .fx-badge {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.hud .glass {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%),
+    linear-gradient(180deg, rgba(20, 24, 32, 0.8), rgba(10, 12, 17, 0.76));
+}
+.hud .kf-row { background: linear-gradient(90deg, rgba(12, 15, 20, 0.6), rgba(12, 15, 20, 0.8)); }
+.hud .kf-row.mine { background: rgba(60, 46, 12, 0.72); }
+.hud .objective-bar { background: rgba(12, 15, 20, 0.75); }

@@ -214,6 +214,8 @@ export class Match {
       audio.play('ui_click', { volume: 0.5 });
     }
     const on = env.flashlight && this.player.isAlive();
+    // (Added to the scene the first time it's used: an unused light would still cost every pixel.)
+    if (on && !this.flashlight.parent) this.scene.add(this.flashlight, this.flashlight.target);
     this.flashlight.intensity = on ? (env.night ? 60 : 25) : 0;
     if (on) {
       camera.getWorldPosition(this.flashlight.position);
@@ -319,7 +321,6 @@ export class Match {
     });
     this.weatherFx = new WeatherFx(this.scene, this.map.world, env.weather, this.map.playBounds.max.y);
     this.flashlight = new THREE.SpotLight(0xfff2dc, 0, 40, 0.42, 0.55, 1.4);
-    this.scene.add(this.flashlight, this.flashlight.target);
     this.controller = new PlayerController(this.map.world, d.camera);
     this.player = new Player(this.controller);
     this.effects = new Effects(this.scene);

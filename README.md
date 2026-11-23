@@ -374,7 +374,7 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
 - **HUD size**: shrink the on-screen panels (health, ammo, minimap, kill feed, status bar) down to 60%. The crosshair always stays the same size.
 - **Aim / scope**: which button aims down sights and scopes: **Both** right mouse and Q (default), only the right mouse button, or only Q.
 - **Graphics**: Low, Medium, or High. If the game feels choppy, try Medium or Low. Some changes take full effect from the next match.
-  - **Low**: no shadows, simpler (cheaper) surface shading, lower resolution, and flat painted textures instead of 3D bricks and concrete panels. Helps most on Retina screens.
+  - **Low**: no shadows, simpler (cheaper) surface shading, lower resolution, flat painted textures instead of 3D bricks and concrete panels, no edge smoothing (anti-aliasing), and muzzle flashes and explosions don't light up the walls. Helps most on laptops and Retina screens. Edge smoothing changes the next time you open the game.
   - **Medium**: shadows, faint reflections on metal and armor, surface relief on every texture (bricks, bark, stone, planks, grass look raised, not painted on), real 3D bricks, concrete panels, stone blocks, logs and boards on the walls, baseboards along painted walls, leafy trees and bushes (made of many leaf clusters instead of solid shapes), grass tufts and wild flowers on the hills and lawns, and color grading (warm sunlit highlights, softly tinted shadows and a gentle darkening toward the screen edges, matched to each map's sky).
   - **High**: all of that, plus full resolution, sharper soft-edged shadows, ambient occlusion (soft shading where things meet: room corners, under furniture, around feet) and a glow ("bloom") around lamps, visors, and muzzle flashes.
 
@@ -485,7 +485,7 @@ It appears in the match menu automatically, and bots can navigate it without any
 
 - **A page of text instead of the game**: that's `dev.html`, the development page. Open `index.html` instead, or use `npm run dev`.
 - **The mouse isn't captured / "Click Resume"**: browsers only capture the mouse right after a click, and they refuse if you press Esc and click again very quickly. Wait a second and click **Resume**.
-- **The game feels choppy**: Settings → Graphics → Medium or Low.
+- **The game feels choppy**: Settings → Graphics → Low, then close and reopen the game (so edge smoothing switches off too). A smaller browser window also helps. On a laptop, plug it in: on battery many laptops slow their graphics down.
 - **The sound stops**: press any key or click; the browser sometimes pauses a page's sound (for example when you switch to headphones or the computer wakes from sleep), and the game starts it again on your next key press or click.
 - **No sound**: check the volume in Settings and your Mac's volume. Browsers only allow sound after your first click in the page.
 - **`npm` isn't found in Terminal**: install Node.js (see setup above), then open a new Terminal window.

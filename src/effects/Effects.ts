@@ -103,7 +103,9 @@ export class Effects {
     this.decals.count = 0;
     this.decals.frustumCulled = false;
     scene.add(this.decals);
-    scene.add(this.flashLight);
+    // (On Low there are no flash/blast lights: every light costs every pixel on screen, even when off.)
+    const lights = currentQuality().effectLights;
+    if (lights) scene.add(this.flashLight);
 
     const flashMat = new THREE.SpriteMaterial({
       map: getFlashTexture(),
@@ -132,7 +134,7 @@ export class Effects {
       scene.add(sprite);
       this.smoke.push({ sprite, life: 0, max: 1, size: 1, vel: new THREE.Vector3() });
     }
-    scene.add(this.blastLight);
+    if (lights) scene.add(this.blastLight);
   }
 
   /** A grenade going off: a fireball, flying sparks and debris, then rolling smoke. */
