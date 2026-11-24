@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { SURF } from '../assets/characterModel';
+import { makeCharacterMaterial } from '../render/shaders';
 import { markerPosition } from '../assets/weaponModels';
 import type { WeaponId } from '../config';
 import {
@@ -98,13 +100,14 @@ export class ViewmodelArms {
   private knob = BOLT_KNOB.clone();
 
   constructor(parent: THREE.Object3D) {
+    // The same surfaces as the soldiers (camo fabric with a weave, nylon, hard plastic, rubber).
     const mats: ArmMaterials = (this.mats = {
-      sleeve: new THREE.MeshStandardMaterial({ color: 0x4a5040, roughness: 0.9 }),
+      sleeve: armMaterial(0x4a5040, SURF.cloth),
       // Tactical gloves: dark fabric, a molded knuckle guard, and grippy palm and finger pads.
-      glove: new THREE.MeshStandardMaterial({ color: 0x2b2e33, roughness: 0.85 }),
-      guard: new THREE.MeshStandardMaterial({ color: 0x3d4248, roughness: 0.45, metalness: 0.1 }),
-      pad: new THREE.MeshStandardMaterial({ color: 0x1c1e21, roughness: 0.95 }),
-      strap: new THREE.MeshStandardMaterial({ color: 0x56584f, roughness: 0.8 }),
+      glove: armMaterial(0x2b2e33, SURF.nylon),
+      guard: armMaterial(0x3d4248, SURF.hard),
+      pad: armMaterial(0x1c1e21, SURF.rubber),
+      strap: armMaterial(0x56584f, SURF.nylon),
     });
     this.right = makeArm(mats, 1);
     this.left = makeArm(mats, -1);
@@ -288,14 +291,19 @@ interface ArmMaterials {
  */
 function makeArm(m: ArmMaterials, side: 1 | -1): THREE.Group {
   const g = new THREE.Group();
-  const part = (w: number, h: number, len: number, x: number, y: number, z: number, mat: THREE.Material, r = 0.006, rx = 0, ry = 0) => {
-    const radius = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, len / 2 - 1e-4);
-    const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, len, 2, radius), mat);
+  const place = (geo: THREE.BufferGeometry, x: number, y: number, z: number, mat: THREE.Material, rx = 0, ry = 0) => {
+    const mesh = new THREE.Mesh(withSurface(geo, mat), mat);
     mesh.position.set(x, y, z);
     mesh.rotation.set(rx, ry, 0);
     mesh.renderOrder = 1;
     g.add(mesh);
   };
+  const part = (w: number, h: number, len: number, x: number, y: number, z: number, mat: THREE.Material, r = 0.006, rx = 0, ry = 0) => {
+    const radius = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, len / 2 - 1e-4);
+    place(new RoundedBoxGeometry(w, h, len, 2, radius), x, y, z, mat, rx, ry);
+  };
+  /** A round piece of sleeve along the arm (radius at the hand end, at the elbow end). */
+  const tube = (rHand: number, rElbow: number, len: number, z: number) => place(new THREE.CylinderGeometry(rElbow, rHand, len, 18, 1), 0, 0, z, m.sleeve, Math.PI / 2);
   // Back of the hand and palm.
   part(0.05, 0.042, 0.07, 0, 0.004, 0.018, m.glove, 0.012);
   // Molded knuckle guard across the back, and a vent strip behind it.
@@ -317,7 +325,26 @@ function makeArm(m: ArmMaterials, side: 1 | -1): THREE.Group {
   // Cuff with a hook-and-loop strap, then the sleeve (off the bottom of the screen).
   part(0.062, 0.06, 0.05, 0, 0.002, 0.075, m.glove, 0.012);
   part(0.064, 0.024, 0.032, side * 0.004, 0.012, 0.078, m.strap, 0.006);
-  part(0.08, 0.08, 0.06, 0, 0, 0.115, m.sleeve, 0.016);
-  part(0.075, 0.075, 0.56, 0, 0, 0.41, m.sleeve, 0.012);
+  // Sleeve: a rolled cuff, then the forearm widening toward the elbow.
+  tube(0.042, 0.044, 0.05, 0.115);
+  place(new THREE.TorusGeometry(0.043, 0.006, 8, 18), 0, 0, 0.138, m.sleeve);
+  tube(0.039, 0.05, 0.56, 0.42);
   return g;
+}
+
+/** Arm material: a soldier surface with its own color (the gloves' color changes with cosmetics). */
+function armMaterial(color: number, surf: number): THREE.MeshStandardMaterial {
+  const mat = makeCharacterMaterial('standard', true) as THREE.MeshStandardMaterial;
+  mat.color.set(color);
+  mat.userData.surf = surf;
+  return mat;
+}
+
+/** The per-vertex data the soldier shader expects (white tint, no glow, the surface kind). */
+function withSurface(geo: THREE.BufferGeometry, mat: THREE.Material): THREE.BufferGeometry {
+  const n = geo.getAttribute('position').count;
+  geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(1), 3));
+  geo.setAttribute('aGlow', new THREE.BufferAttribute(new Float32Array(n), 1));
+  geo.setAttribute('aSurf', new THREE.BufferAttribute(new Float32Array(n).fill(mat.userData.surf ?? 0), 1));
+  return geo;
 }

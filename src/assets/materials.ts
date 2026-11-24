@@ -23,7 +23,7 @@ interface MaterialStyle {
   line: string;
   /** Texture tiles every N meters. */
   tileSize: number;
-  pattern: 'forestFloor' | 'rock' | 'oldBlocks' | 'plaster' | 'bark' | 'logs' | 'marble' | 'blocks' | 'grass' | 'leaves' | 'water' | 'art' | 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
+  pattern: 'asphalt' | 'brickFace' | 'sand' | 'forestFloor' | 'rock' | 'oldBlocks' | 'plaster' | 'bark' | 'logs' | 'marble' | 'blocks' | 'grass' | 'leaves' | 'water' | 'art' | 'tiles' | 'ceiling' | 'dirt' | 'ribs' | 'slabs' | 'bricks' | 'planks' | 'grain' | 'plates' | 'diamond' | 'concrete' | 'concretePanels' | 'speckle' | 'chipped' | 'plain';
   /** Texture resolution (pixels); bigger for textures covering a large area. */
   pixels?: number;
   roughness: number;
@@ -33,6 +33,11 @@ interface MaterialStyle {
    * and High graphics): 0 = smooth, ~1 = normal, 2+ = deep (rock, bark).
    */
   bump?: number;
+  /**
+   * Natural, cloudy variation of light and dark over the whole texture
+   * (0 = none; default 0.14), so no surface looks perfectly even.
+   */
+  mottle?: number;
 }
 
 /** Relief per material (anything not listed gets BUMP_DEFAULT). */
@@ -53,8 +58,8 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   floor: { base: '#686d72', line: '#3d4044', tileSize: 8, pattern: 'slabs', roughness: 0.85, metalness: 0, pixels: 1024 },
   // Brick walls on Low graphics (flat texture); Medium/High use real bricks + mortar.
   wall: { base: '#8f5844', line: '#b3a996', tileSize: 2, pattern: 'bricks', roughness: 0.95, metalness: 0 },
-  brick: { base: '#93573f', line: '#6e3f2d', tileSize: 1, pattern: 'speckle', roughness: 0.92, metalness: 0 },
-  mortar: { base: '#b3aa9b', line: '#9a9284', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
+  brick: { base: '#93573f', line: '#6e3f2d', tileSize: 1, pattern: 'brickFace', roughness: 0.92, metalness: 0, mottle: 0.22 },
+  mortar: { base: '#b3aa9b', line: '#8a8274', tileSize: 1, pattern: 'sand', roughness: 1, metalness: 0 },
   concrete: { base: '#8c8f93', line: '#74777b', tileSize: 4, pattern: 'concrete', roughness: 0.9, metalness: 0 },
   seam: { base: '#55585c', line: '#46494d', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
   // Concrete walls on Low graphics: the panel seams and tie holes are painted on.
@@ -63,29 +68,29 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   crate: { base: '#9a7446', line: '#5e4326', tileSize: 1.5, pattern: 'planks', roughness: 0.8, metalness: 0 },
   crateFrame: { base: '#7d5a33', line: '#5a3f22', tileSize: 1, pattern: 'grain', roughness: 0.8, metalness: 0 },
   // ---- Indoors ----
-  carpet: { base: '#66707c', line: '#555e6a', tileSize: 2, pattern: 'speckle', roughness: 1, metalness: 0 },
-  tile: { base: '#cfccc3', line: '#a9a69e', tileSize: 1.2, pattern: 'tiles', roughness: 0.35, metalness: 0 },
+  carpet: { base: '#66707c', line: '#555e6a', tileSize: 2, pattern: 'speckle', roughness: 1, metalness: 0, mottle: 0.08 },
+  tile: { base: '#cfccc3', line: '#a9a69e', tileSize: 1.2, pattern: 'tiles', roughness: 0.35, metalness: 0, mottle: 0.05 },
   // Painted plaster: warm off-white with a faint orange-peel texture.
-  drywall: { base: '#e3ddd1', line: '#d2cbbd', tileSize: 1.5, pattern: 'plaster', roughness: 0.85, metalness: 0 },
-  ceiling: { base: '#f2f1ed', line: '#d3d1ca', tileSize: 1.2, pattern: 'ceiling', roughness: 1, metalness: 0 },
-  desk: { base: '#8a6a48', line: '#6b5136', tileSize: 1, pattern: 'grain', roughness: 0.55, metalness: 0 },
-  partition: { base: '#5d6876', line: '#4f5965', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
-  glass: { base: '#a9c8d8', line: '#a9c8d8', tileSize: 1, pattern: 'plain', roughness: 0.05, metalness: 0.1 },
+  drywall: { base: '#e3ddd1', line: '#d2cbbd', tileSize: 1.5, pattern: 'plaster', roughness: 0.85, metalness: 0, mottle: 0.04 },
+  ceiling: { base: '#f2f1ed', line: '#d3d1ca', tileSize: 1.2, pattern: 'ceiling', roughness: 1, metalness: 0, mottle: 0.03 },
+  desk: { base: '#8a6a48', line: '#6b5136', tileSize: 1, pattern: 'grain', roughness: 0.55, metalness: 0, mottle: 0.1 },
+  partition: { base: '#5d6876', line: '#4f5965', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0, mottle: 0.08 },
+  glass: { base: '#a9c8d8', line: '#a9c8d8', tileSize: 1, pattern: 'plain', roughness: 0.05, metalness: 0.1, mottle: 0 },
   stairs: { base: '#b9b6ad', line: '#8f8c84', tileSize: 1, pattern: 'speckle', roughness: 0.7, metalness: 0 },
   // ---- Town ----
-  asphalt: { base: '#45474b', line: '#36383b', tileSize: 4, pattern: 'speckle', roughness: 0.95, metalness: 0, pixels: 512 },
-  paint: { base: '#ece9df', line: '#ece9df', tileSize: 1, pattern: 'plain', roughness: 0.8, metalness: 0 },
+  asphalt: { base: '#45474b', line: '#2a2b2e', tileSize: 4, pattern: 'asphalt', roughness: 0.95, metalness: 0, pixels: 512, mottle: 0.2 },
+  paint: { base: '#ece9df', line: '#ece9df', tileSize: 1, pattern: 'plain', roughness: 0.8, metalness: 0, mottle: 0.06 },
   // Car paint: light, so each car's tint gives its color.
-  carpaint: { base: '#e4e6e8', line: '#c8ccd0', tileSize: 1, pattern: 'plain', roughness: 0.28, metalness: 0.5 },
+  carpaint: { base: '#e4e6e8', line: '#c8ccd0', tileSize: 1, pattern: 'plain', roughness: 0.28, metalness: 0.5, mottle: 0.03 },
   // ---- Museum and gardens ----
-  marble: { base: '#e3e0d8', line: '#a8a39a', tileSize: 2.4, pattern: 'marble', roughness: 0.18, metalness: 0, pixels: 512 },
+  marble: { base: '#e3e0d8', line: '#a8a39a', tileSize: 2.4, pattern: 'marble', roughness: 0.18, metalness: 0, pixels: 512, mottle: 0.06 },
   stone: { base: '#cbbd9f', line: '#a99b7e', tileSize: 3, pattern: 'blocks', roughness: 0.85, metalness: 0, pixels: 512 },
   grass: { base: '#5d7a3a', line: '#45602a', tileSize: 4, pattern: 'grass', roughness: 1, metalness: 0, pixels: 512 },
   hedge: { base: '#3f5a2a', line: '#2c421c', tileSize: 1.5, pattern: 'leaves', roughness: 1, metalness: 0 },
   water: { base: '#3d6f80', line: '#a9d3df', tileSize: 3, pattern: 'water', roughness: 0.05, metalness: 0.3 },
-  art: { base: '#d8cfb8', line: '#2b2b2b', tileSize: 6.4, pattern: 'art', roughness: 0.7, metalness: 0, pixels: 1024 },
-  gold: { base: '#b8903a', line: '#8c6b26', tileSize: 1, pattern: 'plain', roughness: 0.3, metalness: 0.85 },
-  velvet: { base: '#7a1f27', line: '#5c151c', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
+  art: { base: '#d8cfb8', line: '#2b2b2b', tileSize: 6.4, pattern: 'art', roughness: 0.7, metalness: 0, pixels: 1024, mottle: 0.05 },
+  gold: { base: '#b8903a', line: '#8c6b26', tileSize: 1, pattern: 'plain', roughness: 0.3, metalness: 0.85, mottle: 0.08 },
+  velvet: { base: '#7a1f27', line: '#5c151c', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0, mottle: 0.1 },
   // ---- Forest and mountains ----
   // Forest floor: grass, moss, fallen needles and leaves.
   forest: { base: '#566b36', line: '#3e4f26', tileSize: 6, pattern: 'forestFloor', roughness: 1, metalness: 0, pixels: 512 },
@@ -96,14 +101,14 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   // Log cabin walls: stacked round logs.
   timber: { base: '#8a6440', line: '#4a331d', tileSize: 1.2, pattern: 'logs', roughness: 0.9, metalness: 0 },
   canvas: { base: '#a88a5c', line: '#86704a', tileSize: 1, pattern: 'speckle', roughness: 1, metalness: 0 },
-  snow: { base: '#e8edf2', line: '#c4cfdb', tileSize: 5, pattern: 'speckle', roughness: 0.6, metalness: 0, pixels: 256 },
+  snow: { base: '#e8edf2', line: '#c4cfdb', tileSize: 5, pattern: 'speckle', roughness: 0.6, metalness: 0, pixels: 256, mottle: 0.06 },
   // Wooden boards (decks, platforms, sheds) and red-painted barn boards.
   planks: { base: '#8d6a45', line: '#4f3a24', tileSize: 1.5, pattern: 'planks', roughness: 0.85, metalness: 0 },
   barnwood: { base: '#8a3528', line: '#4f1d16', tileSize: 1.5, pattern: 'planks', roughness: 0.85, metalness: 0 },
   // ---- Model surfaces (light, so a tint gives the color) ----
   fabric: { base: '#d6d6d6', line: '#b8b8b8', tileSize: 0.5, pattern: 'speckle', roughness: 1, metalness: 0, bump: 0.8 },
-  chrome: { base: '#d4d8dc', line: '#b0b6bc', tileSize: 1, pattern: 'plain', roughness: 0.25, metalness: 0.75, bump: 0 },
-  plastic: { base: '#d0d0d0', line: '#c0c0c0', tileSize: 1, pattern: 'plain', roughness: 0.5, metalness: 0, bump: 0 },
+  chrome: { base: '#d4d8dc', line: '#b0b6bc', tileSize: 1, pattern: 'plain', roughness: 0.25, metalness: 0.75, bump: 0, mottle: 0.05 },
+  plastic: { base: '#d0d0d0', line: '#c0c0c0', tileSize: 1, pattern: 'plain', roughness: 0.5, metalness: 0, bump: 0, mottle: 0.06 },
   rubber: { base: '#3a3a3a', line: '#303030', tileSize: 1, pattern: 'speckle', roughness: 0.9, metalness: 0, bump: 0.4 },
   corrugated: { base: '#c9ced3', line: '#9aa1a8', tileSize: 1, pattern: 'ribs', roughness: 0.6, metalness: 0.15, bump: 1.6 },
   // Hay bales: dry yellow straw.
@@ -123,12 +128,66 @@ const STYLES: Record<SurfaceId, MaterialStyle> = {
   trim: { base: '#c9a23a', line: '#8a8378', tileSize: 1, pattern: 'chipped', roughness: 0.6, metalness: 0, bump: 0.25 },
 };
 
-function makeTexture(style: MaterialStyle): THREE.Texture {
+/**
+ * Smooth random clouds that repeat seamlessly (so the texture still tiles):
+ * a few layers of finer and finer detail added together. Values 0..1, one
+ * per pixel of a w x w picture; `cells` = how many blobs across the biggest layer.
+ */
+function tileNoise(w: number, cells: number, octaves = 4): Float32Array {
+  const out = new Float32Array(w * w);
+  let amp = 1, total = 0;
+  for (let o = 0; o < octaves; o++) {
+    const n = cells << o;
+    const grid = new Float32Array(n * n).map(() => Math.random());
+    const step = n / w;
+    for (let y = 0; y < w; y++) {
+      const gy = y * step, y0 = Math.floor(gy), fy = gy - y0, sy = fy * fy * (3 - 2 * fy);
+      const r0 = (y0 % n) * n, r1 = ((y0 + 1) % n) * n;
+      for (let x = 0; x < w; x++) {
+        const gx = x * step, x0 = Math.floor(gx), fx = gx - x0, sx = fx * fx * (3 - 2 * fx);
+        const c0 = x0 % n, c1 = (x0 + 1) % n;
+        const a = grid[r0 + c0] + (grid[r0 + c1] - grid[r0 + c0]) * sx;
+        const b = grid[r1 + c0] + (grid[r1 + c1] - grid[r1 + c0]) * sx;
+        out[y * w + x] += (a + (b - a) * sy) * amp;
+      }
+    }
+    total += amp;
+    amp *= 0.5;
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= total;
+  return out;
+}
+
+/** A thin crack: a line that wanders a little as it goes. */
+function crack(g: CanvasRenderingContext2D, x: number, y: number, angle: number, length: number, width: number, color: string): void {
+  g.strokeStyle = color;
+  g.lineCap = 'round';
+  let a = angle;
+  for (let d = 0; d < length; d += 4) {
+    g.lineWidth = width * (1 - (d / length) * 0.7);
+    g.beginPath();
+    g.moveTo(x, y);
+    a += (Math.random() - 0.5) * 0.7;
+    x += Math.cos(a) * 4;
+    y += Math.sin(a) * 4;
+    g.lineTo(x, y);
+    g.stroke();
+    // Now and then a short branch.
+    if (Math.random() < 0.04 && length > 30) crack(g, x, y, a + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.6), length * 0.3, width * 0.6, color);
+  }
+}
+
+/**
+ * Draws a material's picture. `scale` draws it at a higher resolution (2 =
+ * twice as sharp): the pattern is the same, the fine grain gets finer.
+ */
+function makeTexture(style: MaterialStyle, scale = 1): HTMLCanvasElement {
   const size = style.pixels ?? 256;
   const c = document.createElement('canvas');
-  c.width = c.height = size;
+  c.width = c.height = Math.round(size * scale);
   // Drawn on the CPU (we read the pixels back to add noise, which is slow on the GPU).
   const g = c.getContext('2d', { willReadFrequently: true })!;
+  g.scale(scale, scale);
   g.fillStyle = style.base;
   g.fillRect(0, 0, size, size);
   const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -159,7 +218,7 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
 
   // Fine noise so surfaces don't look perfectly flat.
   const noise = style.pattern === 'speckle' || concrete ? 26 : 14;
-  const img = g.getImageData(0, 0, size, size);
+  const img = g.getImageData(0, 0, c.width, c.height);
   for (let i = 0; i < img.data.length; i += 4) {
     const n = (Math.random() - 0.5) * noise;
     img.data[i] += n;
@@ -171,20 +230,61 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
   g.strokeStyle = style.line;
   g.fillStyle = style.line;
   switch (style.pattern) {
+    case 'asphalt': {
+      // Stones in the tar (light and dark grit), worn smoother lanes, sealed cracks and a few patches.
+      for (let i = 0; i < size * size * 0.09; i++) {
+        const light = Math.random() < 0.55;
+        const v = light ? rnd(95, 150) : rnd(15, 35);
+        g.fillStyle = `rgba(${v},${v * rnd(0.96, 1.02)},${v * rnd(0.95, 1.05)},${rnd(0.35, 0.8)})`;
+        const r = rnd(0.4, 1.4);
+        g.fillRect(rnd(0, size), rnd(0, size), r, r * rnd(0.7, 1.3));
+      }
+      for (let i = 0; i < 3; i++) {
+        // Repaired patches: a slightly darker, smoother rectangle.
+        const x = rnd(0, size), y = rnd(0, size), w = rnd(size * 0.15, size * 0.35), h = rnd(size * 0.1, size * 0.3);
+        g.fillStyle = 'rgba(20,20,22,0.22)';
+        for (const dx of [-size, 0, size]) for (const dy of [-size, 0, size]) g.fillRect(x + dx, y + dy, w, h);
+      }
+      for (let i = 0; i < 4; i++) crack(g, rnd(0, size), rnd(0, size), rnd(0, Math.PI * 2), rnd(size * 0.15, size * 0.45), 2.2, 'rgba(18,18,20,0.75)');
+      for (let i = 0; i < 4; i++) {
+        // Oil drips.
+        const x = rnd(0, size), y = rnd(0, size), r = rnd(6, 22);
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, 'rgba(10,10,12,0.35)');
+        grad.addColorStop(1, 'rgba(10,10,12,0)');
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      break;
+    }
+    case 'brickFace': {
+      // Fired clay: sand grains, small pits, darker scorched patches and a few chips.
+      for (let i = 0; i < size * size * 0.05; i++) {
+        g.fillStyle = Math.random() < 0.5 ? `rgba(40,15,8,${rnd(0.1, 0.35)})` : `rgba(230,180,140,${rnd(0.08, 0.25)})`;
+        g.fillRect(rnd(0, size), rnd(0, size), rnd(0.5, 1.5), rnd(0.5, 1.5));
+      }
+      for (let i = 0; i < 70; i++) {
+        g.fillStyle = `rgba(30,12,6,${rnd(0.35, 0.7)})`;
+        g.beginPath();
+        g.arc(rnd(0, size), rnd(0, size), rnd(0.6, 2), 0, Math.PI * 2);
+        g.fill();
+      }
+      break;
+    }
+    case 'sand':
+      // Mortar: coarse sand, light and dark grains.
+      for (let i = 0; i < size * size * 0.08; i++) {
+        const v = Math.random() < 0.5 ? rnd(80, 120) : rnd(190, 230);
+        g.fillStyle = `rgba(${v},${v * 0.96},${v * 0.9},${rnd(0.2, 0.5)})`;
+        g.fillRect(rnd(0, size), rnd(0, size), rnd(0.6, 1.6), rnd(0.6, 1.6));
+      }
+      break;
     case 'marble': {
       // Polished marble slabs (1.2 m) with soft grey veins.
-      g.strokeStyle = 'rgba(110,105,98,0.35)';
-      for (let k = 0; k < 14; k++) {
-        g.lineWidth = rnd(0.6, 2.4);
-        g.beginPath();
-        let x = rnd(0, size), y = rnd(0, size);
-        g.moveTo(x, y);
-        for (let i = 0; i < 8; i++) {
-          x += rnd(-size * 0.12, size * 0.12);
-          y += rnd(size * 0.02, size * 0.1);
-          g.lineTo(x, y);
-        }
-        g.stroke();
+      // Thin grey veins wandering across.
+      for (let k = 0; k < 7; k++) {
+        const x = rnd(0, size), y = rnd(0, size), a = rnd(0.6, 1.2), l = rnd(size * 0.4, size * 0.9);
+        crack(g, x, y, a, l, rnd(1, 2.4), 'rgba(120,114,106,0.22)');
       }
       g.fillStyle = style.line;
       g.globalAlpha = 0.5;
@@ -440,18 +540,23 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
         g.fillStyle = grad;
         g.fillRect(x - r, y - r, r * 2, r * 2);
       }
-      g.strokeStyle = 'rgba(40,38,34,0.55)';
-      for (let k = 0; k < 18; k++) {
-        g.lineWidth = rnd(0.8, 2);
+      // Faint layers in the stone, then cracks (dark, with a light lip).
+      for (let k = 0; k < 9; k++) {
+        const y = rnd(0, size);
+        g.strokeStyle = Math.random() < 0.5 ? 'rgba(40,38,34,0.12)' : 'rgba(220,215,205,0.1)';
+        g.lineWidth = rnd(3, 12);
         g.beginPath();
-        let x = rnd(0, size), y = rnd(0, size);
-        g.moveTo(x, y);
-        for (let i = 0; i < 5; i++) {
-          x += rnd(-size * 0.08, size * 0.08);
-          y += rnd(-size * 0.08, size * 0.08);
-          g.lineTo(x, y);
-        }
+        g.moveTo(-10, y);
+        g.bezierCurveTo(size * 0.33, y + rnd(-20, 20), size * 0.66, y + rnd(-20, 20), size + 10, y + rnd(-6, 6));
         g.stroke();
+      }
+      for (let k = 0; k < 9; k++) {
+        const x = rnd(0, size), y = rnd(0, size), a = rnd(0, Math.PI * 2), l = rnd(size * 0.1, size * 0.35);
+        g.save();
+        g.translate(0.8, 0.8);
+        crack(g, x, y, a, l, 1.6, 'rgba(215,210,200,0.25)');
+        g.restore();
+        crack(g, x, y, a, l, 1.8, 'rgba(30,28,25,0.65)');
       }
       for (let i = 0; i < 60; i++) {
         g.fillStyle = Math.random() < 0.5 ? `rgba(150,160,90,${rnd(0.25, 0.5)})` : `rgba(190,185,150,${rnd(0.2, 0.4)})`;
@@ -623,6 +728,16 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
       const rows = 8;
       const rh = size / rows;
       for (let r = 0; r < rows; r++) {
+        // Each brick its own shade.
+        const off = r % 2 === 0 ? 0 : size / 4;
+        for (let x = off - size / 2; x < size; x += size / 2) {
+          const k = rnd(-0.12, 0.1);
+          g.fillStyle = k < 0 ? `rgba(40,15,8,${-k * 2})` : `rgba(230,190,160,${k})`;
+          g.fillRect(x, r * rh, size / 2, rh);
+        }
+      }
+      g.strokeStyle = style.line;
+      for (let r = 0; r < rows; r++) {
         g.beginPath();
         g.moveTo(0, r * rh); g.lineTo(size, r * rh);
         g.stroke();
@@ -716,6 +831,22 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
       g.globalAlpha = 1;
       break;
     case 'plates':
+      // Brushed streaks, scratches, then the plate edge and bolts.
+      for (let i = 0; i < 260; i++) {
+        g.fillStyle = Math.random() < 0.5 ? `rgba(255,255,255,${rnd(0.02, 0.06)})` : `rgba(0,0,0,${rnd(0.02, 0.06)})`;
+        g.fillRect(rnd(-20, size), rnd(0, size), rnd(30, 140), rnd(0.5, 1.5));
+      }
+      g.lineWidth = 0.8;
+      for (let i = 0; i < 30; i++) {
+        g.strokeStyle = `rgba(220,225,230,${rnd(0.15, 0.35)})`;
+        const x = rnd(0, size), y = rnd(0, size), a = rnd(0, Math.PI * 2), l = rnd(5, 30);
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+        g.stroke();
+      }
+      g.strokeStyle = style.line;
+      g.fillStyle = style.line;
       g.lineWidth = 3;
       g.strokeRect(0, 0, size, size);
       for (const [x, y] of [[12, 12], [size - 12, 12], [12, size - 12], [size - 12, size - 12]]) {
@@ -742,11 +873,95 @@ function makeTexture(style: MaterialStyle): THREE.Texture {
       break;
   }
 
+  // Cloudy light and dark over everything (the pattern included).
+  const mottle = style.mottle ?? 0.14;
+  if (mottle > 0) {
+    const w = c.width;
+    // The clouds are soft, so they're worked out at up to 256 pixels and stretched.
+    const nw = Math.min(w, 256), f = nw / w;
+    const clouds = tileNoise(nw, 4, 5);
+    const im = g.getImageData(0, 0, w, w), d = im.data;
+    for (let y = 0; y < w; y++) {
+      const row = Math.floor(y * f) * nw;
+      for (let x = 0; x < w; x++) {
+        const k = 1 + (clouds[row + Math.floor(x * f)] - 0.5) * 2 * mottle;
+        const i = (y * w + x) * 4;
+        d[i] *= k;
+        d[i + 1] *= k;
+        d[i + 2] *= k;
+      }
+    }
+    g.putImageData(im, 0, 0);
+  }
+  return c;
+}
+
+function canvasTexture(c: HTMLCanvasElement, color: boolean): THREE.Texture {
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
+  if (color) tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   return tex;
+}
+
+/**
+ * Surface relief and shine worked out from a material's picture (Medium and
+ * High graphics): dark lines and pits (mortar, cracks, grain) become grooves
+ * that catch the light, and dark grimy spots are a little duller than worn,
+ * light ones.
+ * - normal map: which way each pixel of the surface faces
+ * - roughness map: how shiny each pixel is (multiplies the material's roughness)
+ */
+function makeReliefMaps(c: HTMLCanvasElement, bump: number, scale: number): { normal: THREE.Texture; rough: THREE.Texture } {
+  const w = c.width, h = c.height;
+  const src = c.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
+  // Height = brightness, softened a little so single-pixel noise doesn't sparkle.
+  // (Plain loops over arrays: this runs over a million pixels per texture.)
+  const lum = new Float32Array(w * h);
+  let mean = 0;
+  for (let i = 0; i < w * h; i++) {
+    lum[i] = (src[i * 4] * 0.3 + src[i * 4 + 1] * 0.55 + src[i * 4 + 2] * 0.15) / 255;
+    mean += lum[i];
+  }
+  mean /= w * h;
+  const height = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const up = ((y + h - 1) % h) * w, row = y * w, down = ((y + 1) % h) * w;
+    for (let x = 0; x < w; x++) {
+      const l = x === 0 ? w - 1 : x - 1, r = x === w - 1 ? 0 : x + 1;
+      height[row + x] = (lum[row + x] * 4 + lum[row + l] + lum[row + r] + lum[up + x] + lum[down + x]) / 8;
+    }
+  }
+
+  const nc = document.createElement('canvas'), rc = document.createElement('canvas');
+  nc.width = rc.width = w;
+  nc.height = rc.height = h;
+  const nImg = new ImageData(w, h), rImg = new ImageData(w, h);
+  const n = nImg.data, r = rImg.data;
+  // How steep the relief is. The picture is drawn upside down relative to
+  // the texture's v direction (canvas y goes down), hence the sign on dy.
+  const k = bump * 6 * scale;
+  for (let y = 0; y < h; y++) {
+    const up = ((y + h - 1) % h) * w, row = y * w, down = ((y + 1) % h) * w;
+    for (let x = 0; x < w; x++) {
+      const xl = x === 0 ? w - 1 : x - 1, xr = x === w - 1 ? 0 : x + 1;
+      const dx = (height[up + xr] + 2 * height[row + xr] + height[down + xr] - height[up + xl] - 2 * height[row + xl] - height[down + xl]) / 8;
+      const dy = (height[down + xl] + 2 * height[down + x] + height[down + xr] - height[up + xl] - 2 * height[up + x] - height[up + xr]) / 8;
+      const nx = -dx * k, ny = dy * k;
+      const inv = 127.5 / Math.sqrt(nx * nx + ny * ny + 1);
+      const i = (row + x) * 4;
+      n[i] = 127.5 + nx * inv;
+      n[i + 1] = 127.5 + ny * inv;
+      n[i + 2] = 127.5 + inv;
+      n[i + 3] = 255;
+      const rough = Math.min(1, Math.max(0.55, 0.88 + (mean - height[row + x]) * 0.9));
+      r[i] = r[i + 1] = r[i + 2] = rough * 255;
+      r[i + 3] = 255;
+    }
+  }
+  nc.getContext('2d')!.putImageData(nImg, 0, 0);
+  rc.getContext('2d')!.putImageData(rImg, 0, 0);
+  return { normal: canvasTexture(nc, false), rough: canvasTexture(rc, false) };
 }
 
 /**
@@ -878,7 +1093,16 @@ function makeCardTexture(id: SurfaceId): THREE.Texture {
   return tex;
 }
 
-const textures = new Map<SurfaceId, THREE.Texture>();
+const textures = new Map<string, THREE.Texture>();
+const reliefMaps = new Map<string, { normal: THREE.Texture; rough: THREE.Texture }>();
+
+/**
+ * Medium and High graphics draw the textures twice as sharp (up to 1024
+ * pixels), with real surface relief. Low keeps them small and flat.
+ */
+function textureScale(style: MaterialStyle, kind: 'standard' | 'lambert'): number {
+  return kind === 'lambert' ? 1 : Math.max(1, Math.min(2, 1024 / (style.pixels ?? 256)));
+}
 const cache = new Map<string, THREE.Material>();
 
 /**
@@ -891,8 +1115,15 @@ export function getMaterial(id: SurfaceId, kind: 'standard' | 'lambert' = 'stand
   let m = cache.get(key);
   if (!m) {
     const s = STYLES[id];
-    let tex = textures.get(id);
-    if (!tex) textures.set(id, (tex = CARDS.has(id) ? makeCardTexture(id) : makeTexture(s)));
+    const scale = CARDS.has(id) ? 1 : textureScale(s, kind);
+    const texKey = `${id}@${scale}`;
+    let canvas: HTMLCanvasElement | null = null;
+    let tex = textures.get(texKey);
+    if (!tex) {
+      if (CARDS.has(id)) tex = makeCardTexture(id);
+      else tex = canvasTexture((canvas = makeTexture(s, scale)), true);
+      textures.set(texKey, tex);
+    }
     if (CARDS.has(id)) {
       // Cut-out cards: see-through around the shape, visible from both sides,
       // and lit as if part of a rounded crown (no flipping for the back side).
@@ -920,8 +1151,13 @@ export function getMaterial(id: SurfaceId, kind: 'standard' | 'lambert' = 'stand
     else {
       mat = new THREE.MeshStandardMaterial({ map: tex, roughness: s.roughness, metalness: s.metalness });
       if (bump > 0) {
-        mat.bumpMap = tex;
-        mat.bumpScale = bump;
+        let relief = reliefMaps.get(texKey);
+        if (!relief) {
+          canvas ??= (tex as THREE.CanvasTexture).image as HTMLCanvasElement;
+          reliefMaps.set(texKey, (relief = makeReliefMaps(canvas, bump, scale)));
+        }
+        mat.normalMap = relief.normal;
+        mat.roughnessMap = relief.rough;
       }
     }
     if (id === 'water') {
@@ -941,8 +1177,8 @@ export function getMaterial(id: SurfaceId, kind: 'standard' | 'lambert' = 'stand
 
 /** Moving textures (water ripples drift). Call once per frame with the time in seconds. */
 export function animateMaterials(t: number): void {
-  const water = textures.get('water');
-  if (water) water.offset.set(t * 0.018, t * 0.011);
+  for (const [key, tex] of textures) if (key.startsWith('water@')) tex.offset.set(t * 0.018, t * 0.011);
+  for (const [key, maps] of reliefMaps) if (key.startsWith('water@')) maps.normal.offset.set(t * 0.018, t * 0.011);
 }
 
 /** How many meters one texture tile covers, for the given material. */

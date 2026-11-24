@@ -180,7 +180,7 @@ export function relief(
   const aoSide = [0, 1, 2, 3].map(() => new THREE.Color());
   const dark = [0, 1, 2, 3].map(() => new THREE.Color());
   const mU = U.clone().negate(), mY = Y.clone().negate();
-  const tmp = new THREE.Vector3();
+  const tmp = new THREE.Vector3(), nSide = new THREE.Vector3();
 
   for (let r = Math.floor(y0 / unitH); r * unitH < y1 - 0.01; r++) {
     const ya = Math.max(y0, r * unitH + gap / 2);
@@ -199,20 +199,29 @@ export function relief(
       const rand = seeded(Math.floor(plane * 997) * 73856093 ^ r * 19349663 ^ k * 83492791);
       const [tr, tg, tb] = layout.tint(rand);
       const depth = layout.depthJitter ? layout.depth * (1 - layout.depthJitter + rand() * layout.depthJitter * 2) : layout.depth;
+      // Splashed dirt on the lowest rows (worse right at the bottom).
+      const low = Math.max(0, 1 - ((ya + yb) / 2 - y0) / 0.8);
+      const grime = 1 - 0.22 * low * low * (0.6 + rand() * 0.4);
       // Corners: back (on the wall) 0-3, front 4-7, order (ua,ya) (ub,ya) (ub,yb) (ua,yb).
+      // The front face is a little smaller than the back, so the edges are
+      // bevelled: they catch the light like real worn brick and stone edges.
+      const bev = Math.min(depth * 0.6, (ub - ua) * 0.2, (yb - ya) * 0.2);
+      const fuv: [number, number][] = [[ua + bev, ya + bev], [ub - bev, ya + bev], [ub - bev, yb - bev], [ua + bev, yb - bev]];
       const uv: [number, number][] = [[ua, ya], [ub, ya], [ub, yb], [ua, yb]];
       for (let i = 0; i < 4; i++) {
         at(uv[i][0], uv[i][1], 0, P[i]);
-        at(uv[i][0], uv[i][1], depth, P[i + 4]);
+        at(fuv[i][0], fuv[i][1], depth, P[i + 4]);
         sample(P[i], ao[i], li[i]);
-        ao[i].setRGB(ao[i].r * tr, ao[i].g * tg, ao[i].b * tb);
-        aoSide[i].copy(ao[i]).multiplyScalar(0.82);
+        ao[i].setRGB(ao[i].r * tr * grime, ao[i].g * tg * grime, ao[i].b * tb * grime);
+        aoSide[i].copy(ao[i]).multiplyScalar(0.9);
       }
+      // Each bevelled side faces partly out of the wall.
+      const slant = (side: THREE.Vector3) => nSide.copy(side).multiplyScalar(depth).addScaledVector(normal, bev).normalize();
       qb.quad([P[4], P[5], P[6], P[7]], normal, ao, li); // front
-      qb.quad([P[0], P[1], P[5], P[4]], mY, [aoSide[0], aoSide[1], aoSide[1], aoSide[0]], [li[0], li[1], li[1], li[0]]); // bottom
-      qb.quad([P[3], P[2], P[6], P[7]], Y, [aoSide[3], aoSide[2], aoSide[2], aoSide[3]], [li[3], li[2], li[2], li[3]]); // top
-      qb.quad([P[0], P[3], P[7], P[4]], mU, [aoSide[0], aoSide[3], aoSide[3], aoSide[0]], [li[0], li[3], li[3], li[0]]); // left
-      qb.quad([P[1], P[2], P[6], P[5]], U, [aoSide[1], aoSide[2], aoSide[2], aoSide[1]], [li[1], li[2], li[2], li[1]]); // right
+      qb.quad([P[0], P[1], P[5], P[4]], slant(mY), [aoSide[0], aoSide[1], aoSide[1], aoSide[0]], [li[0], li[1], li[1], li[0]]); // bottom
+      qb.quad([P[3], P[2], P[6], P[7]], slant(Y), [aoSide[3], aoSide[2], aoSide[2], aoSide[3]], [li[3], li[2], li[2], li[3]]); // top
+      qb.quad([P[0], P[3], P[7], P[4]], slant(mU), [aoSide[0], aoSide[3], aoSide[3], aoSide[0]], [li[0], li[3], li[3], li[0]]); // left
+      qb.quad([P[1], P[2], P[6], P[5]], slant(U), [aoSide[1], aoSide[2], aoSide[2], aoSide[1]], [li[1], li[2], li[2], li[1]]); // right
 
       if (layout.tieHoles) {
         // Four little dark dimples where the concrete forms were tied together.
