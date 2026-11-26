@@ -66,6 +66,6 @@ All first-person animation settings (where the gun sits, hand positions, reload 
 - fits the game's bones inside it (`hips`, `lThigh`, `lKnee`, `rThigh`, `rKnee`, `spine`, `neck`, `lShoulder`, `lElbow`, `rShoulder`, `rElbow`). Each point follows its nearest bone, blending smoothly across the joints;
 - lowers the arms, straightens the legs and tips the head up, into the standing pose the animations start from;
 - smooths the shading (edges sharper than 40° stay sharp);
-- splits it into parts named by what they are, which the game colors: `cloth`, `gear`, `plate`, `helmet` and `crest` (both in the team color: the only thing that differs between teams), `mask`, `glove`, `boot`, `scarf`.
+- splits it into parts named by what they are, which the game colors: `cloth`, `gear`, `plate`, `helmet`, `crest` (the top of the helmet, in the team color: the only thing that differs between teams), `mask`, `glove`, `boot`, `scarf`.
 
 To use a different soldier, put it in `scripts/soldier-source/soldier.glb`, adjust the joint positions and the part names at the top of the script, and run `node scripts/bake-soldier.mjs`. A rigged model of your own also works if it has bones with the names above (standing straight, arms down, facing −Z, in meters), parts whose materials are named as above, and `userData.skeleton` with `hipsHeight`, `upperArm`, `forearm` and `thigh` lengths. Without `soldier.glb`, the game uses a soldier built from simple shapes.

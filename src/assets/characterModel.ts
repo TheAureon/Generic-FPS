@@ -18,7 +18,7 @@ export const SURF = { plain: 0, cloth: 1, nylon: 2, skin: 3, hard: 4, rubber: 5,
  * call, which keeps many bots cheap.
  *
  * The body is the soldier model in src/assets/models/soldier.glb (made by
- * scripts/bake-soldier.mjs); only its helmet is colored for each team. If that file is missing, a soldier is built here from
+ * scripts/bake-soldier.mjs); only the crest on its helmet is colored for each team. If that file is missing, a soldier is built here from
  * simple shapes instead.
  */
 
@@ -179,8 +179,8 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
   if (custom) {
     // ---- The soldier model, colored for this team ---------------------------------
     // What each kind of part is made of and its color.
-    // Only the helmet shows the team (team-colored shell and crest); everything
-    // else looks the same on both teams. The vest, plates and scarf keep the
+    // Only the crest on top of the helmet shows the team; everything else
+    // looks the same on both teams. The vest, plates and scarf keep the
     // model's own dark colors.
     const original = (linear: number) => new THREE.Color().setRGB(linear, linear, linear, THREE.LinearSRGBColorSpace);
     const team = new THREE.Color(pal.team);
@@ -188,7 +188,7 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
       cloth: [new THREE.Color(MODEL_UNIFORM), SURF.cloth],
       gear: [original(0.0176), SURF.nylon],
       plate: [original(0.0607), SURF.hard],
-      helmet: [team.clone().multiplyScalar(0.7), SURF.hard],
+      helmet: [original(0.0176), SURF.hard],
       crest: [team, SURF.hard],
       mask: [new THREE.Color(pal.dark), SURF.cloth],
       glove: [new THREE.Color(pal.dark), SURF.rubber],
@@ -314,7 +314,7 @@ function useModelSkeleton(m: SoldierModel): void {
   SKELETON.shoulderR.copy(m.joints.rShoulder).sub(m.joints.spine);
 }
 
-/** The soldier model's uniform color (the same on every team: only the helmet shows the team). */
+/** The soldier model's uniform color (the same on every team: only the helmet crest shows the team). */
 const MODEL_UNIFORM = 0x3a4048;
 
 function mergeParts(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
