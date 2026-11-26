@@ -57,3 +57,15 @@ Moving parts: name the actual mesh (or a parent object containing it) like this 
 ### Tuning the animations
 
 All first-person animation settings (where the gun sits, hand positions, reload keyframes and timings, pump/bolt/slide motion) are in `src/weapons/animations.ts`. Reload keyframes are fractions of each gun's reload time (set in `src/config.ts` → `WEAPONS`), so changing a reload time speeds up or slows down its animation automatically.
+
+## Soldier
+
+`soldier.glb` is the bots' body (and the kill-cam, menu and target-dummy soldiers). It was made by `scripts/bake-soldier.mjs` from `scripts/soldier-source/soldier.glb`, which came with no skeleton, standing with its arms out. The script:
+
+- turns it to face −Z and scales it to 1.8 m, stretching the legs a little so the knees and hips line up with the game's skeleton;
+- fits the game's bones inside it (`hips`, `lThigh`, `lKnee`, `rThigh`, `rKnee`, `spine`, `neck`, `lShoulder`, `lElbow`, `rShoulder`, `rElbow`). Each point follows its nearest bone, blending smoothly across the joints;
+- lowers the arms, straightens the legs and tips the head up, into the standing pose the animations start from;
+- smooths the shading (edges sharper than 40° stay sharp);
+- splits it into parts named by what they are, which the game colors for each team: `cloth`, `gear`, `plate`, `helmet`, `crest` (team color), `mask`, `glove`, `boot`, `scarf` (team color).
+
+To use a different soldier, put it in `scripts/soldier-source/soldier.glb`, adjust the joint positions and the part names at the top of the script, and run `node scripts/bake-soldier.mjs`. A rigged model of your own also works if it has bones with the names above (standing straight, arms down, facing −Z, in meters), parts whose materials are named as above, and `userData.skeleton` with `hipsHeight`, `upperArm`, `forearm` and `thigh` lengths. The glowing goggles and arm bands the game adds are placed in `MODEL_EXTRAS` in `src/assets/characterModel.ts`. Without `soldier.glb`, the game uses a soldier built from simple shapes.

@@ -399,7 +399,11 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
 
 ## The soldiers
 
-Bots are soldiers with a real skeleton, drawn as a single mesh so many bots stay cheap. They have rounded limbs and joints, a helmet with a team-colored band, ear defenders and a night-vision mount, glowing goggles, a mask, a plate carrier with magazine pouches, grenades, an admin pouch and a team patch, a hydration pack with a radio and antenna, a belt with a buckle and pouches, a thigh holster, knee and elbow pads, gloves and laced boots, and team-colored shoulder pads and arm bands. Their uniforms are camouflage (light and dark blotches in the team's color) with a fabric weave you can see up close, the gear is woven nylon, the pads and helmet are hard plastic with scuffs, and the boots and gloves are rubber and fabric. Your own sleeves and gloves in first person use the same surfaces. On Low graphics they're built from fewer sides. All animation is done in code:
+Bots are a proper soldier model (see [Credits](#credits)) with a real skeleton, drawn as a single mesh so many bots stay cheap (soldiers on the same team even share one copy of the model). They wear a helmet with a team-colored crest, glowing goggles, a scarf in a deep shade of their team color (so you can tell teams apart at a glance), team-colored arm bands, an armored vest with plates, pouches and a pack, knee and shin guards, gloves and boots. The uniform is camouflage in the team's color with a fabric weave you can see up close, the gear is woven nylon, the plates and helmet are hard plastic with scuffs, and the boots and gloves are rubber. Your own sleeves and gloves in first person use the same surfaces.
+
+The model came as one solid piece standing with its arms out, with no skeleton. `scripts/bake-soldier.mjs` prepares it for the game: it sizes and turns it, fits the game's skeleton inside it (so it bends at the hips, knees, shoulders, elbows and neck, blending smoothly at the joints), lowers the arms and straightens the legs into the pose the animations start from, tips the head up, smooths the shading and sorts it into parts so each team gets its colors. If the file is ever missing, the game falls back to a soldier built from simple shapes.
+
+All animation is done in code:
 
 - legs walk or run in the direction they move (including strafing and backing up) while the upper body keeps aiming at you
 - both hands stay on the rifle, with elbows bending naturally; the gun kicks when they fire
@@ -483,7 +487,7 @@ It appears in the match menu automatically, and bots can navigate it without any
 - **Sounds**: put audio files in a `public/sounds/` folder and list them in `SAMPLE_FILES` at the top of [`src/audio/sounds.ts`](src/audio/sounds.ts), for example `shot_rifle: '/sounds/rifle.wav'`. A file replaces the generated sound with the same name.
 - **Gun models**: drop `.glb` files named `pistol.glb`, `rifle.glb`, `shotgun.glb`, `sniper.glb`, `smg.glb` or `lmg.glb` into [`src/assets/models/weapons/`](src/assets/models/weapons/) and they replace the built-in guns automatically (in your hands and the bots'). A model that comes as one solid piece can be prepared with `scripts/bake-weapons.mjs` instead (see [Gun models](#gun-models)). [`src/assets/models/README.md`](src/assets/models/README.md) explains how to export them and which named parts (sight, grips, magazine, slide, pump, bolt) make the hands and animations line up. Size and rotation fixes go in `WEAPON_MODELS` in [`src/config.ts`](src/config.ts).
 - **Gun animations**: every first-person animation setting (gun position, hand positions, reload keyframes, pump/bolt/slide timing) is in [`src/weapons/animations.ts`](src/weapons/animations.ts).
-- **Other models**: the character and pickup models are each made in one function in [`src/assets/`](src/assets/) (`createCharacterModel`, `createPickupModel`). Replace a function's contents to load a real 3D model instead. The comment at the top of each file explains what the rest of the game expects.
+- **Other models**: the soldier is `src/assets/models/soldier.glb` (see [`src/assets/models/README.md`](src/assets/models/README.md)); the pickup models are made in one function in [`src/assets/`](src/assets/) (`createPickupModel`). Replace a function's contents to load a real 3D model instead. The comment at the top of each file explains what the rest of the game expects.
 - **Textures**: wall and floor textures are drawn in [`src/assets/materials.ts`](src/assets/materials.ts). Swap in image files there.
 
 ---
@@ -542,11 +546,14 @@ The LMG was modeled for this game, after a reference picture.
 
 They were resized, recolored, cut into moving parts and given extra sight pieces for this game.
 
+Soldier model: **Soldier** by **Manaos** (Poly Pizza, model `tGGCGep9kS`). Check the license on its Poly Pizza page and note it here if you publish the game. It was resized, re-posed, rigged with a skeleton, smoothed and recolored for this game, with glowing goggles and team arm bands added.
+
 ## Other commands
 
 - `npm run build`: checks the code for errors and rebuilds `index.html` and `Play.html` from the source code (run this after changing anything if you play by double-clicking or host it on a website)
 - `npm run typecheck`: just checks the code for errors
 - `node scripts/bake-weapons.mjs`: rebuilds the gun models in `src/assets/models/weapons/` from the originals in `scripts/weapon-sources/` (then `npm run build`)
+- `node scripts/bake-soldier.mjs`: rebuilds the soldier model `src/assets/models/soldier.glb` from the original in `scripts/soldier-source/` (then `npm run build`)
 - `node scripts/build-lmg.mjs`: rebuilds the LMG model (then `npm run build`)
 
 Files at the top level:

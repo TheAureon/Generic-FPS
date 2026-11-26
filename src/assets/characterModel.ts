@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { currentQuality } from '../render/quality';
+import { customSoldier, type SoldierModel } from './customModels';
 import { makeCharacterMaterial, type CharacterMaterial } from '../render/shaders';
 
 /**
@@ -16,8 +17,10 @@ export const SURF = { plain: 0, cloth: 1, nylon: 2, skin: 3, hard: 4, rubber: 5,
  * naturally, and the whole body is ONE skinned mesh: drawn in a single draw
  * call, which keeps many bots cheap.
  *
- * To use a real character model later, load a rigged model here and return
- * bones with the same names (or map yours onto these).
+ * The body is the soldier model in src/assets/models/soldier.glb (made by
+ * scripts/bake-soldier.mjs), colored for each team, with glowing goggles and
+ * arm bands added. If that file is missing, a soldier is built here from
+ * simple shapes instead.
  */
 
 export interface CharacterBones {
@@ -98,17 +101,25 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
     parent?.add(b);
     return b;
   };
-  const hips = bone('hips', 0, SKELETON.hipsHeight, 0);
-  const lThigh = bone('lThigh', -0.1, -0.03, 0, hips);
-  const lKnee = bone('lKnee', 0, -SKELETON.thigh, 0, lThigh);
-  const rThigh = bone('rThigh', 0.1, -0.03, 0, hips);
-  const rKnee = bone('rKnee', 0, -SKELETON.thigh, 0, rThigh);
-  const spine = bone('spine', 0, 0.06, 0, hips);
-  const neck = bone('neck', 0, 0.52, 0, spine);
-  const lShoulder = bone('lShoulder', SKELETON.shoulderL.x, SKELETON.shoulderL.y, 0, spine);
-  const lElbow = bone('lElbow', 0, -SKELETON.upperArm, 0, lShoulder);
-  const rShoulder = bone('rShoulder', SKELETON.shoulderR.x, SKELETON.shoulderR.y, 0, spine);
-  const rElbow = bone('rElbow', 0, -SKELETON.upperArm, 0, rShoulder);
+  // The soldier model (if loaded) brings its own joint positions; otherwise the built-in layout.
+  const custom = customSoldier();
+  if (custom) useModelSkeleton(custom);
+  const at = (name: string, parent: string, fx: number, fy: number, fz: number): [number, number, number] => {
+    if (!custom) return [fx, fy, fz];
+    const j = custom.joints[name], pj = parent ? custom.joints[parent] : new THREE.Vector3();
+    return [j.x - pj.x, j.y - pj.y, j.z - pj.z];
+  };
+  const hips = bone('hips', ...at('hips', '', 0, SKELETON.hipsHeight, 0));
+  const lThigh = bone('lThigh', ...at('lThigh', 'hips', -0.1, -0.03, 0), hips);
+  const lKnee = bone('lKnee', ...at('lKnee', 'lThigh', 0, -SKELETON.thigh, 0), lThigh);
+  const rThigh = bone('rThigh', ...at('rThigh', 'hips', 0.1, -0.03, 0), hips);
+  const rKnee = bone('rKnee', ...at('rKnee', 'rThigh', 0, -SKELETON.thigh, 0), rThigh);
+  const spine = bone('spine', ...at('spine', 'hips', 0, 0.06, 0), hips);
+  const neck = bone('neck', ...at('neck', 'spine', 0, 0.52, 0), spine);
+  const lShoulder = bone('lShoulder', ...at('lShoulder', 'spine', SKELETON.shoulderL.x, SKELETON.shoulderL.y, 0), spine);
+  const lElbow = bone('lElbow', ...at('lElbow', 'lShoulder', 0, -SKELETON.upperArm, 0), lShoulder);
+  const rShoulder = bone('rShoulder', ...at('rShoulder', 'spine', SKELETON.shoulderR.x, SKELETON.shoulderR.y, 0), spine);
+  const rElbow = bone('rElbow', ...at('rElbow', 'rShoulder', 0, -SKELETON.upperArm, 0), rShoulder);
   const gunMount = bone('gunMount', 0.11, 0.37, -0.3, spine);
   const bones: CharacterBones = { hips, spine, neck, lShoulder, lElbow, rShoulder, rElbow, lThigh, lKnee, rThigh, rKnee, gunMount };
   const boneList = [hips, lThigh, lKnee, rThigh, rKnee, spine, neck, lShoulder, lElbow, rShoulder, rElbow, gunMount];
@@ -150,6 +161,10 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
     if (!geo.index) geo.setIndex([...Array(n).keys()]);
     parts.push(geo);
   };
+  // The same team and colors give the same body: build it once and share it.
+  const cacheKey = `${custom ? 'model' : 'shapes'}:${teamColor}:${clothColor}:${seg}`;
+  let shared = bodyCache.get(cacheKey);
+  if (!shared) {
   const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
   const cyl = (rTop: number, rBottom: number, h: number, n = seg) => new THREE.CylinderGeometry(rTop, rBottom, h, n);
   /** A rounded rod (limbs): `len` is the straight part. */
@@ -162,6 +177,35 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
   const { cloth, nylon, skin, hard, rubber, metal } = SURF;
   const darker = (c: number, k: number) => new THREE.Color(c).multiplyScalar(k).getHex();
 
+  if (custom) {
+    // ---- The soldier model, colored for this team ---------------------------------
+    // What each kind of part is made of and its color.
+    const look: Record<string, [number, number]> = {
+      cloth: [pal.cloth, SURF.cloth],
+      gear: [pal.vest, SURF.nylon],
+      plate: [darker(pal.vest, 0.62), SURF.hard],
+      helmet: [pal.helmet, SURF.hard],
+      crest: [pal.team, SURF.hard],
+      mask: [pal.dark, SURF.cloth],
+      glove: [pal.dark, SURF.rubber],
+      boot: [pal.boot, SURF.rubber],
+      // The scarf in a deep shade of the team color: easy to tell teams apart.
+      scarf: [new THREE.Color(pal.team).lerp(new THREE.Color(pal.dark), 0.35).getHex(), SURF.cloth],
+    };
+    for (const { role, geo: src } of custom.parts) {
+      const geo = src.clone();
+      const n = geo.getAttribute('position').count;
+      const [color, surf] = look[role] ?? [pal.vest, SURF.nylon];
+      const c = new THREE.Color(color);
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      geo.setAttribute('aGlow', new THREE.BufferAttribute(new Float32Array(n), 1));
+      geo.setAttribute('aSurf', new THREE.BufferAttribute(new Float32Array(n).fill(surf), 1));
+      parts.push(geo);
+    }
+    modelExtras(add, { neck, lShoulder, rShoulder, spine }, pal, rbox, cyl);
+  } else {
   // Hips: pelvis, belt with a buckle, a pouch at the front and a dump pouch at the back.
   add(hips, cyl(0.168, 0.15, 0.2), pal.cloth, { y: -0.04, sz: 0.7, surf: cloth });
   add(hips, cyl(0.176, 0.174, 0.055), darker(pal.vest, 0.6), { y: 0.05, sz: 0.72, surf: nylon });
@@ -233,8 +277,14 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
     add(elbow, rbox(0.06, 0.03, 0.02, 0.008), 0x2c2e31, { y: -0.275, z: -0.045, surf: hard }); // knuckle guard
   }
 
+  }
+  shared = mergeParts(parts);
+  shared.userData.cached = true; // shared by every soldier of this team: never thrown away
+  bodyCache.set(cacheKey, shared);
+  }
+
   // ---- One skinned mesh ----------------------------------------------------------
-  const geo = mergeParts(parts);
+  const geo = shared;
   const material = makeCharacterMaterial(currentQuality().materials, true);
   const mesh = new THREE.SkinnedMesh(geo, material);
   mesh.add(hips);
@@ -242,13 +292,50 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   // The rest-pose bounds don't cover falling over etc., so use a generous sphere.
-  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 2.2);
+  geo.boundingSphere ??= new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 2.2);
 
   const root = new THREE.Group();
   root.rotation.order = 'YXZ';
   root.add(mesh);
   return { root, mesh, bones, material, upper: spine, head: neck, hand: gunMount };
 }
+
+/** Bodies already built, by team and colors (see createCharacterModel). */
+const bodyCache = new Map<string, THREE.BufferGeometry>();
+
+/** The animation's arm and leg lengths and shoulder positions, from the soldier model. */
+function useModelSkeleton(m: SoldierModel): void {
+  SKELETON.hipsHeight = m.lengths.hipsHeight;
+  SKELETON.upperArm = m.lengths.upperArm;
+  SKELETON.forearm = m.lengths.forearm;
+  SKELETON.thigh = m.lengths.thigh;
+  SKELETON.shoulderL.copy(m.joints.lShoulder).sub(m.joints.spine);
+  SKELETON.shoulderR.copy(m.joints.rShoulder).sub(m.joints.spine);
+}
+
+type AddPart = (b: THREE.Bone, g: THREE.BufferGeometry, color: number, opts?: { x?: number; y?: number; z?: number; rx?: number; ry?: number; rz?: number; sx?: number; sy?: number; sz?: number; glow?: number; surf?: number }) => void;
+
+/**
+ * A few things added to the soldier model: glowing goggle lenses (so you can
+ * spot where they're looking) and team-colored arm bands.
+ */
+function modelExtras(
+  add: AddPart,
+  b: { neck: THREE.Bone; lShoulder: THREE.Bone; rShoulder: THREE.Bone; spine: THREE.Bone },
+  pal: Palette,
+  rbox: (w: number, h: number, d: number, r?: number) => THREE.BufferGeometry,
+  cyl: (rTop: number, rBottom: number, h: number, n?: number) => THREE.BufferGeometry,
+): void {
+  const X = MODEL_EXTRAS;
+  add(b.neck, rbox(X.visor.w, X.visor.h, 0.02, 0.008), pal.visor, { y: X.visor.y, z: X.visor.z, rx: X.visor.tilt, glow: 3.5 });
+  for (const sh of [b.lShoulder, b.rShoulder]) add(sh, cyl(X.band.r, X.band.r, 0.045), pal.team, { y: X.band.y, surf: SURF.nylon });
+}
+
+/** Where the extras sit on the soldier model (bone-relative, meters). Tune these if the model changes. */
+const MODEL_EXTRAS = {
+  visor: { w: 0.082, h: 0.024, y: 0.152, z: -0.066, tilt: 0 },
+  band: { r: 0.055, y: -0.1 },
+};
 
 function mergeParts(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
   const names = ['position', 'normal', 'color', 'aGlow', 'aSurf', 'skinIndex', 'skinWeight'];
