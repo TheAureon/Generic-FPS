@@ -399,9 +399,9 @@ Open **Settings** from the main menu or the pause menu. Changes are saved automa
 
 ## The soldiers
 
-Bots are a proper soldier model (see [Credits](#credits)) with a real skeleton, drawn as a single mesh so many bots stay cheap (soldiers on the same team even share one copy of the model). They wear a helmet with a team-colored crest, glowing goggles, a scarf in a deep shade of their team color (so you can tell teams apart at a glance), team-colored arm bands, an armored vest with plates, pouches and a pack, knee and shin guards, gloves and boots. The uniform is camouflage in the team's color with a fabric weave you can see up close, the gear is woven nylon, the plates and helmet are hard plastic with scuffs, and the boots and gloves are rubber. Your own sleeves and gloves in first person use the same surfaces.
+Bots are a proper soldier model (see [Credits](#credits)) with a real skeleton, drawn as a single mesh so many bots stay cheap (soldiers on the same team even share one copy of the model). Every soldier looks the same except for the helmet, which is painted in the team color (darker shell, brighter crest on top): that's how you tell teams apart. They wear an armored vest with plates, pouches and a pack in the model's own dark colors, a scarf, knee and shin guards, gloves and boots. The uniform is camouflage with a fabric weave you can see up close, the vest is woven nylon, the plates and helmet are hard plastic with scuffs, and the boots and gloves are rubber. Your own sleeves and gloves in first person use the same surfaces.
 
-The model came as one solid piece standing with its arms out, with no skeleton. `scripts/bake-soldier.mjs` prepares it for the game: it sizes and turns it, fits the game's skeleton inside it (so it bends at the hips, knees, shoulders, elbows and neck, blending smoothly at the joints), lowers the arms and straightens the legs into the pose the animations start from, tips the head up, smooths the shading and sorts it into parts so each team gets its colors. If the file is ever missing, the game falls back to a soldier built from simple shapes.
+The model came as one solid piece standing with its arms out, with no skeleton. `scripts/bake-soldier.mjs` prepares it for the game: it sizes and turns it, fits the game's skeleton inside it (so it bends at the hips, knees, shoulders, elbows and neck, blending smoothly at the joints), lowers the arms and straightens the legs into the pose the animations start from, tips the head up, smooths the shading and sorts it into parts (so the helmet can be painted in the team color). If the file is ever missing, the game falls back to a soldier built from simple shapes.
 
 All animation is done in code:
 
@@ -546,7 +546,7 @@ The LMG was modeled for this game, after a reference picture.
 
 They were resized, recolored, cut into moving parts and given extra sight pieces for this game.
 
-Soldier model: **Soldier** by **Manaos** (Poly Pizza, model `tGGCGep9kS`). Check the license on its Poly Pizza page and note it here if you publish the game. It was resized, re-posed, rigged with a skeleton, smoothed and recolored for this game, with glowing goggles and team arm bands added.
+Soldier model: **Soldier** by **Manaos** (Poly Pizza, model `tGGCGep9kS`). Check the license on its Poly Pizza page and note it here if you publish the game. It was resized, re-posed, rigged with a skeleton and smoothed for this game, and its helmet is painted in each team's color.
 
 ## Other commands
 

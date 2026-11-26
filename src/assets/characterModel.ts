@@ -18,8 +18,7 @@ export const SURF = { plain: 0, cloth: 1, nylon: 2, skin: 3, hard: 4, rubber: 5,
  * call, which keeps many bots cheap.
  *
  * The body is the soldier model in src/assets/models/soldier.glb (made by
- * scripts/bake-soldier.mjs), colored for each team, with glowing goggles and
- * arm bands added. If that file is missing, a soldier is built here from
+ * scripts/bake-soldier.mjs); only its helmet is colored for each team. If that file is missing, a soldier is built here from
  * simple shapes instead.
  */
 
@@ -162,7 +161,7 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
     parts.push(geo);
   };
   // The same team and colors give the same body: build it once and share it.
-  const cacheKey = `${custom ? 'model' : 'shapes'}:${teamColor}:${clothColor}:${seg}`;
+  const cacheKey = custom ? `model:${teamColor}` : `shapes:${teamColor}:${clothColor}:${seg}`;
   let shared = bodyCache.get(cacheKey);
   if (!shared) {
   const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
@@ -180,23 +179,26 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
   if (custom) {
     // ---- The soldier model, colored for this team ---------------------------------
     // What each kind of part is made of and its color.
-    const look: Record<string, [number, number]> = {
-      cloth: [pal.cloth, SURF.cloth],
-      gear: [pal.vest, SURF.nylon],
-      plate: [darker(pal.vest, 0.62), SURF.hard],
-      helmet: [pal.helmet, SURF.hard],
-      crest: [pal.team, SURF.hard],
-      mask: [pal.dark, SURF.cloth],
-      glove: [pal.dark, SURF.rubber],
-      boot: [pal.boot, SURF.rubber],
-      // The scarf in a deep shade of the team color: easy to tell teams apart.
-      scarf: [new THREE.Color(pal.team).lerp(new THREE.Color(pal.dark), 0.35).getHex(), SURF.cloth],
+    // Only the helmet shows the team (team-colored shell and crest); everything
+    // else looks the same on both teams. The vest, plates and scarf keep the
+    // model's own dark colors.
+    const original = (linear: number) => new THREE.Color().setRGB(linear, linear, linear, THREE.LinearSRGBColorSpace);
+    const team = new THREE.Color(pal.team);
+    const look: Record<string, [THREE.Color, number]> = {
+      cloth: [new THREE.Color(MODEL_UNIFORM), SURF.cloth],
+      gear: [original(0.0176), SURF.nylon],
+      plate: [original(0.0607), SURF.hard],
+      helmet: [team.clone().multiplyScalar(0.7), SURF.hard],
+      crest: [team, SURF.hard],
+      mask: [new THREE.Color(pal.dark), SURF.cloth],
+      glove: [new THREE.Color(pal.dark), SURF.rubber],
+      boot: [new THREE.Color(pal.boot), SURF.rubber],
+      scarf: [original(0.0254), SURF.cloth],
     };
     for (const { role, geo: src } of custom.parts) {
       const geo = src.clone();
       const n = geo.getAttribute('position').count;
-      const [color, surf] = look[role] ?? [pal.vest, SURF.nylon];
-      const c = new THREE.Color(color);
+      const [c, surf] = look[role] ?? look.gear;
       const col = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
       geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -204,7 +206,6 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
       geo.setAttribute('aSurf', new THREE.BufferAttribute(new Float32Array(n).fill(surf), 1));
       parts.push(geo);
     }
-    modelExtras(add, { neck, lShoulder, rShoulder, spine }, pal, rbox, cyl);
   } else {
   // Hips: pelvis, belt with a buckle, a pouch at the front and a dump pouch at the back.
   add(hips, cyl(0.168, 0.15, 0.2), pal.cloth, { y: -0.04, sz: 0.7, surf: cloth });
@@ -313,29 +314,8 @@ function useModelSkeleton(m: SoldierModel): void {
   SKELETON.shoulderR.copy(m.joints.rShoulder).sub(m.joints.spine);
 }
 
-type AddPart = (b: THREE.Bone, g: THREE.BufferGeometry, color: number, opts?: { x?: number; y?: number; z?: number; rx?: number; ry?: number; rz?: number; sx?: number; sy?: number; sz?: number; glow?: number; surf?: number }) => void;
-
-/**
- * A few things added to the soldier model: glowing goggle lenses (so you can
- * spot where they're looking) and team-colored arm bands.
- */
-function modelExtras(
-  add: AddPart,
-  b: { neck: THREE.Bone; lShoulder: THREE.Bone; rShoulder: THREE.Bone; spine: THREE.Bone },
-  pal: Palette,
-  rbox: (w: number, h: number, d: number, r?: number) => THREE.BufferGeometry,
-  cyl: (rTop: number, rBottom: number, h: number, n?: number) => THREE.BufferGeometry,
-): void {
-  const X = MODEL_EXTRAS;
-  add(b.neck, rbox(X.visor.w, X.visor.h, 0.02, 0.008), pal.visor, { y: X.visor.y, z: X.visor.z, rx: X.visor.tilt, glow: 3.5 });
-  for (const sh of [b.lShoulder, b.rShoulder]) add(sh, cyl(X.band.r, X.band.r, 0.045), pal.team, { y: X.band.y, surf: SURF.nylon });
-}
-
-/** Where the extras sit on the soldier model (bone-relative, meters). Tune these if the model changes. */
-const MODEL_EXTRAS = {
-  visor: { w: 0.082, h: 0.024, y: 0.152, z: -0.066, tilt: 0 },
-  band: { r: 0.055, y: -0.1 },
-};
+/** The soldier model's uniform color (the same on every team: only the helmet shows the team). */
+const MODEL_UNIFORM = 0x3a4048;
 
 function mergeParts(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
   const names = ['position', 'normal', 'color', 'aGlow', 'aSurf', 'skinIndex', 'skinWeight'];
