@@ -180,14 +180,14 @@ export function createCharacterModel(teamColor: number, clothColor = 0x34383e): 
     // ---- The soldier model, colored for this team ---------------------------------
     // What each kind of part is made of and its color.
     // Only the crest on top of the helmet shows the team; everything else
-    // looks the same on both teams. The vest, plates and scarf keep the
-    // model's own dark colors.
+    // looks the same on both teams. The vest and plates are olive green; the
+    // helmet and scarf keep the model's own dark colors.
     const original = (linear: number) => new THREE.Color().setRGB(linear, linear, linear, THREE.LinearSRGBColorSpace);
     const team = new THREE.Color(pal.team);
     const look: Record<string, [THREE.Color, number]> = {
       cloth: [new THREE.Color(MODEL_UNIFORM), SURF.cloth],
-      gear: [original(0.0176), SURF.nylon],
-      plate: [original(0.0607), SURF.hard],
+      gear: [new THREE.Color(pal.vest), SURF.nylon], // olive green
+      plate: [new THREE.Color(darker(pal.vest, 0.62)), SURF.hard], // darker olive
       helmet: [original(0.0176), SURF.hard],
       crest: [team, SURF.hard],
       mask: [new THREE.Color(pal.dark), SURF.cloth],
