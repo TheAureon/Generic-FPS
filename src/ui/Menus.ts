@@ -59,11 +59,6 @@ const MODE_LIST: { id: ModeId; group: ModeGroup; name: string; info: string; ico
 const TEAM_MODES: ModeId[] = ['tdm', 'coh', 'ctf', 'control', 'killconfirmed', 'hardpoint', 'snd', 'escort'];
 
 /** All the menu screens (plain HTML on top of the game). */
-/** A mode's name as shown in the menus. */
-export function modeName(id: ModeId): string {
-  return MODE_LIST.find((m) => m.id === id)?.name ?? id;
-}
-
 export class Menus {
   private root: HTMLDivElement;
   private screen: Screen = null;
@@ -395,9 +390,6 @@ export class Menus {
     div('section-title', p).textContent = 'Display';
     segmented(field(p, 'Graphics', 'Lower if the game feels choppy (Low is the fastest)'), [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], s.quality, (v) =>
       settings.set({ quality: v as 'low' | 'medium' | 'high' }),
-    );
-    segmented(field(p, 'Auto resolution', 'Drops the resolution a little when the game can’t keep up'), [['on', 'On'], ['off', 'Off']], s.autoResolution ? 'on' : 'off', (v) =>
-      settings.set({ autoResolution: v === 'on' }),
     );
     slider(field(p, 'HUD size', 'Shrinks health, ammo, minimap…'), 0.6, 1, 0.05, s.hudScale ?? 1, (v) => `${Math.round(v * 100)}%`, (v) => settings.set({ hudScale: v }));
     segmented(field(p, 'Screen shake'), [['on', 'On'], ['off', 'Off']], s.screenShake ? 'on' : 'off', (v) =>
