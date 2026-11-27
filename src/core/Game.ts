@@ -10,7 +10,7 @@ import type { MatchConfig } from '../modes/GameMode';
 import { animateMaterials } from '../assets/materials';
 import { Hud } from '../ui/Hud';
 import { MenuBackdrop } from '../ui/MenuBackdrop';
-import { Menus } from '../ui/Menus';
+import { Menus, modeName } from '../ui/Menus';
 import { Viewmodel } from '../weapons/Viewmodel';
 import { Input } from './Input';
 import { RenderPipeline } from '../render/Pipeline';
@@ -18,6 +18,7 @@ import { Match } from './Match';
 import { PhotoMode } from './PhotoMode';
 import { dailyConfig } from '../modes/Daily';
 import { settings } from './Settings';
+import { LoadingScreen } from '../ui/LoadingScreen';
 
 /** Physics runs at a fixed rate so movement feels the same at any frame rate. */
 const PHYSICS_HZ = 120;
@@ -30,7 +31,7 @@ const MAX_FRAME_DT = 0.1;
  * paused  → in a match, pause menu (or waiting for the mouse to be captured)
  * ended   → match over, end screen with scores
  */
-type State = 'menu' | 'playing' | 'paused' | 'ended';
+type State = 'menu' | 'loading' | 'playing' | 'paused' | 'ended';
 
 /** Owns the renderer, the menus, the main loop, and the current match. */
 export class Game {
@@ -39,6 +40,9 @@ export class Game {
   readonly input: Input;
   readonly hud: Hud;
   readonly menus: Menus;
+  private loading: LoadingScreen;
+  /** Counts match loads, so an older load that's overtaken stops. */
+  private loadId = 0;
   readonly viewmodel = new Viewmodel();
   match: Match | null = null;
 
@@ -89,9 +93,9 @@ export class Game {
     applyLook(loadout.get());
     loadout.onChange(applyLook);
     this.menus = new Menus(uiRoot, {
-      startMatch: (cfg) => this.startMatch(cfg),
+      startMatch: (cfg) => void this.loadMatch(cfg),
       resume: () => this.resume(),
-      restart: () => this.lastConfig && this.startMatch(this.lastConfig),
+      restart: () => this.lastConfig && void this.loadMatch(this.lastConfig),
       quitToMenu: () => this.quitToMenu(),
       photo: () => {
         this.wantPhoto = true;
@@ -99,6 +103,7 @@ export class Game {
       },
     });
     this.menus.show('title');
+    this.loading = new LoadingScreen(uiRoot);
 
     document.addEventListener('pointerlockchange', () => this.onPointerLockChange());
     window.addEventListener('resize', () => this.onResize());
@@ -126,7 +131,71 @@ export class Game {
 
   // ---- Flow between screens -------------------------------------------------
 
-  startMatch(cfg: MatchConfig): void {
+  /**
+   * Start a match from the menus, behind a loading screen: build the map,
+   * then get the graphics card ready (so the first seconds of play don't
+   * stutter), then go.
+   */
+  async loadMatch(cfg: MatchConfig): Promise<void> {
+    if (cfg.mode === 'daily') cfg = dailyConfig(cfg);
+    const id = ++this.loadId;
+    // Capture the mouse now: browsers only allow it right after a click (like the one on Start).
+    if (!this.forcePlay) this.input.requestLock();
+    this.leaveMatch();
+    this.setPhoto(false);
+    this.match?.dispose();
+    this.match = null;
+    this.state = 'loading';
+    this.menus.hide();
+    this.hud.setVisible(false);
+    this.loading.show(getMap(cfg.map).name, modeName(cfg.mode));
+    await nextPaint();
+    if (id !== this.loadId) return;
+    this.loading.progress(0.2, 'Building the map');
+    await nextPaint();
+    if (id !== this.loadId) return;
+    this.startMatch(cfg, false);
+    const m = this.match!;
+    this.state = 'loading';
+    this.loading.progress(0.6, 'Preparing graphics');
+    await nextPaint();
+    if (id !== this.loadId) return;
+    await this.warmUp(m);
+    if (id !== this.loadId || this.match !== m) return;
+    this.loading.hide();
+    this.clock.getDelta(); // (Don't count the loading time as a game frame.)
+    this.state = 'paused';
+    if (this.input.locked || this.forcePlay) {
+      this.state = 'playing';
+      this.menus.hide();
+    } else {
+      this.capturePointer();
+    }
+  }
+
+  /**
+   * Get the graphics card ready for this match: prepare its shaders (in the
+   * background where the browser can), then draw one frame behind the
+   * loading screen, which prepares the rest (shadows, effects, the gun).
+   */
+  private async warmUp(m: Match): Promise<void> {
+    m.controller.updateCamera();
+    m.updateView(0, this.camera, false);
+    try {
+      await this.renderer.compileAsync(m.scene, this.camera);
+    } catch {
+      // (Not supported: the frame below prepares everything anyway.)
+    }
+    if (this.match !== m) return;
+    this.loading.progress(0.9, 'Almost ready');
+    await nextPaint();
+    if (this.match !== m) return;
+    this.pipeline.render(m.scene, this.camera, [this.viewmodel.scene]);
+    this.viewmodel.render(this.renderer);
+  }
+
+  /** Build a match right away (no loading screen). `capture`: grab the mouse and play. */
+  startMatch(cfg: MatchConfig, capture = true): void {
     // The Daily Challenge picks its own map, difficulty and weather from the date.
     if (cfg.mode === 'daily') cfg = dailyConfig(cfg);
     this.leaveMatch();
@@ -147,7 +216,7 @@ export class Game {
     this.menus.hide();
     // Wait for the mouse to be captured before play begins.
     this.state = 'paused';
-    this.capturePointer();
+    if (capture) this.capturePointer();
   }
 
   private resume(): void {
@@ -306,6 +375,11 @@ export class Game {
       intensity: inMatch ? this.match!.combatIntensity() : 0,
       paused: this.state === 'paused',
     });
+    // Loading a match: the loading screen covers everything, so there's nothing to draw.
+    if (this.state === 'loading') {
+      this.input.endFrame();
+      return;
+    }
     animateMaterials(this.clock.elapsedTime);
     const m = this.match;
 
@@ -493,4 +567,9 @@ export class Game {
       if (m.mode.result) break;
     }
   }
+}
+
+/** Waits until the browser has drawn the page (so a change to the loading screen shows). */
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
 }

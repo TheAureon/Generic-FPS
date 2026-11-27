@@ -58,6 +58,11 @@ const MODE_LIST: { id: ModeId; group: ModeGroup; name: string; info: string; ico
 ];
 const TEAM_MODES: ModeId[] = ['tdm', 'coh', 'ctf', 'control', 'killconfirmed', 'hardpoint', 'snd', 'escort'];
 
+/** A mode's name as shown in the menus. */
+export function modeName(id: ModeId): string {
+  return MODE_LIST.find((m) => m.id === id)?.name ?? id;
+}
+
 /** All the menu screens (plain HTML on top of the game). */
 export class Menus {
   private root: HTMLDivElement;
